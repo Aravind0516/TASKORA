@@ -1,0 +1,39 @@
+import {
+  LayoutDashboard,
+  Building2,
+  ShieldCheck,
+  Users,
+  FolderKanban,
+  UsersRound,
+  Activity,
+  BarChart3,
+  ServerCog,
+  Settings,
+  ListChecks,
+} from "lucide-react";
+import type { NavItem } from "@/components/layout/nav-config";
+
+export const ADMIN_NAV: NavItem[] = [
+  { label: "Command Center", href: "/admin", icon: LayoutDashboard },
+  { label: "Organization", href: "/admin/organization", icon: Building2 },
+  { label: "Users", href: "/admin/users", icon: Users },
+  { label: "Teams", href: "/admin/teams", icon: UsersRound },
+  { label: "Projects", href: "/admin/projects", icon: FolderKanban },
+  { label: "Tasks", href: "/admin/tasks", icon: ListChecks },
+  { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+  { label: "Activity", href: "/admin/activity", icon: Activity },
+  { label: "Settings", href: "/admin/settings", icon: Settings },
+];
+
+export const SUPER_ADMIN_NAV: NavItem[] = [
+  { label: "Command Center", href: "/superadmin", icon: LayoutDashboard },
+  { label: "Organizations", href: "/superadmin/organizations", icon: Building2 },
+  { label: "Administrators", href: "/superadmin/admins", icon: ShieldCheck },
+  { label: "Users", href: "/superadmin/users", icon: Users },
+  { label: "Projects", href: "/superadmin/projects", icon: FolderKanban },
+  { label: "Teams", href: "/superadmin/teams", icon: UsersRound },
+  { label: "Activity", href: "/superadmin/activity", icon: Activity },
+  { label: "Analytics", href: "/superadmin/analytics", icon: BarChart3 },
+  { label: "System", href: "/superadmin/system", icon: ServerCog },
+  { label: "Settings", href: "/superadmin/settings", icon: Settings },
+];

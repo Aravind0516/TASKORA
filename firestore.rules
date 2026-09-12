@@ -1,0 +1,419 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Identity helpers ────────────────────────────────────────────────
+    // Role and organizationId are read ONLY from the verified ID token's
+    // custom claims (request.auth.token.*) — never from a Firestore field a
+    // client could have written, and never from anything in the request
+    // body. Claims are set exclusively by the Admin SDK from trusted
+    // server code (lib/server/invitations.ts's acceptInvitation, and the
+    // bootstrap script for the very first Super Admin) — a client can never
+    // set its own claims. A self-registered user (public "Get Started") has
+    // no role/organizationId claim at all, which safely evaluates to
+    // "none of the privileged checks below match" rather than an error.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function myRole() {
+      return isSignedIn() ? request.auth.token.role : null;
+    }
+    function myOrgId() {
+      return isSignedIn() ? request.auth.token.organizationId : null;
+    }
+    function isSuperAdmin() {
+      return myRole() == "super_admin";
+    }
+    function isAdmin() {
+      return myRole() == "admin";
+    }
+    function isAdminOfOrg(orgId) {
+      return isAdmin() && myOrgId() == orgId;
+    }
+    function isMemberOfOrg(orgId) {
+      return isSignedIn() && myOrgId() == orgId;
+    }
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function onlyChangingFields(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+    // Project-scoped manager (PROJECT_MANAGER-equivalent) — a `user` granted
+    // elevated permissions on ONE project via projects/{id}.managerId, not an
+    // account-wide role/claim. Costs one extra document read per non-admin
+    // task write, which is the standard, supported way to express
+    // cross-document authorization in Firestore rules.
+    function isManagerOfProject(projectId) {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/projects/$(projectId)).data.managerId == request.auth.uid;
+    }
+    // A task's reviewer is a descriptive field only (never grants any
+    // permission — see PHASE C's Task Management Foundation), but it must
+    // still be bound to the same organization as the task itself, so a
+    // reviewer can never be used to leak a foreign-org uid into a document
+    // or imply cross-org membership. null/absent is always valid (a task
+    // never requires a reviewer).
+    function isValidReviewer(reviewerId, orgId) {
+      return reviewerId == null
+        || get(/databases/$(database)/documents/users/$(reviewerId)).data.organizationId == orgId;
+    }
+    // Server-side backstop for the client's Zod validation — never trust
+    // "the form already checked this." null/absent (an old task predating
+    // this field, or simply not set) is always valid; a present value must
+    // be a non-negative number.
+    function isValidHours(value) {
+      return value == null || ((value is int || value is float) && value >= 0);
+    }
+    // Two-hop lookup used by subtasks: a subtask has no managerId of its
+    // own, only a parent taskId — so "is this caller the manager of the
+    // task's project" requires reading the task, then that task's project.
+    function taskOrgId(taskId) {
+      return get(/databases/$(database)/documents/tasks/$(taskId)).data.organizationId;
+    }
+    function isManagerOfTaskProject(taskId) {
+      return isSignedIn()
+        && isManagerOfProject(get(/databases/$(database)/documents/tasks/$(taskId)).data.projectId);
+    }
+    // Used by comments to verify a project-level comment's declared
+    // organizationId against the real, live project — never trust the
+    // client-declared value alone (same pattern as taskOrgId() above).
+    function projectOrgId(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId)).data.organizationId;
+    }
+    // Used by notifications' create rule to verify a recipient really
+    // belongs to the organization the notification claims — never trust the
+    // client-declared organizationId alone (same pattern as taskOrgId()/
+    // projectOrgId() above).
+    function isValidNotificationRecipient(recipientId, orgId) {
+      return get(/databases/$(database)/documents/users/$(recipientId)).data.organizationId == orgId;
+    }
+
+    // ── users/{uid} ─────────────────────────────────────────────────────
+    // Every privileged mutation of role/organizationId/status happens via
+    // the Admin SDK (invitation acceptance, suspend/activate Route Handlers
+    // in a later iteration) and therefore bypasses these rules entirely —
+    // the rules below only need to stop a *client* write from doing it.
+    //
+    // PHASE F fix: read used to be isSelf/isSuperAdmin/isAdminOfOrg only,
+    // which meant a plain "user" account could never read a teammate's
+    // profile at all — verified live to deny the org roster query outright
+    // for a non-admin signed-in account. That silently broke every feature
+    // that resolves another member's name/preferences for a non-admin
+    // caller (the Team page, assignee/reviewer pickers, comment author
+    // names, subtask assignee names) and blocked PHASE F's own peer-to-peer
+    // notifications (a regular member assigning a task or commenting needs
+    // to resolve a teammate's name and notification preferences). Now
+    // matches every other collection in this app (projects/tasks/teams/
+    // comments/attachments): any member of the SAME organization may read.
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+
+      // Public self-registration ("Get Started") — role is forced "user"
+      // and organizationId forced null; a client can never create itself
+      // as admin/superadmin or pre-assign its own organization.
+      allow create: if isSelf(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.role == "user"
+        && request.resource.data.organizationId == null;
+
+      allow update: if (isSelf(uid) && onlyChangingFields(["name", "title", "notificationPreferences", "updatedAt"]))
+        || (isAdmin() && resource.data.organizationId == myOrgId()
+            && onlyChangingFields(["status", "name", "title", "teamIds", "functionalRole", "updatedAt"]))
+        || isSuperAdmin();
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── organizations/{orgId} ───────────────────────────────────────────
+    // Creation, status changes, ownerId/adminIds/memberIds are all
+    // server-only (app/api/organizations/*, invitation acceptance) — a
+    // client may only edit its own organization's non-sensitive profile
+    // fields.
+    match /organizations/{orgId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(orgId);
+      allow create, delete: if false;
+      allow update: if (isAdminOfOrg(orgId) && onlyChangingFields(["name", "description", "industry", "contactEmail", "updatedAt"]))
+        || isSuperAdmin();
+    }
+
+    // ── teams/{teamId} ──────────────────────────────────────────────────
+    match /teams/{teamId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow create: if isAdminOfOrg(request.resource.data.organizationId);
+      allow update: if (isAdminOfOrg(resource.data.organizationId) && request.resource.data.organizationId == resource.data.organizationId)
+        || isSuperAdmin();
+      allow delete: if isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();
+    }
+
+    // ── projects/{projectId} ────────────────────────────────────────────
+    // organizationId is the security boundary, never ownerId alone. Any
+    // member of the organization may read; only that organization's admin
+    // (or Super Admin) may write. ownerId must equal the creator's own uid on
+    // create (see PROJECT OWNER fix) AND can never change on update — an
+    // earlier version of this rule only checked ownerId at create time,
+    // which left it silently reassignable via any ordinary update (the old
+    // components/projects/project-form-dialog.tsx briefly exploited exactly
+    // this — an editable Owner field whose value flowed straight into
+    // updateDoc). The project's assigned manager (managerId) may update
+    // day-to-day fields but never organizationId/ownerId/managerId itself.
+    match /projects/{projectId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow create: if isAdminOfOrg(request.resource.data.organizationId)
+        && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isSuperAdmin()
+        || (isAdminOfOrg(resource.data.organizationId)
+            && request.resource.data.organizationId == resource.data.organizationId
+            && request.resource.data.ownerId == resource.data.ownerId)
+        || (isMemberOfOrg(resource.data.organizationId) && resource.data.managerId == request.auth.uid
+            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "updatedAt"]));
+      allow delete: if isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();
+    }
+
+    // ── tasks/{taskId} ──────────────────────────────────────────────────
+    // The assignee may update ONLY status/updatedAt (Kanban drag-drop and
+    // the My Tasks status control) — everything else, including
+    // reassignment, is admin- or project-manager-only. A project's assigned
+    // manager (see projects/{id}.managerId) may create/update tasks that
+    // belong to THAT project — not organization-wide, matching "manage
+    // assigned projects" rather than a full account-wide role.
+    match /tasks/{taskId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow create: if (isAdminOfOrg(request.resource.data.organizationId)
+          || (isMemberOfOrg(request.resource.data.organizationId) && isManagerOfProject(request.resource.data.projectId)))
+        && isValidReviewer(request.resource.data.get("reviewerId", null), request.resource.data.organizationId)
+        && isValidHours(request.resource.data.get("estimatedHours", null))
+        && isValidHours(request.resource.data.get("actualHours", null));
+      allow update: if isSuperAdmin()
+        || (isAdminOfOrg(resource.data.organizationId) && request.resource.data.organizationId == resource.data.organizationId
+            && isValidReviewer(request.resource.data.get("reviewerId", null), request.resource.data.organizationId)
+            && isValidHours(request.resource.data.get("estimatedHours", null))
+            && isValidHours(request.resource.data.get("actualHours", null)))
+        || (isMemberOfOrg(resource.data.organizationId) && isManagerOfProject(resource.data.projectId)
+            && request.resource.data.organizationId == resource.data.organizationId
+            && isValidReviewer(request.resource.data.get("reviewerId", null), request.resource.data.organizationId)
+            && isValidHours(request.resource.data.get("estimatedHours", null))
+            && isValidHours(request.resource.data.get("actualHours", null)))
+        || (isSignedIn() && resource.data.assignedTo == request.auth.uid
+            && resource.data.organizationId == myOrgId()
+            && onlyChangingFields(["status", "updatedAt"]));
+      allow delete: if isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();
+    }
+
+    // ── subtasks/{subtaskId} ────────────────────────────────────────────
+    // A lightweight checklist item under exactly one task — organizationId
+    // is denormalized from the parent task at creation time (see
+    // types/subtask.ts) so reads don't need a get() per document, but
+    // WRITES always verify it against the parent task's real, live
+    // organizationId via taskOrgId() — never trust the client-declared
+    // value alone. taskId is pinned unchanged on update (via
+    // onlyChangingFields' allow-lists never including it), which also
+    // rules out circular/cross-parent reassignment by construction: a
+    // subtask can only ever point at the one task it was created under.
+    match /subtasks/{subtaskId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow create: if request.resource.data.organizationId == taskOrgId(request.resource.data.taskId)
+        && (isAdminOfOrg(request.resource.data.organizationId) || isManagerOfTaskProject(request.resource.data.taskId));
+      allow update: if isSuperAdmin()
+        || (isAdminOfOrg(resource.data.organizationId)
+            && request.resource.data.organizationId == resource.data.organizationId
+            && request.resource.data.taskId == resource.data.taskId)
+        || (isManagerOfTaskProject(resource.data.taskId)
+            && request.resource.data.organizationId == resource.data.organizationId
+            && request.resource.data.taskId == resource.data.taskId)
+        || (isSignedIn() && resource.data.assigneeId == request.auth.uid
+            && resource.data.organizationId == myOrgId()
+            && onlyChangingFields(["completed", "updatedAt"]));
+      allow delete: if isAdminOfOrg(resource.data.organizationId) || isManagerOfTaskProject(resource.data.taskId) || isSuperAdmin();
+    }
+
+    // ── comments/{commentId} ─────────────────────────────────────────────
+    // A discussion comment on either a project (taskId == null) or a task
+    // (taskId set, projectId denormalized from that task) — never both,
+    // never neither, and always verified against the REAL parent
+    // project/task at write time, exactly like subtasks' taskOrgId(): a
+    // client's declared organizationId/projectId is worthless on its own,
+    // since request.resource.data is entirely client-authored. Comments on
+    // a nonexistent project/task are impossible by construction — get() on
+    // a missing document throws inside the rule, which Firestore always
+    // resolves to a denial, not a crash (same mechanism already proven by
+    // Phase C's "subtask against a non-existent parent task" test).
+    match /comments/{commentId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow create: if isMemberOfOrg(request.resource.data.organizationId)
+        && request.resource.data.authorId == request.auth.uid
+        && (
+          // Project-level comment.
+          (request.resource.data.taskId == null
+            && request.resource.data.organizationId == projectOrgId(request.resource.data.projectId))
+          ||
+          // Task comment — projectId must be THAT task's actual project,
+          // not an arbitrary client-supplied value (prevents a comment
+          // claiming to belong to an unrelated project).
+          (request.resource.data.taskId != null
+            && request.resource.data.organizationId == taskOrgId(request.resource.data.taskId)
+            && request.resource.data.projectId == get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.projectId)
+        );
+      // Author-only, content only — organizationId/authorId/projectId/taskId
+      // are structurally protected by this allow-list alone (any attempt to
+      // change them fails the update outright), matching "ownership and
+      // parent relationship remain protected" without a separate explicit
+      // equality check for each field. No admin/manager edit-others'-
+      // content path — the audit's role model doesn't call for one.
+      allow update: if isSignedIn() && resource.data.authorId == request.auth.uid
+        && onlyChangingFields(["content", "updatedAt"]);
+      // Delete: the author (own comment), or that organization's Admin —
+      // explicit, minimal moderation capability consistent with Admin's
+      // existing broad management role over their organization's content
+      // elsewhere in this app (teams/projects/tasks/users). Not extended to
+      // project managers — no signal in the existing model that managers
+      // should moderate discussion content.
+      allow delete: if isSuperAdmin()
+        || (isSignedIn() && resource.data.authorId == request.auth.uid)
+        || isAdminOfOrg(resource.data.organizationId);
+    }
+
+    // ── attachments/{attachmentId} ───────────────────────────────────────
+    // File metadata for a project or task attachment — the binary itself
+    // lives in Firebase Storage (see storage.rules), never in this document.
+    // Same project/task-comment split and same "verify against the REAL
+    // parent, never the client's declared value alone" pattern as comments
+    // above. Immutable once created (no update rule at all) — a wrong
+    // attachment is deleted and re-uploaded, never edited in place, since
+    // organizationId/projectId/taskId/uploadedBy/storagePath must never be
+    // changeable through an ordinary metadata write (PHASE E requirement).
+    // storage.rules' delete rule reads this exact document (uploadedBy,
+    // organizationId, projectId, taskId) via firestore.get() to make the
+    // Storage-side delete decision, so Storage and Firestore always agree on
+    // who's allowed to delete a given file.
+    match /attachments/{attachmentId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow create: if isMemberOfOrg(request.resource.data.organizationId)
+        && request.resource.data.uploadedBy == request.auth.uid
+        && (
+          // Project-level attachment.
+          (request.resource.data.taskId == null
+            && request.resource.data.organizationId == projectOrgId(request.resource.data.projectId))
+          ||
+          // Task attachment — projectId must be THAT task's actual project,
+          // not an arbitrary client-supplied value.
+          (request.resource.data.taskId != null
+            && request.resource.data.organizationId == taskOrgId(request.resource.data.taskId)
+            && request.resource.data.projectId == get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.projectId)
+        );
+      allow update: if false;
+      // Delete: the uploader (own file), that organization's Admin, the
+      // project's assigned manager, or Super Admin — a superset of
+      // comments' delete rule, since PHASE E explicitly calls for project/
+      // task managers to also be able to remove attachments.
+      allow delete: if isSuperAdmin()
+        || (isSignedIn() && resource.data.uploadedBy == request.auth.uid)
+        || isAdminOfOrg(resource.data.organizationId)
+        || isManagerOfProject(resource.data.projectId);
+    }
+
+    // ── meetings/{meetingId} ────────────────────────────────────────────
+    // Internal meeting coordination — deliberately NOT org-wide readable
+    // like projects/tasks: a regular member only ever sees a meeting they
+    // organize or attend, matching the fast-track spec's "Regular Member
+    // can only see information they are authorized to access." Admin/Super
+    // Admin retain full-organization visibility for oversight, same as
+    // every other collection in this app.
+    match /meetings/{meetingId} {
+      allow read: if isSuperAdmin()
+        || isAdminOfOrg(resource.data.organizationId)
+        || isSelf(resource.data.organizerId)
+        || (isSignedIn() && request.auth.uid in resource.data.participantIds);
+      allow create: if isMemberOfOrg(request.resource.data.organizationId)
+        && request.resource.data.organizerId == request.auth.uid
+        && (request.resource.data.projectId == null
+            || request.resource.data.organizationId == projectOrgId(request.resource.data.projectId));
+      // organizationId/organizerId/projectId are pinned unchanged — a
+      // meeting's org, creator, and (optional) related project are fixed
+      // at creation time; everything else (schedule, participants, status,
+      // notes, link) can be edited by the organizer, that org's Admin, or
+      // the related project's manager.
+      allow update: if (
+          isSelf(resource.data.organizerId)
+          || isAdminOfOrg(resource.data.organizationId)
+          || (resource.data.projectId != null && isManagerOfProject(resource.data.projectId))
+          || isSuperAdmin()
+        )
+        && onlyChangingFields(["title", "description", "participantIds", "startAt", "endAt", "status", "notes", "meetingLink", "updatedAt"]);
+      allow delete: if isSelf(resource.data.organizerId) || isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();
+    }
+
+    // ── invitations/{invitationId} ──────────────────────────────────────
+    // Read-only for the inviting organization's admin (and Super Admin) so
+    // the Pending Invitations table can use a live listener. tokenHash is a
+    // one-way hash, so exposing it in a read is not a token leak. Every
+    // write (create/resend/cancel/accept) happens exclusively through
+    // app/api/invitations/* via the Admin SDK, which bypasses these rules.
+    match /invitations/{invitationId} {
+      allow read: if isSuperAdmin() || isAdminOfOrg(resource.data.organizationId);
+      allow write: if false;
+    }
+
+    // ── activityLogs/{activityId} ───────────────────────────────────────
+    // Routine CRUD activity (project/task/team events) may be written by
+    // the org member who performed the action — same trust level as the
+    // CRUD write itself. Sensitive platform events (organization/admin/
+    // invitation lifecycle) are excluded here and can only be written by
+    // the Admin SDK (lib/server/activity.ts), which bypasses these rules —
+    // PHASE 17's "prefer server-controlled creation for sensitive audit
+    // events." The log itself is append-only: no update or delete, ever.
+    function isSensitiveActivityAction(action) {
+      return action in [
+        "organization_created", "organization_updated", "organization_suspended", "organization_activated",
+        "admin_registered", "admin_suspended",
+        "user_invited", "user_invitation_resent", "user_invitation_cancelled", "user_accepted_invitation", "user_joined"
+      ];
+    }
+    match /activityLogs/{activityId} {
+      allow read: if isSuperAdmin() || isAdminOfOrg(resource.data.organizationId);
+      allow create: if isMemberOfOrg(request.resource.data.organizationId)
+        && request.resource.data.actorId == request.auth.uid
+        && !isSensitiveActivityAction(request.resource.data.action);
+      allow update, delete: if false;
+    }
+
+    // ── notifications/{notificationId} ──────────────────────────────────
+    // A user reads/marks-read/deletes only their own — never another
+    // user's, and never across organizations (isSelf(resource.data.userId)
+    // alone already guarantees both, since a uid belongs to exactly one
+    // organization).
+    //
+    // Create (PHASE F): widened from "yourself or that org's admin" to any
+    // member of the SAME organization notifying another verified member of
+    // that same organization — required for peer-to-peer notifications
+    // (a regular member assigning a task to, or commenting to, another
+    // regular member; not just admin-triggered ones). isValidNotification-
+    // Recipient() re-derives the recipient's REAL organizationId from their
+    // own user doc rather than trusting the request body, so a client can
+    // never inject a notification into a foreign organization by lying
+    // about organizationId. actorId must equal the caller's own uid
+    // whenever creating for someone else than themselves — the same
+    // anti-impersonation check comments/attachments already use for
+    // authorId/uploadedBy — so a notification can never be forged to look
+    // like it came from a different actor.
+    match /notifications/{notificationId} {
+      allow read, delete: if isSelf(resource.data.userId);
+      allow create: if request.resource.data.actorId == request.auth.uid
+        && (
+          isSelf(request.resource.data.userId)
+          || (isMemberOfOrg(request.resource.data.organizationId)
+              && isValidNotificationRecipient(request.resource.data.userId, request.resource.data.organizationId))
+        );
+      // Read-state only — organizationId/actorId/type/title/message/href/
+      // projectId/taskId/commentId/userId are all structurally protected by
+      // this allow-list alone, exactly like comments' content-only update
+      // rule: any attempt to change them fails the update outright.
+      allow update: if isSelf(resource.data.userId) && onlyChangingFields(["read"]);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

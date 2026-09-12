@@ -1,0 +1,148 @@
+rules_version = '2';
+
+// Firebase Cloud Storage rules for TASKORA's file attachments (PHASE E).
+// Mirrors firestore.rules' identity model exactly — role/organizationId are
+// read ONLY from the verified ID token's custom claims (request.auth.token),
+// the same claims Firestore already trusts, never anything the client could
+// spoof through the request itself. Storage rules can read live Firestore
+// documents via firestore.get()/firestore.exists() (GA feature) — used here
+// so Storage and Firestore enforce the exact same organization/project/task
+// boundaries instead of maintaining two divergent authorization models.
+//
+// Storage path convention (see types/attachment.ts and
+// lib/services/attachment.service.ts): the final path segment is always the
+// attachment's own Firestore document id — never the original filename or
+// its extension — so there is nothing user-controlled in the path to
+// manipulate. Path shape:
+//   organizations/{orgId}/projects/{projectId}/attachments/{attachmentId}
+//   organizations/{orgId}/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function myRole() {
+      return isSignedIn() ? request.auth.token.role : null;
+    }
+    function myOrgId() {
+      return isSignedIn() ? request.auth.token.organizationId : null;
+    }
+    function isSuperAdmin() {
+      return myRole() == "super_admin";
+    }
+    function isAdmin() {
+      return myRole() == "admin";
+    }
+    function isAdminOfOrg(orgId) {
+      return isAdmin() && myOrgId() == orgId;
+    }
+    function isMemberOfOrg(orgId) {
+      return isSignedIn() && myOrgId() == orgId;
+    }
+
+    function projectDoc(projectId) {
+      return firestore.get(/databases/(default)/documents/projects/$(projectId)).data;
+    }
+    function taskDoc(taskId) {
+      return firestore.get(/databases/(default)/documents/tasks/$(taskId)).data;
+    }
+    // Only ever readable at delete time — by then the metadata doc still
+    // exists (attachment.service.ts deletes the Storage object BEFORE the
+    // Firestore doc), so this is a reliable source for who uploaded a file
+    // and which project/task it really belongs to.
+    function attachmentDoc(attachmentId) {
+      return firestore.get(/databases/(default)/documents/attachments/$(attachmentId)).data;
+    }
+    function isManagerOfProject(projectId) {
+      return isSignedIn() && projectDoc(projectId).managerId == request.auth.uid;
+    }
+
+    // Kept in sync with lib/validation/attachment.ts's ALLOWED_ATTACHMENT_TYPES
+    // and MAX_ATTACHMENT_SIZE_BYTES — the client list is a UX convenience,
+    // this is the actual enforcement. Never add an executable format
+    // (.exe/.bat/.cmd/.sh/.js/...) to this list.
+    function isAllowedContentType() {
+      return request.resource.contentType in [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/csv',
+        'text/plain',
+        'image/png',
+        'image/jpeg',
+        'image/gif',
+        'image/webp'
+      ];
+    }
+    function isWithinSizeLimit() {
+      return request.resource.size <= 10 * 1024 * 1024; // 10 MB
+    }
+
+    // orgId/projectId/taskId here are the literal path segments the request
+    // was made against — verified against the attachment's REAL recorded
+    // parent (never trusted from the path alone) before any role check runs,
+    // so a request against a mismatched path is denied regardless of who is
+    // asking. taskId is null for a project-level attachment.
+    function canDeleteAttachment(orgId, projectId, taskId, attachmentId) {
+      let a = attachmentDoc(attachmentId);
+      return a.organizationId == orgId
+        && a.projectId == projectId
+        && a.taskId == taskId
+        && (
+          isSuperAdmin()
+          || isAdminOfOrg(orgId)
+          || (isSignedIn() && a.uploadedBy == request.auth.uid)
+          || isManagerOfProject(projectId)
+        );
+    }
+
+    // ── Project-level attachments ──────────────────────────────────────
+    match /organizations/{orgId}/projects/{projectId}/attachments/{attachmentId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(orgId);
+
+      // Any member of the project's own organization may upload — same
+      // authorization level as posting a comment (firestore.rules'
+      // comments create rule), not restricted to the project's manager.
+      // projectDoc(projectId).organizationId == orgId is the path-integrity
+      // check: a real project belonging to a DIFFERENT org can never be
+      // targeted just by writing that org's id into the path.
+      allow create: if isMemberOfOrg(orgId)
+        && projectDoc(projectId).organizationId == orgId
+        && isAllowedContentType()
+        && isWithinSizeLimit();
+
+      allow delete: if canDeleteAttachment(orgId, projectId, null, attachmentId);
+
+      allow update: if false;
+    }
+
+    // ── Task-level attachments ─────────────────────────────────────────
+    match /organizations/{orgId}/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(orgId);
+
+      // The task's real organizationId AND its real projectId must both
+      // match the path — prevents uploading under a task that actually
+      // belongs to a different org or a different project than the path
+      // claims.
+      allow create: if isMemberOfOrg(orgId)
+        && taskDoc(taskId).organizationId == orgId
+        && taskDoc(taskId).projectId == projectId
+        && isAllowedContentType()
+        && isWithinSizeLimit();
+
+      allow delete: if canDeleteAttachment(orgId, projectId, taskId, attachmentId);
+
+      allow update: if false;
+    }
+
+    // Default deny everything else.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
