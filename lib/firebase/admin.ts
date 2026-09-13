@@ -11,13 +11,43 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore";
 // client-side import of this file a build error instead of a leaked secret.
 
 function loadServiceAccount() {
-  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-  // Private keys are typically stored with literal "\n" sequences in env
-  // files/hosting dashboards — they must be un-escaped before use.
-  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID?.trim();
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL?.trim();
+  const rawPrivateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
 
-  if (!projectId || !clientEmail || !privateKey) return null;
+  const missing = [
+    !projectId && "FIREBASE_ADMIN_PROJECT_ID",
+    !clientEmail && "FIREBASE_ADMIN_CLIENT_EMAIL",
+    !rawPrivateKey && "FIREBASE_ADMIN_PRIVATE_KEY",
+  ].filter(Boolean);
+  if (missing.length) {
+    console.error(`[admin] Missing Firebase Admin env var(s): ${missing.join(", ")}`);
+    return null;
+  }
+
+  // Private keys are typically stored with literal "\n" sequences in env
+  // files/hosting dashboards — they must be un-escaped before use. Some
+  // dashboards also preserve a wrapping quote pair verbatim if the value was
+  // pasted including the quotes (e.g. copied straight out of the
+  // "private_key" field of a downloaded service-account JSON file, quotes
+  // and all) — a .env file's parser strips those automatically, but a
+  // hosting dashboard's env var UI stores exactly what was typed, so that
+  // mistake only surfaces once deployed, never locally.
+  let privateKey = rawPrivateKey!.trim();
+  if ((privateKey.startsWith('"') && privateKey.endsWith('"')) || (privateKey.startsWith("'") && privateKey.endsWith("'"))) {
+    privateKey = privateKey.slice(1, -1);
+  }
+  privateKey = privateKey.replace(/\\n/g, "\n");
+
+  if (!privateKey.startsWith("-----BEGIN PRIVATE KEY-----") || !privateKey.trimEnd().endsWith("-----END PRIVATE KEY-----")) {
+    console.error(
+      `[admin] FIREBASE_ADMIN_PRIVATE_KEY does not look like a valid PEM key after parsing ` +
+        `(length ${privateKey.length}, starts with PEM header: ${privateKey.startsWith("-----BEGIN PRIVATE KEY-----")}). ` +
+        `Check the stored value for surrounding quotes, truncation, or extra whitespace — never its content.`
+    );
+    return null;
+  }
+
   return { projectId, clientEmail, privateKey };
 }
 
