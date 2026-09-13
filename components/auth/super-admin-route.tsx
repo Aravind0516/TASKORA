@@ -8,10 +8,13 @@ import { usePlatformRole } from "@/components/platform/use-platform-role";
 
 /**
  * Gates /superadmin/*. Same shape as AdminRoute — real Firebase login is
- * always required; only role is demo-overridable in development. There is
- * no real "super_admin" concept in Firestore yet (out of scope for this
- * frontend-only phase), so outside of the demo switcher this route is
- * unreachable by design until backend role authorization lands.
+ * always required; role comes from usePlatformRole() (the real,
+ * claims-derived role from AuthProvider, with only a dev-build demo
+ * override layered on top — see components/platform/demo-role-provider.tsx).
+ * super_admin is a real role here: a genuine custom claim set only by
+ * scripts/bootstrap-super-admin.mjs, enforced identically in
+ * firestore.rules — this route is unreachable to anyone without that real
+ * claim outside of a dev-only demo preview.
  */
 export function SuperAdminRoute({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();

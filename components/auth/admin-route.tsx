@@ -7,10 +7,14 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { usePlatformRole } from "@/components/platform/use-platform-role";
 
 /**
- * Gates /admin/*. Real Firebase login is always required — the dev-only demo
- * switcher (components/platform/demo-role-provider.tsx) can only change
- * which *role* a logged-in session is treated as, never bypass auth itself.
- * Super admins also have admin access (a superset), matching a typical role
+ * Gates /admin/*. Real Firebase login is always required. `role` here comes
+ * from usePlatformRole(), which layers the dev-only demo switcher
+ * (components/platform/demo-role-provider.tsx) on top of the real,
+ * claims-derived role from AuthProvider — outside of a dev build previewing
+ * a shell, this is exactly the real role, backed by a real custom claim and
+ * enforced identically in firestore.rules; frontend hiding here is not the
+ * security boundary, just the routing decision that matches it. Super
+ * admins also have admin access (a superset), matching a typical role
  * hierarchy.
  */
 export function AdminRoute({ children }: { children: ReactNode }) {
