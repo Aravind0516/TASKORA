@@ -6,12 +6,10 @@ import { AmbientBackground } from "@/components/landing/shared/ambient-backgroun
 import { MagneticButton } from "@/components/landing/shared/magnetic-button";
 import { Eyebrow } from "@/components/landing/shared/section-heading";
 import { DashboardScene } from "@/components/landing/product-mock/dashboard-scene";
-import { useAuthDialog } from "@/components/landing/shared/auth-dialog-provider";
 import { usePointerParallax } from "@/lib/landing/use-pointer-parallax";
 
 export function Hero() {
   const { ref, x, y } = usePointerParallax<HTMLDivElement>();
-  const { openAuth } = useAuthDialog();
 
   const layerFar: CSSProperties = { transform: `translate3d(${x * 6}px, ${y * 6}px, 0)` };
   const layerNear: CSSProperties = { transform: `translate3d(${x * 14}px, ${y * 14}px, 0)` };
@@ -44,7 +42,7 @@ export function Hero() {
         </p>
 
         <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row">
-          <MagneticButton onClick={() => openAuth("register")}>
+          <MagneticButton href="/register">
             Start Building
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
           </MagneticButton>

@@ -22,12 +22,7 @@ import { registerWithEmail } from "@/lib/services/auth.service";
 import { useAuth } from "@/components/auth/auth-provider";
 import { ROLE_HOME_PATH } from "@/lib/platform/constants";
 
-interface RegisterFormProps {
-  /** Overrides the "Log in" link — used when embedded in a dialog. */
-  onLoginClick?: () => void;
-}
-
-export function RegisterForm({ onLoginClick }: RegisterFormProps) {
+export function RegisterForm() {
   const router = useRouter();
   // Same fix as LoginForm: never navigate off an independent identity
   // check — wait for AuthProvider's own context to reflect the new
@@ -155,15 +150,9 @@ export function RegisterForm({ onLoginClick }: RegisterFormProps) {
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            {onLoginClick ? (
-              <button type="button" onClick={onLoginClick} className="font-medium text-primary hover:underline">
-                Log in
-              </button>
-            ) : (
-              <Link href="/login" className="font-medium text-primary hover:underline">
-                Log in
-              </Link>
-            )}
+            <Link href="/login" className="font-medium text-primary hover:underline">
+              Log in
+            </Link>
           </p>
         </CardFooter>
       </form>

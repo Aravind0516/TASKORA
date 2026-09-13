@@ -1,10 +1,10 @@
 "use client";
 
 import { Check } from "lucide-react";
+import Link from "next/link";
 import { SectionHeading } from "@/components/landing/shared/section-heading";
 import { Reveal } from "@/components/landing/shared/reveal";
 import { GlassCard } from "@/components/landing/shared/glass-card";
-import { useAuthDialog } from "@/components/landing/shared/auth-dialog-provider";
 import { cn } from "@/lib/utils";
 
 const PLANS = [
@@ -35,8 +35,6 @@ const PLANS = [
 ];
 
 export function PricingPreview() {
-  const { openAuth } = useAuthDialog();
-
   return (
     <section id="pricing" className="relative py-24 sm:py-32">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
@@ -76,9 +74,8 @@ export function PricingPreview() {
                   ))}
                 </ul>
 
-                <button
-                  type="button"
-                  onClick={() => openAuth("register")}
+                <Link
+                  href="/register"
                   className={cn(
                     "mt-7 inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium transition-colors",
                     plan.recommended
@@ -87,7 +84,7 @@ export function PricingPreview() {
                   )}
                 >
                   Start with TASKORA
-                </button>
+                </Link>
               </GlassCard>
             </Reveal>
           ))}

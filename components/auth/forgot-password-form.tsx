@@ -22,12 +22,7 @@ import {
 } from "@/lib/validation/auth.schema";
 import { resetPassword } from "@/lib/services/auth.service";
 
-interface ForgotPasswordFormProps {
-  /** Overrides both "Back to log in" links — used when embedded in a dialog. */
-  onBackToLoginClick?: () => void;
-}
-
-export function ForgotPasswordForm({ onBackToLoginClick }: ForgotPasswordFormProps) {
+export function ForgotPasswordForm() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
 
@@ -63,24 +58,13 @@ export function ForgotPasswordForm({ onBackToLoginClick }: ForgotPasswordFormPro
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
             <span>If an account exists for that email, a reset link is on its way.</span>
           </div>
-          {onBackToLoginClick ? (
-            <button
-              type="button"
-              onClick={onBackToLoginClick}
-              className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-            >
-              <ArrowLeft className="size-4" />
-              Back to log in
-            </button>
-          ) : (
-            <Link
-              href="/login"
-              className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-            >
-              <ArrowLeft className="size-4" />
-              Back to log in
-            </Link>
-          )}
+          <Link
+            href="/login"
+            className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            <ArrowLeft className="size-4" />
+            Back to log in
+          </Link>
         </CardContent>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -107,24 +91,13 @@ export function ForgotPasswordForm({ onBackToLoginClick }: ForgotPasswordFormPro
             <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting ? "Sending..." : "Send reset link"}
             </Button>
-            {onBackToLoginClick ? (
-              <button
-                type="button"
-                onClick={onBackToLoginClick}
-                className="flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="size-4" />
-                Back to log in
-              </button>
-            ) : (
-              <Link
-                href="/login"
-                className="flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="size-4" />
-                Back to log in
-              </Link>
-            )}
+            <Link
+              href="/login"
+              className="flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" />
+              Back to log in
+            </Link>
           </CardFooter>
         </form>
       )}

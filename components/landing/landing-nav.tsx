@@ -5,7 +5,6 @@ import Link from "next/link";
 import { LayoutGrid, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth/auth-provider";
-import { useAuthDialog } from "@/components/landing/shared/auth-dialog-provider";
 
 const NAV_LINKS = [
   { label: "Product", href: "#command-center" },
@@ -19,7 +18,6 @@ export function LandingNav() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, loading } = useAuth();
-  const { openAuth } = useAuthDialog();
 
   useEffect(() => {
     let frame: number | null = null;
@@ -76,20 +74,18 @@ export function LandingNav() {
             </Link>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => openAuth("login")}
+              <Link
+                href="/login"
                 className="rounded-full px-3.5 py-2 text-sm text-foreground/70 transition-colors hover:text-foreground"
               >
                 Log in
-              </button>
-              <button
-                type="button"
-                onClick={() => openAuth("register")}
+              </Link>
+              <Link
+                href="/register"
                 className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 Get Started
-              </button>
+              </Link>
             </>
           )}
         </div>
@@ -128,26 +124,20 @@ export function LandingNav() {
                 </Link>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMobileOpen(false);
-                      openAuth("login");
-                    }}
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileOpen(false)}
                     className="rounded-full border border-white/10 px-4 py-2.5 text-center text-sm text-foreground/80"
                   >
                     Log in
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMobileOpen(false);
-                      openAuth("register");
-                    }}
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setMobileOpen(false)}
                     className="rounded-full bg-primary px-4 py-2.5 text-center text-sm font-medium text-primary-foreground"
                   >
                     Get Started
-                  </button>
+                  </Link>
                 </>
               )}
             </div>

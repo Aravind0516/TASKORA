@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { LayoutGrid, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { resolvePostAuthPath } from "@/lib/auth-redirect";
@@ -10,10 +10,6 @@ import { resolvePostAuthPath } from "@/lib/auth-redirect";
 export default function AuthLayout({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
-  // The login page's role-selection step needs room for three cards side by
-  // side; register/forgot-password stay at the original narrow card width.
-  const isLoginRoute = pathname === "/login";
 
   // This layout's job is "redirect away if you land on /login already
   // signed in" (e.g. a restored session, or navigating back after login) —
@@ -23,9 +19,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   // resolution (initialCheckDone). On the very first load of an
   // unauthenticated visit, that first resolution has user=null and does
   // nothing. A fresh login later — a second, separate transition — is
-  // deliberately left alone here: LoginForm owns that entire flow
-  // (including the selected-role verification and mismatch rejection) and
-  // must not have it pulled out from under it by this layout unmounting
+  // deliberately left alone here: LoginForm owns that entire flow and must
+  // not have it pulled out from under it by this layout unmounting
   // {children} first. Before this fix, this effect and LoginForm's own
   // post-login check raced on every login attempt, and this layout — the
   // parent — always won by rendering the loading spinner instead of
@@ -86,7 +81,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           <p className="text-xs text-muted-foreground">Workflow Platform</p>
         </div>
       </Link>
-      <div className={isLoginRoute ? "w-full max-w-2xl" : "w-full max-w-sm"}>{children}</div>
+      <div className="w-full max-w-sm">{children}</div>
     </div>
   );
 }

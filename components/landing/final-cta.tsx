@@ -7,11 +7,8 @@ import { GlassCard } from "@/components/landing/shared/glass-card";
 import { Reveal } from "@/components/landing/shared/reveal";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { PriorityBadge } from "@/components/shared/priority-badge";
-import { useAuthDialog } from "@/components/landing/shared/auth-dialog-provider";
 
 export function FinalCTA() {
-  const { openAuth } = useAuthDialog();
-
   return (
     <section className="relative overflow-hidden py-28 sm:py-36">
       <AmbientBackground className="opacity-80" />
@@ -39,7 +36,7 @@ export function FinalCTA() {
             Plan less. Execute better. Move faster.
           </p>
           <div className="mt-9">
-            <MagneticButton onClick={() => openAuth("register")}>
+            <MagneticButton href="/register">
               Start Building with TASKORA
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </MagneticButton>
