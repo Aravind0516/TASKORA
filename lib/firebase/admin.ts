@@ -10,6 +10,19 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore";
 // a client component. The `server-only` import above makes any accidental
 // client-side import of this file a build error instead of a leaked secret.
 
+// A real Firebase/GCP project ID is lowercase letters, digits and hyphens
+// only. This is a hard rejection, not a strip-and-continue: a value that
+// fails this (contains "=", "_", uppercase letters, or whitespace) is
+// exactly the shape of pasting a whole ".env" line — name, "=", and all —
+// into a hosting dashboard's Value field instead of just the value, which
+// is precisely what broke this once already, silently, as a confusing
+// token-audience mismatch far away from the actual misconfiguration.
+// Failing loudly at init instead surfaces it as a clear, safe log line the
+// moment the wrong value is deployed.
+function isPlainProjectId(value: string): boolean {
+  return /^[a-z][a-z0-9-]{3,62}$/.test(value);
+}
+
 function loadServiceAccount() {
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID?.trim();
   const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL?.trim();
@@ -22,6 +35,16 @@ function loadServiceAccount() {
   ].filter(Boolean);
   if (missing.length) {
     console.error(`[admin] Missing Firebase Admin env var(s): ${missing.join(", ")}`);
+    return null;
+  }
+
+  if (!isPlainProjectId(projectId!)) {
+    console.error(
+      `[admin] FIREBASE_ADMIN_PROJECT_ID is malformed (length ${projectId!.length}). ` +
+        `It must be only the bare project ID (e.g. "taskora-38082") — never the variable ` +
+        `name, an "=" sign, or surrounding whitespace/quotes. Check the value stored in the ` +
+        `hosting provider's environment variables, not just that the variable exists.`
+    );
     return null;
   }
 
