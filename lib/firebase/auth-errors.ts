@@ -6,7 +6,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   "auth/user-not-found": "Your email or password is incorrect.",
   "auth/wrong-password": "Your email or password is incorrect.",
   "auth/invalid-credential": "Your email or password is incorrect.",
-  "auth/email-already-in-use": "An account with this email already exists.",
+  "auth/email-already-in-use": "An account with this email already exists. Try signing in instead.",
   "auth/weak-password": "Password must be at least 6 characters.",
   "auth/missing-password": "Enter your password.",
   "auth/too-many-requests": "Too many attempts. Please wait a moment and try again.",

@@ -22,6 +22,7 @@ import { usePlatformRole } from "@/components/platform/use-platform-role";
 import { useDemoRole } from "@/components/platform/demo-role-provider";
 import { useAuth } from "@/components/auth/auth-provider";
 import { logout } from "@/lib/services/auth.service";
+import { markIntentionalLogout } from "@/lib/logout-state";
 import { initials } from "@/lib/format";
 import { ROLE_DISPLAY_LABELS, ROLE_CAPS_LABEL } from "@/lib/platform/constants";
 
@@ -39,6 +40,10 @@ export function Topbar() {
 
   async function handleLogout() {
     setDemoRole(null);
+    // See components/platform/platform-shell.tsx's handleLogout for why
+    // this is needed — ProtectedRoute has its own "no user -> /login"
+    // redirect that would otherwise race this one.
+    markIntentionalLogout();
     await logout();
     router.replace("/");
   }

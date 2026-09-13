@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { RegisterForm } from "@/components/auth/register-form";
+import { RegisterFlow } from "@/components/auth/register-flow";
 
-export const metadata: Metadata = { title: "Register" };
+export const metadata: Metadata = { title: "Create your account" };
 
 export default function RegisterPage() {
-  return <RegisterForm />;
+  return <RegisterFlow />;
 }

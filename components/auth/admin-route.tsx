@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { usePlatformRole } from "@/components/platform/use-platform-role";
+import { isIntentionalLogout } from "@/lib/logout-state";
 
 /**
  * Gates /admin/*. Real Firebase login is always required. `role` here comes
@@ -28,7 +29,10 @@ export function AdminRoute({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     if (!user) {
-      router.replace("/login");
+      // A deliberate logout also flips `user` to null — its own handler
+      // already owns navigating to "/" for that case; only redirect to
+      // /login for a genuine "never signed in" / session-expired visit.
+      if (!isIntentionalLogout()) router.replace("/login");
       return;
     }
     if (!hasAdminAccess) router.replace("/overview");

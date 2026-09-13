@@ -23,6 +23,7 @@ import { useDemoRole } from "@/components/platform/demo-role-provider";
 import { usePlatform } from "@/components/platform/platform-provider";
 import { useAuth } from "@/components/auth/auth-provider";
 import { logout } from "@/lib/services/auth.service";
+import { markIntentionalLogout } from "@/lib/logout-state";
 import { initials } from "@/lib/format";
 import { ADMIN_NAV, SUPER_ADMIN_NAV } from "@/components/platform/nav-config";
 import { ROLE_DISPLAY_LABELS, ROLE_CAPS_LABEL } from "@/lib/platform/constants";
@@ -59,6 +60,13 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
     // access, exactly like the permission-denied issue this was built to
     // prevent a repeat of.
     setDemoRole(null);
+    // Tell AdminRoute/SuperAdminRoute not to redirect to /login for the
+    // user-becomes-null transition logout() is about to cause — see
+    // lib/logout-state.ts. Reordering router.replace()/await logout()
+    // alone can't fix this: the guard's redirect is triggered by Firebase's
+    // own onAuthStateChanged callback, which only fires after logout()
+    // resolves, so it always runs after any navigation issued beforehand.
+    markIntentionalLogout();
     await logout();
     router.replace("/");
   }

@@ -6,16 +6,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { LayoutGrid, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { resolvePostAuthPath } from "@/lib/auth-redirect";
-import { LoginBrandPanel } from "@/components/auth/login-brand-panel";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  // /login gets a two-column layout with LoginBrandPanel on the left;
-  // /register and /forgot-password keep the original centered single-card
-  // treatment below — this only changes which chrome wraps {children},
-  // never the redirect logic above, which is identical for every auth route.
-  const isLoginRoute = usePathname() === "/login";
+  // /login and /register get the premium centered-card treatment below (a
+  // single floating card on a very subtle brand-tinted background, Jira-
+  // style — no side panel, no illustration). /forgot-password keeps the
+  // original bare treatment further down unchanged: its form renders its
+  // own Card, and wrapping it in another one here would nest two cards.
+  // This only changes which chrome wraps {children}, never the redirect
+  // logic above, which is identical for every auth route.
+  const isPremiumAuthRoute = ["/login", "/register"].includes(usePathname());
 
   // This layout's job is "redirect away if you land on /login already
   // signed in" (e.g. a restored session, or navigating back after login) —
@@ -76,22 +78,22 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (isLoginRoute) {
+  if (isPremiumAuthRoute) {
     return (
-      <div className="flex min-h-dvh bg-background">
-        <LoginBrandPanel />
-        <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-6 lg:px-12">
-          <Link href="/" className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <LayoutGrid className="size-5" />
-            </div>
-            <div className="leading-tight">
-              <p className="text-base font-semibold tracking-tight text-foreground">TASKORA</p>
-              <p className="text-xs text-muted-foreground">Modern Work OS</p>
-            </div>
-          </Link>
-          <div className="w-full max-w-sm">{children}</div>
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-b from-accent to-background to-40% px-4 py-12">
+        <Link href="/" className="mb-8 flex items-center gap-2.5">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <LayoutGrid className="size-5" />
+          </div>
+          <div className="leading-tight">
+            <p className="text-base font-semibold tracking-tight text-foreground">TASKORA</p>
+            <p className="text-xs text-muted-foreground">Modern Work OS</p>
+          </div>
+        </Link>
+        <div className="w-full max-w-[400px] rounded-2xl border border-border bg-card px-7 py-8 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_24px_48px_-24px_rgba(0,0,0,0.16)] sm:px-9 sm:py-9">
+          {children}
         </div>
+        <p className="mt-8 text-xs text-muted-foreground">© TASKORA. All rights reserved.</p>
       </div>
     );
   }

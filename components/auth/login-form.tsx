@@ -5,11 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { loginSchema, type LoginFormValues } from "@/lib/validation/auth.schema";
 import { loginWithEmail, setRememberMe } from "@/lib/services/auth.service";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -33,7 +32,6 @@ export function LoginForm() {
   // same context, guarantees the destination page never sees a stale value.
   const { user, role, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMeChecked] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [awaitingSession, setAwaitingSession] = useState(false);
 
@@ -51,7 +49,11 @@ export function LoginForm() {
   async function onSubmit(values: LoginFormValues) {
     setAuthError(null);
     try {
-      await setRememberMe(rememberMe);
+      // Persist the session across browser restarts by default — this
+      // screen no longer exposes a "Remember me" toggle (kept minimal per
+      // the current design direction), but the underlying persistence
+      // behavior is preserved rather than silently dropped.
+      await setRememberMe(true);
       await loginWithEmail(values.email, values.password);
       // Firebase Auth succeeded — don't navigate yet. Flip to "waiting for
       // AuthProvider" mode; the effect below redirects once that context has
@@ -82,7 +84,7 @@ export function LoginForm() {
         // developers, show only the clean message to the user.
         console.error("[login] Firebase Auth succeeded but no session/role resolved.", { hasUser: Boolean(user), role });
         setAwaitingSession(false);
-        setAuthError("We couldn't verify your session. Please try signing in again.");
+        setAuthError("We couldn't verify your session. Please sign in again.");
         return;
       }
 
@@ -96,25 +98,25 @@ export function LoginForm() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.75rem]">Welcome back</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Sign in to continue to your workspace.</p>
+      <div className="mb-7 text-center">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Welcome back</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">Log in to continue to TASKORA.</p>
       </div>
 
       {authError && (
-        <div role="alert" className="mb-6 flex items-start gap-2 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+        <div role="alert" className="mb-5 flex items-start gap-2 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
           <span>{authError}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email">Work email</Label>
           <Input
             id="email"
             type="email"
-            placeholder="you@company.com"
+            placeholder="Enter your work email"
             autoComplete="email"
             aria-invalid={errors.email ? "true" : undefined}
             aria-describedby={errors.email ? "email-error" : undefined}
@@ -138,7 +140,7 @@ export function LoginForm() {
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
-              placeholder="••••••••"
+              placeholder="Enter your password"
               autoComplete="current-password"
               className="pr-9"
               aria-invalid={errors.password ? "true" : undefined}
@@ -162,24 +164,18 @@ export function LoginForm() {
           )}
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-foreground">
-          <Checkbox checked={rememberMe} onCheckedChange={(checked) => setRememberMeChecked(Boolean(checked))} />
-          Remember me
-        </label>
-
-        <Button type="submit" disabled={busy} className="w-full">
+        <Button type="submit" disabled={busy} className="mt-1.5 w-full">
           {busy && <Loader2 className="size-4 animate-spin" />}
-          {isSubmitting ? "Signing in..." : awaitingSession ? "Loading your account..." : "Sign in"}
+          {isSubmitting ? "Signing in..." : awaitingSession ? "Signing in..." : "Log in"}
         </Button>
       </form>
 
-      <p className="mt-8 text-center text-sm text-muted-foreground">
+      <div className="mt-6 border-t border-border pt-5 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
-        <Link href="/register" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
-          Get started
-          <ArrowRight className="size-3.5" />
+        <Link href="/register" className="font-medium text-primary hover:underline">
+          Create an account
         </Link>
-      </p>
+      </div>
     </div>
   );
 }

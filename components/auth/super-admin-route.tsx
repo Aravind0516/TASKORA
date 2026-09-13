@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { usePlatformRole } from "@/components/platform/use-platform-role";
+import { isIntentionalLogout } from "@/lib/logout-state";
 
 /**
  * Gates /superadmin/*. Same shape as AdminRoute — real Firebase login is
@@ -27,7 +28,10 @@ export function SuperAdminRoute({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     if (!user) {
-      router.replace("/login");
+      // A deliberate logout also flips `user` to null — its own handler
+      // already owns navigating to "/" for that case; only redirect to
+      // /login for a genuine "never signed in" / session-expired visit.
+      if (!isIntentionalLogout()) router.replace("/login");
       return;
     }
     if (!hasSuperAdminAccess) router.replace("/overview");
