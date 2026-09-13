@@ -2,14 +2,20 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LayoutGrid, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { resolvePostAuthPath } from "@/lib/auth-redirect";
+import { LoginBrandPanel } from "@/components/auth/login-brand-panel";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  // /login gets a two-column layout with LoginBrandPanel on the left;
+  // /register and /forgot-password keep the original centered single-card
+  // treatment below — this only changes which chrome wraps {children},
+  // never the redirect logic above, which is identical for every auth route.
+  const isLoginRoute = usePathname() === "/login";
 
   // This layout's job is "redirect away if you land on /login already
   // signed in" (e.g. a restored session, or navigating back after login) —
@@ -66,6 +72,26 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isLoginRoute) {
+    return (
+      <div className="flex min-h-dvh bg-background">
+        <LoginBrandPanel />
+        <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-6 lg:px-12">
+          <Link href="/" className="mb-8 flex items-center gap-2.5 lg:hidden">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <LayoutGrid className="size-5" />
+            </div>
+            <div className="leading-tight">
+              <p className="text-base font-semibold tracking-tight text-foreground">TASKORA</p>
+              <p className="text-xs text-muted-foreground">Modern Work OS</p>
+            </div>
+          </Link>
+          <div className="w-full max-w-sm">{children}</div>
+        </div>
       </div>
     );
   }

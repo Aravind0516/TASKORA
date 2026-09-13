@@ -60,7 +60,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
     // prevent a repeat of.
     setDemoRole(null);
     await logout();
-    router.replace("/login");
+    router.replace("/");
   }
 
   return (

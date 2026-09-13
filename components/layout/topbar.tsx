@@ -40,7 +40,7 @@ export function Topbar() {
   async function handleLogout() {
     setDemoRole(null);
     await logout();
-    router.replace("/login");
+    router.replace("/");
   }
 
   return (
