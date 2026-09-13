@@ -63,14 +63,24 @@ export async function requireAuth(request: NextRequest): Promise<AuthedContext> 
     if (code === "auth/id-token-expired" || code === "auth/id-token-revoked" || code === "auth/user-disabled") {
       throw new ApiError(401, "Your session has expired. Please log in again.");
     }
-    // Anything else — most notably auth/argument-error, which is what
-    // verifyIdToken throws when the token's project (audience) doesn't
-    // match the Admin SDK's own project, e.g. FIREBASE_ADMIN_PROJECT_ID
-    // pointing at a different Firebase project than
-    // NEXT_PUBLIC_FIREBASE_PROJECT_ID — is a real problem, but not the
-    // user's session being expired. Log the code (never the token) and say
-    // so honestly instead of guessing.
-    console.error("[auth] ID token verification failed:", code ?? "unknown error code");
+    // Anything else — most notably auth/argument-error, which firebase-admin
+    // throws for several distinct reasons (wrong "aud"/"iss" claim because
+    // FIREBASE_ADMIN_PROJECT_ID doesn't match NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    // a malformed/non-JWT string, an invalid signature, or an unrecognized
+    // "kid") — is a real problem, but not the user's session being expired.
+    // error.message is firebase-admin's own human-readable description of
+    // *which* of those it was — it never includes the token or key content,
+    // only claim names/expected-vs-actual project IDs — so it's safe to log
+    // and is the only way to tell these apart without guessing. Token
+    // metadata (never the token itself) narrows it further: a non-JWT-shaped
+    // value points at the client sending the wrong thing entirely.
+    console.error(
+      "[auth] ID token verification failed:",
+      code ?? "unknown error code",
+      "-",
+      error instanceof Error ? error.message : String(error),
+      `| tokenLength=${token.length} jwtParts=${token.split(".").length}`
+    );
     throw new ApiError(401, "We couldn't verify your session. Please try logging in again, or contact an administrator if this keeps happening.");
   }
 
