@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-TASKORA is a real multi-tenant internal company project/task management platform, being upgraded incrementally (see `TASKORA_AUDIT.md` for the current gap analysis and phase plan) toward the fuller company-workflow spec. Firebase is fully wired: Authentication (email/password + an invitation-based onboarding flow) and Firestore (`organizations`, `users`, `teams`, `projects`, `tasks`, `invitations`, `notifications`, `activityLogs` collections), all scoped by `organizationId` and enforced by claims-based, default-deny Firestore rules — not a mock-data prototype. Every module reads/writes real Firestore data live via `onSnapshot`. `lib/mock-data/*` remains in the repo as inert reference/history and is not imported by any live view **except** `lib/mock-data/deliverables.ts`, which the project detail page's "Deliverables" tab still genuinely uses (deliverables aren't part of the Firestore schema yet). Read `AGENTS.md` before touching Next.js APIs/conventions — it is auto-maintained by `next dev` and flags breaking changes versus older Next.js knowledge; commit it along with your other changes.
+TASKORA is a real multi-tenant internal company project/task management platform, being upgraded incrementally (see `TASKORA_AUDIT.md` for the current gap analysis and phase plan) toward the fuller company-workflow spec. Firebase is fully wired: Authentication (email/password + an invitation-based onboarding flow) and Firestore (`organizations`, `users`, `teams`, `projects`, `tasks`, `invitations`, `notifications`, `activityLogs` collections), all scoped by `organizationId` and enforced by claims-based, default-deny Firestore rules — not a mock-data prototype. Every module reads/writes real Firestore data live via `onSnapshot`. `lib/mock-data/*` remains in the repo as inert reference/history and is not imported by any live view **except** `lib/mock-data/deliverables.ts` (the project detail page's "Deliverables" tab — deliverables aren't part of the Firestore schema yet) and `lib/mock-data/platform-data.ts`'s `systemServices` export (imported by `components/platform/platform-provider.tsx` and shown, unchanged, on the Super Admin `system`/`analytics`/`overview` views as a static platform-service-status display — there is no real infrastructure-monitoring integration behind it). Read `AGENTS.md` before touching Next.js APIs/conventions — it is auto-maintained by `next dev` and flags breaking changes versus older Next.js knowledge; commit it along with your other changes.
 
 ## Locked technology stack
 
@@ -36,11 +36,14 @@ Do not change without asking the user first:
 ## Commands
 
 - Install: `npm install`
+- Env setup: copy `.env.example` to `.env.local` and fill in Firebase client config, `FIREBASE_ADMIN_*` (service account JSON from Firebase Console), and `RESEND_API_KEY` — see the comments in `.env.example` for what each var does and which are safe to leave unset in dev.
 - Dev server: `npm run dev` (http://localhost:3000)
 - Production build: `npm run build`
 - Start built app: `npm run start`
 - Lint: `npm run lint`
 - Deploy Firestore rules/indexes: `firebase use taskora && firebase deploy --only firestore` (needs `firebase login` + the CLI — **not** run automatically by `npm run build`; a rules or index change in the repo does nothing live until this is run)
+- Bootstrap the first Super Admin (one-off, local shell with Admin SDK env vars set): `node scripts/bootstrap-super-admin.mjs <email>` — the target email must already have a real Firebase Auth account (register through the app first).
+- Bootstrap the first Admin of an org for local dev/testing, bypassing the invitation-email flow: `node scripts/bootstrap-admin.mjs <email> "<organization name>"` — same real-account prerequisite; reuses an existing org by exact name match or creates one.
 - No test runner is configured yet.
 
 ## Architecture

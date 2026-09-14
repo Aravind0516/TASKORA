@@ -1,134 +1,168 @@
 # TASKORA — Repository Audit
 
-Date: 2026-09-12
-Scope: Phase 1 audit only, per the "upgrade to a real internal company platform" request. No code was changed to produce this document.
+Date: 2026-09-15
+Scope: Full re-audit of the actual current codebase, requested because the previous version of this document (dated 2026-09-12) had drifted from the code it shipped alongside — see §0. No code was changed to produce this document; this is a documentation-only regeneration, approved as a standalone step.
 
 ## 0. Headline finding — read this first
 
-**`CLAUDE.md` in this repo is significantly out of date.** It describes a single-tenant-per-account model ("every document carries `ownerId`... Team collaboration beyond one's own roster is not implemented"). That is **not** the current state of the code. The actual app has already been substantially built out into a real multi-tenant platform: organizations, an admin-invitation system, three system roles, org-scoped Firestore rules, real Resend email, functional (non-auth) roles, and a working end-to-end invite → accept → login flow, all verified live against real Firebase in prior work. `CLAUDE.md` should be rewritten once this phase's direction is agreed — I have **not** touched it, since the instructions said not to modify code before the audit.
+**The previous `TASKORA_AUDIT.md` was itself stale**, in the opposite direction from the failure mode it originally warned about. It described comments, subtasks, attachments, meetings, and calendar as "not started," and claimed `storage.rules` "doesn't exist in this repo." None of that is true of the code actually in the repository: all five of those features are implemented, and `storage.rules` exists with a full claims-based rule set mirroring `firestore.rules`. The most likely explanation is that the audit document and a large amount of feature code landed together in one squashed commit (`40d6096`, "Initial TASKORA production version"), so the doc reflects an earlier point in development than the code it was committed alongside.
 
-Because of this, "already implemented" below is considerably larger than the stale doc suggests. The real gap between current state and the new spec is narrower than a from-scratch read of `CLAUDE.md` would imply — this is an *upgrade*, not a build-from-zero, and the plan should reflect that.
+This regeneration is based strictly on reading the current files — route tree, `firestore.rules`, `storage.rules`, `types/*.ts`, `lib/services/*`, `lib/server/*`, relevant components — plus running `npm run lint` and `npm run build` in this session. It does **not** re-confirm anything by running the app against live Firebase (no dev server was started, no browser session was run, no `firebase deploy` was executed, per this task's constraints). Where the previous audit asserted something was "tested live," that claim is **not** re-verified here — see the live-verification caveat in each section and the category key below.
 
----
+## 1. Category key (used throughout)
 
-## 1. Current architecture (verified against the actual code, not the stale doc)
+1. **Implemented** — the code exists and is wired end-to-end (types → service → UI or rule), confirmed by direct reading.
+2. **Implemented and live-verified** — implemented, *and* actually exercised against a running app / real Firebase in this session. (No items in this audit currently qualify — this session did not run the dev server or a browser.)
+3. **Implemented but not live-verified** — implemented per static reading and passes `lint`/`build`, but not exercised at runtime in this session. This is the status of nearly everything below.
+4. **Not implemented** — no code found.
+5. **Known limitation** — implemented, working as designed, but intentionally partial or with a documented gap.
 
-- **Next.js 16 (App Router) + TypeScript**, Tailwind v4, shadcn/ui **on Base UI** (not Radix — `render` prop, not `asChild`), Lucide icons. `npm run lint` and `npm run build` both pass clean right now.
-- **Three route surfaces**, each with its own layout/shell:
-  - `app/(app)/*` — the individual contributor experience (`/overview`, `/projects`, `/projects/[id]`, `/tasks`, `/kanban`, `/team`, `/analytics`, `/settings`), gated by `ProtectedRoute`, fed by `components/workspace/workspace-provider.tsx` (one real-time hub, one `onSnapshot` per collection, **already scoped by the signed-in user's real `organizationId`** from Firebase custom claims — not a legacy single-tenant listener as `CLAUDE.md` implies).
-  - `app/admin/*` — Admin console (`/admin`, `/admin/organization`, `/admin/users`, `/admin/teams`, `/admin/projects`, `/admin/tasks`, `/admin/analytics`, `/admin/activity`, `/admin/settings`), gated by `AdminRoute`, fed by `components/platform/platform-provider.tsx` (same real Firestore data, mapped into the admin UI's display shapes).
-  - `app/superadmin/*` — platform-wide console (`/superadmin` + organizations/admins/users/projects/teams/activity/analytics/system/settings), gated by `SuperAdminRoute`, reads **all** organizations' data (rules-enforced).
-- **Auth**: Firebase Authentication (email/password). `components/auth/auth-provider.tsx` is the single source of truth for `{ user, role, organizationId }`, read exclusively from the verified ID token's custom claims — never a client-editable Firestore field. Three system roles exist today: `super_admin | admin | user` (see §6 — this does not match the new spec's `ADMIN / PROJECT_MANAGER / TEAM_MEMBER`, a decision point, not an oversight).
-- **Organizations**: `organizations` collection, self-serve bootstrap (`POST /api/organizations/self-serve` — a signed-in, org-less account creates an org and becomes its admin) plus a Super-Admin-only `POST /api/organizations` path. Fields: `id, name, slug, description, industry?, contactEmail?, plan, ownerId, adminIds[], memberIds[], status, createdAt, updatedAt`.
-- **Teams**: `teams` collection scoped by `organizationId`, with `leadUserId | null` (Team Lead, optional, never blocks team creation), `memberIds[]`, `createdBy`. Admin UI supports create/edit/delete, Team Lead selection from same-org users only, and member assignment via the Users page (bidirectional `users.teamIds` ↔ `teams.memberIds` sync, verified live).
-- **Projects**: `projects` collection scoped by `organizationId`, fields `teamId, name, description, status (Planning/Active/On Hold/Completed), priority (Low/Medium/High/Critical), progress, startDate, dueDate, ownerId, memberIds[], archived`. `ownerId` is **server/rules-enforced** to equal the authenticated creator (`firestore.rules`: `request.resource.data.ownerId == request.auth.uid` on create) — a client can never submit another account's uid as owner. **No `PROJECT_MANAGER`/`managerId` concept exists yet** — see §3.
-- **Tasks**: `tasks` collection scoped by `organizationId`, fields `teamId, projectId, ownerId (creator), title, description, status (Backlog/To Do/In Progress/In Review/Completed), priority, assignedTo, dueDate, labels[]`. Assignee may self-update only `status`/`updatedAt` (drag-and-drop-safe); everything else is admin-only. **No `Blocked` status, no `reviewerId`, no `estimatedHours`/`actualHours`, no `createdBy` distinct from `ownerId`, no tags beyond `labels[]` (unused in UI), no subtasks.**
-- **Invitations**: `invitations` collection (Admin-SDK-only writes, `allow write: if false` in rules), secure random token hashed with SHA-256 (raw token never stored), 7-day default expiry, org-and-team ownership validated server-side, duplicate-email and already-has-account checks, functional-role validated against a fixed allow-list. Acceptance (`POST /api/invitations/accept`) creates the real Firebase Auth account, sets custom claims, batches Firestore writes (user doc, org `memberIds`, team `memberIds`, invitation status) atomically. **Fully tested live end-to-end**, including cross-organization isolation and self-promotion denial.
-- **Email**: Resend is the only provider, correctly integrated (`lib/server/email.ts`), invitation creation never blocks on email failure. **No verified sending domain exists on the Resend account**, so a dev/demo escape hatch (`EMAIL_DELIVERY_OPTIONAL=true`) skips the automatic send and instead surfaces a Copy-Invitation-Link + explicit Send-Email flow, always honest about `emailSent`. This is a known, accepted limitation for the current (B.Tech/demo) deployment, not a bug.
-- **Functional roles**: a separate, non-authorization `functionalRole` field on `users` (Frontend Developer, Backend Developer, AI/ML Engineer, Data Analyst, UI/UX Designer, QA/Tester, DevOps/Cloud Engineer, Project Manager, Full Stack Developer) — assignable by Admin at invite time or via edit, shown in the Users table, Team Directory cards, member detail sheet, and project member/task-assignee selectors (filtered to the selected team). **Note: "Project Manager" already exists here as a functional-role *label*, not a system role or `managerId` field** — relevant to §3/§6.
-- **Notifications**: `notifications` collection + `types/notification.ts` + `lib/services/notification.service.ts` + a bell/menu UI (`components/layout/notifications-menu.tsx`) already exist, scoped per-user, with `read` toggling. Trigger coverage is narrow today (task assigned/status-changed/due-soon/completed, project updated, invitation accepted) — most of the new spec's trigger list (task reassigned, mentioned/commented, moved to review, member added) is not wired yet, mostly because the underlying events (comments, review step) don't exist yet either.
-- **Activity log**: `activityLogs` collection, already covers org/team/project/task/invitation lifecycle events, with a unified `ActivityType` vocabulary, org-scoped read rule, and a rule that lets any org member write *routine* CRUD activity but reserves sensitive platform events (org/admin/invitation lifecycle) for server-only (Admin SDK) writes. Displayed on Admin/Super Admin activity pages and the project detail page.
-- **Dashboard/Analytics**: `(app)/overview` and `(app)/analytics` (individual-scope) plus `admin/analytics` and `superadmin/analytics` (org-/platform-scope) already compute KPIs and Recharts visualizations from real Firestore data (`lib/analytics.ts`), not hardcoded — completion trend, status/priority distribution, upcoming deadlines, recent activity all present in some form already.
-- **Global search**: exists (`components/layout/global-search.tsx`) — client-side substring match across the already-loaded `projects`/`tasks`/`members` arrays from `useWorkspace()`. No dedicated search page, no team/task deep-linking (tasks/team results link to the list page, not the specific item).
-- **Settings**: profile (name via `updateDisplayName`, avatar-less), notification-preference toggles (**UI-only — not yet wired to a Firestore write; toggling does not persist**), organization settings for Admin (`admin-organization-view.tsx`, name/description/industry/contactEmail via the existing update rule). No theme/appearance settings exist (no dark-mode toggle UI found, though CSS supports `prefers-color-scheme`-style tokens architecturally).
-- **Firestore security rules** (`firestore.rules`) are **already** claims-based, org-scoped, default-deny, and were deployed live and verified (self-promotion denial, cross-org read/write denial, project-owner spoof denial all tested and passing). Not the `allow read, write: if true` anti-pattern the new instructions warn against.
-- **Firestore indexes** (`firestore.indexes.json`) — four composite indexes exist (`projects`/`tasks` by `organizationId`+`updatedAt`, `activityLogs` by `organizationId`+`createdAt`, `notifications` by `userId`+`createdAt`), deployed and confirmed `READY` against the live project. Some **stale leftover indexes** from an earlier single-tenant schema (`ownerId`/`userId`-keyed on `projects`/`tasks`) remain on the live project, unused but harmless — flagged for cleanup, not urgent.
-- **No Firebase Storage usage anywhere in the app code** (only the client-config env var exists; no `firebase/storage` import, no upload UI, no `deliverables`/`attachments` Firestore fields). File attachments are entirely unimplemented.
-- **No comments/discussions on tasks or projects** — no type, no collection, no UI.
-- **No subtasks** — no type, no collection, no UI, no completion-percentage rollup.
-- **No calendar/work-planning view, no meetings/action-items feature.**
-- **Demo/seed data mechanism**: `scripts/bootstrap-admin.mjs` and `scripts/bootstrap-super-admin.mjs` (Admin-SDK, one-off Node scripts, not run automatically) are the only seeding mechanism. `lib/mock-data/*` (analytics, deliverables, notifications, platform-data) remains in the repo as **inert reference/history**, not imported by any live production view **except** `lib/mock-data/deliverables.ts`, which the project detail page's "Deliverables" tab still genuinely uses (a known, intentional scope boundary from an earlier phase — deliverables aren't in the Firestore schema yet).
-- **Landing page** (`components/landing/*`, ~15 files) is a fully built marketing/demo page at `/` — outside the scope of this internal-tool upgrade but present and working.
+## 2. Build/lint/test status (verified this session)
 
-## 2. Concrete inconsistency found during this audit
+- `npm run lint` — **passes clean**, zero errors/warnings.
+- `npm run build` — **passes clean**. `next build` (Next.js 16.3.4, Turbopack) compiles successfully, TypeScript check passes, all 39 routes generate (static + the dynamic API/`[id]`/`[token]` routes). [Implemented, build-verified]
+- No test runner is configured (`package.json` has no `test` script, no `jest`/`vitest`/`playwright` dependency). [Known limitation — matches `CLAUDE.md`'s own statement]
+- Firestore/Storage rules deployment status to the live project (`taskora-38082`) was **not checked** in this session (`firebase deploy` was out of scope). Whether the rules committed in `firestore.rules`/`storage.rules` match what's actually live cannot be confirmed from a repo read alone — see `CLAUDE.md`'s own standing warning about this exact failure mode. [Not live-verified]
 
-**Two separate Project create/edit dialogs exist**, and they are not equivalent:
+## 3. Authentication and role routing
 
-- `components/admin/project-form-dialog.tsx` (used by `/admin/projects`) — already upgraded: no client-editable Owner field (owner is always the authenticated Admin, shown read-only), team-scoped member picker with functional-role labels.
-- `components/projects/project-form-dialog.tsx` (used by `/projects` and `/projects/[id]` in the individual-contributor shell) — **still has an editable Owner `<Select>`** defaulting to the current uid but allowing a different value to be chosen. Since `firestore.rules` now unconditionally requires `ownerId == request.auth.uid` on project create (closed at the rules layer, so no actual security hole), submitting a non-self owner through this older dialog will simply fail with a Firestore permission error — a real, user-facing bug, not a security gap. This dialog needs the same owner-field fix applied to the admin one.
+- Firebase Authentication (email/password), single source of truth in `components/auth/auth-provider.tsx` — reads `role`/`organizationId` **only** from the verified ID token's custom claims via `getSessionIdentity` (`lib/services/user.service.ts`), never a Firestore field. [Implemented]
+- Three system roles: `super_admin`, `admin`, `user`. Set **exclusively** server-side, from exactly four code paths, all Admin-SDK-gated: `scripts/bootstrap-super-admin.mjs`, `scripts/bootstrap-admin.mjs`, `lib/server/organizations.ts`'s `claimNewOrganizationForSelf` (self-serve org creation), and `lib/server/invitations.ts`'s `acceptInvitation`. No other `setCustomUserClaims` call exists in the repo. [Implemented]
+- Post-login routing: `lib/auth-redirect.ts` + `ROLE_HOME_PATH` (`lib/platform/constants.ts`) → `super_admin → /superadmin`, `admin → /admin`, `user → /overview`. An org-less self-registered account (no claims yet) resolves to `role: "user"`, `organizationId: null`, lands on `/overview`. [Implemented]
+- Route guards (`components/auth/protected-route.tsx`, `admin-route.tsx`, `super-admin-route.tsx`) read `useAuth()` + `usePlatformRole()`: `ProtectedRoute` requires any signed-in account (redirects to `/login`); `AdminRoute` requires `admin`/`super_admin` (else `/overview`); `SuperAdminRoute` requires exactly `super_admin`. These are UI-routing convenience only — the actual authorization boundary is `firestore.rules` + `lib/server/auth.ts`'s `requireAuth`/`requireRole`, which independently re-verify the ID token server-side. [Implemented]
+- Login/registration: `/login` (`components/auth/login-form.tsx`) and a 2-step `/register` flow (`components/auth/register-flow.tsx`: account creation, then `create-workspace-step.tsx` calling `POST /api/organizations/self-serve`) — recently redesigned (see git log: "Jira-inspired auth and 2-step registration onboarding," "premium two-column /login"). `/forgot-password` exists as a separate route. [Implemented]
+- Dev-only demo role switcher (`components/platform/demo-role-provider.tsx`): gated by `isDemoModeEnabled = process.env.NODE_ENV !== "production"` — confirmed by direct read this session — changes only which shell renders, never actual Firestore access (rules are claims-based regardless). [Implemented, code-verified]
 
-This kind of drift (two UI implementations of the same underlying Firestore write, evolved at different times) is worth watching for elsewhere as the org/team/role model deepens in this phase.
+## 4. Organization isolation (multi-tenancy)
 
-## 3. Gap vs. the new spec's role model — the one decision that should be made before Phase B starts
+- `organizationId` is the hard boundary on every `projects`/`tasks`/`subtasks`/`comments`/`attachments`/`teams`/`meetings`/`invitations`/`activityLogs`/`notifications` document, enforced in `firestore.rules` — never assumed client-side; write rules re-derive the real parent's `organizationId` via `get()` (`taskOrgId()`, `projectOrgId()`) rather than trusting the client-declared value on comments/attachments/subtasks. [Implemented]
+- `organizations` document itself carries `ownerId`/`adminIds[]`/`memberIds[]`, mutated only via `lib/server/organizations.ts` (Admin SDK) or invitation acceptance — never a direct client write to those fields (rules' `organizations` update rule only allows non-sensitive profile fields for that org's admin). [Implemented]
+- Self-serve org creation (`POST /api/organizations/self-serve`) requires the caller to have no existing `organizationId` and not already be `super_admin`; Super-Admin-only org creation (`POST /api/organizations`) is a separate path. [Implemented]
 
-The new instructions specify three roles: **ADMIN / PROJECT_MANAGER / TEAM_MEMBER**, with `managerId` on projects and `reviewerId` on tasks.
+## 5. Firestore security rules
 
-The current, already-working, already-rules-enforced system has a **different, already-multi-tenant** three-role model: **super_admin (platform owner) / admin (organization owner) / user (org member)**, with a separate, non-authorization `functionalRole` field (which already includes a "Project Manager" *label*), and no per-project manager assignment concept yet.
+`firestore.rules` (419 lines) — claims-based, org-scoped, default-deny (`match /{document=**} { allow read, write: if false; }` catch-all). Collections covered: `users`, `organizations`, `teams`, `projects`, `tasks`, `subtasks`, `comments`, `attachments`, `meetings`, `invitations`, `activityLogs`, `notifications`. Notable patterns confirmed by direct read:
 
-These are not the same shape, and reconciling them is the single highest-leverage decision for this phase, because it touches Firebase custom claims, `firestore.rules`, every route guard (`AdminRoute`/`SuperAdminRoute`), the invitation system's role field, and the bootstrap scripts. I have **not** guessed at an answer or started renaming anything. Two realistic paths, with a recommendation:
+- `onlyChangingFields()` allow-lists gate every self-editable/partially-editable document (`users`, `comments` content, `notifications.read`, project manager's day-to-day fields).
+- `projects.ownerId` is pinned unchanged on update in both the admin branch and the manager branch's field allow-list (the "PROJECT OWNER fix" the rules file documents in its own comments).
+- `projects.managerId` grants project-scoped elevated permissions via `isManagerOfProject()`, a `get()` lookup — not an account-wide claim. Also enforced identically in `storage.rules` for attachment deletion.
+- `tasks` support an assignee-only `status`-only self-update path (Kanban drag-drop), separate from the admin/manager full-edit path.
+- Sensitive `activityLogs` actions (`organization_*`, `admin_*`, `user_invited`/`_resent`/`_cancelled`/`_accepted`/`_joined`) are excluded from the org-member client-write rule — server-only.
 
-- **Option A (additive, lower-risk, recommended):** Keep the existing, working, tested `super_admin/admin/user` system-role tier exactly as-is (it already cleanly maps to the new spec's ADMIN tier plus a platform-owner tier the new spec doesn't explicitly ask for but doesn't forbid either). Add a **project-scoped** `managerId` field to `projects` (a specific `user` who gets elevated *project-scoped* permissions: manage that project's members/tasks/reviews) enforced via `firestore.rules` checking `resource.data.managerId == request.auth.uid` in addition to the existing org-admin check. This delivers everything PHASE 3/4/5's `PROJECT_MANAGER` capabilities ask for without renaming a single already-deployed custom claim or breaking the invitation/bootstrap/rules code that already works and is already tested.
-- **Option B (rename, higher-risk):** Actually rename the system roles to `ADMIN/PROJECT_MANAGER/TEAM_MEMBER`, collapsing `super_admin` into `ADMIN` (losing the platform-wide multi-org oversight tier, unless kept as a fourth hidden role) and making `PROJECT_MANAGER` a genuine account-wide role rather than a per-project assignment. This is a bigger, riskier change: it invalidates already-issued custom claims (every existing user needs a claims migration), rewrites every rule and route guard, and removes the multi-organization Super Admin capability the new spec doesn't ask for but the current app already delivers and has tested.
+`storage.rules` (148 lines) — **exists** (the previous audit's claim that it didn't was wrong), mirrors the Firestore claims model, path-verifies attachments against the real Firestore parent document via `firestore.get()`, enforces a content-type allowlist (no executables) and a 10MB size cap. [Implemented]
 
-I'd like your decision on this before Phase B, since it changes the shape of nearly everything downstream (rules, claims, invitation payload, UI labels).
+[Not live-verified: whether these exact rule files are the ones currently deployed to `taskora-38082` was not checked this session.]
 
-## 4. Existing features (map to the new spec's phases)
+## 6. Projects
 
-| New spec phase | Status |
+- `types/project.ts`: `organizationId`, `teamId`, `status` (Planning/Active/On Hold/Completed), `priority`, `progress`, `startDate`/`dueDate`, `ownerId`, **`managerId: string | null`**, `memberIds[]`, `archived`. [Implemented — this resolves the previous audit's open §3 decision in favor of "Option A, additive," and it has visibly already been built, not just decided.]
+- Two project create/edit dialogs exist (`components/admin/project-form-dialog.tsx` for `/admin/projects`, `components/projects/project-form-dialog.tsx` for the individual shell) — **the previously-flagged bug is fixed**: both now render Owner as a read-only display (`ownerName`), not an editable `<Select>`. Confirmed by direct read — no owner-`<Select>` exists in either file anymore. [Implemented, previously-flagged bug resolved]
+- Project health (`lib/project-health.ts`'s `calculateProjectHealth`) — deterministic Healthy/At Risk/Critical with explainable reasons (overdue/blocked task counts, deadline proximity, completion %), consumed by `components/team/workload-view.tsx`, `components/dashboard/project-progress-list.tsx`, `components/admin/admin-projects-view.tsx`, `components/projects/project-detail-view.tsx`, `components/projects/project-card.tsx`. [Implemented — the previous audit listed this as "Not started"; it is not.]
+- Project detail page (`app/(app)/projects/[id]/page.tsx` → `project-detail-view.tsx`) has 7 tabs: Overview, Tasks, Members, **Deliverables, Files, Discussion, Activity**. Files = real attachments, Discussion = real comments (see §9/§10), Activity = real `activityLogs`. **Deliverables is the one tab still backed by `lib/mock-data/deliverables.ts`**, not Firestore — confirmed, matches `CLAUDE.md`'s documented exception. [Known limitation, documented]
+
+## 7. Tasks
+
+- `types/task.ts`: status now includes **`Blocked`** (`Backlog | To Do | In Progress | In Review | Blocked | Completed`), plus **`reviewerId`** (descriptive only, never authorization — rules' `isValidReviewer()` still validates it's a same-org uid), **`estimatedHours`/`actualHours`** (validated non-negative via rules' `isValidHours()`), `labels[]`. All four fields are wired into `components/tasks/task-form-dialog.tsx`'s actual form (reviewer picker, hours inputs registered with RHF, labels). [Implemented — the previous audit listed all of these as missing; they are not.]
+- Assignee self-update path limited to `status`/`updatedAt` only (rules-enforced), matching Kanban drag-and-drop. Admin and the project's manager (via `managerId`) get full task CRUD scoped to their org/project respectively. [Implemented]
+- No dedicated task-detail route (`app/(app)/tasks` has no `[id]` page) — a task's comments/subtasks/attachments are only reachable via the edit dialog, not a standalone URL. [Known limitation]
+
+## 8. Subtasks
+
+- `types/subtask.ts`, `lib/services/subtask.service.ts` (CRUD + `subscribeToSubtasks`, `toggleSubtaskCompleted`), `lib/validation/subtask.schema.ts`. Rules block (`match /subtasks/{subtaskId}`) verifies `organizationId` against the real parent task via `taskOrgId()`, pins `taskId` unchanged on update. A composite index exists for `subtasks` (`taskId` asc + `order` asc) in `firestore.indexes.json`. [Implemented]
+- UI: `components/tasks/subtask-checklist.tsx`, rendered inside `task-form-dialog.tsx` only when editing an existing task (not available at task-creation time). Local completion-percentage progress bar exists in the checklist component itself. [Implemented]
+- **Subtask completion does not roll up into the parent task's `progress`/`status`** — confirmed `lib/services/task.service.ts` has no subtask references. Purely a display-local computation inside the checklist. [Known limitation — previous audit's finding on this point still holds]
+
+## 9. Comments
+
+- `types/comment.ts`, `lib/services/comment.service.ts`, `lib/validation/comment.schema.ts`. Rules block enforces author-only content edit (`onlyChangingFields(["content","updatedAt"])`), author-or-org-admin delete, and the same "verify against the real parent" pattern as subtasks (`projectOrgId()`/`taskOrgId()`) for create. [Implemented]
+- UI: `components/comments/comment-section.tsx`, used in the project detail page's Discussion tab (project-level comments) and embedded (compact) in `task-form-dialog.tsx` for task-level comments. Includes author-only edit/delete and a notification hookup (`notifyRecipientIds`). [Implemented — previous audit listed this as "Not started"; it is not.]
+
+## 10. Notifications
+
+- `types/notification.ts`, `lib/services/notification.service.ts`, bell/menu UI (`components/layout/notifications-menu.tsx`), per-user scoped (`isSelf(resource.data.userId)`), `read` toggle via a field-restricted update rule. [Implemented]
+- Creation is peer-to-peer capable: any org member may notify another verified same-org member, with `isValidNotificationRecipient()` re-deriving the real recipient org from their user doc (never trusting the client-declared org) and `actorId` pinned to the caller (anti-impersonation). [Implemented]
+- Notification-preference toggles (Settings page) **do persist** — `components/settings/settings-view.tsx` calls `updateNotificationPreferences` (`lib/services/user.service.ts`) on toggle, with an optimistic-flip-and-revert-on-failure pattern, and syncs the loaded value via the render-body "adjust state when a value changes" pattern the project's own conventions call for (not a `useEffect`+`setState`). **This corrects the previous audit's claim that these toggles were "UI-only... does not persist."** [Implemented — previously-flagged gap is resolved]
+- Trigger coverage (which events actually fire a notification) was not fully re-enumerated this session; the previous audit's note that coverage is narrower than a hypothetical full spec (no explicit re-check of "mentioned in a comment," "moved to review," etc.) is plausible but not re-verified line-by-line here.
+
+## 11. Attachments / Firebase Storage
+
+- `types/attachment.ts`, `lib/services/attachment.service.ts` — genuinely imports and uses `firebase/storage` (`uploadBytesResumable`, `getBlob`, `deleteObject`, `ref`), not just Firestore metadata. Upload-then-record pattern with orphan cleanup if the Firestore write fails after a successful Storage upload. [Implemented — previous audit listed this as entirely unimplemented with "no `firebase/storage` import anywhere"; that is no longer true of the current code.]
+- `lib/validation/attachment.ts`: `MAX_ATTACHMENT_SIZE_BYTES` (10MB), `ALLOWED_ATTACHMENT_TYPES` (PDF/Word/Excel/PowerPoint/CSV/TXT/PNG/JPEG/GIF/WEBP), cross-checked against `storage.rules`' own `isAllowedContentType()`/`isWithinSizeLimit()` (client validation is UX convenience; Storage rules are the real enforcement). [Implemented]
+- UI: `components/attachments/attachment-section.tsx` — real upload button with progress, authenticated-blob download (not a public `getDownloadURL()`), uploader-only delete (plus org-admin/project-manager per rules). Rendered in the project detail page's Files tab and (compact) in the task edit dialog. [Implemented]
+- Storage path convention encodes `organizationId`/`projectId`/`taskId?`/`attachmentId` — the attachment's own Firestore doc id is the final path segment, never the original filename, so nothing user-controlled sits in the path. [Implemented]
+
+## 12. Calendar
+
+- `app/(app)/calendar/page.tsx` → `components/calendar/calendar-view.tsx`. Real month/week grid (42-cell month view, 7-day week view), prev/next/today navigation, color-coded entries for task due dates, project deadlines, and meetings, with per-day overflow ("+N more") in month view. [Implemented]
+- Deliberately has **no dedicated Firestore collection or service** — it's a derived view over `useWorkspace()`'s already-loaded tasks/projects/meetings, documented as an intentional choice in the component's own top comment (not a missing feature). Permissions are inherited from those underlying subscriptions. [Implemented — previous audit listed this as "Not started"; it is not.]
+
+## 13. Meetings
+
+- `types/meeting.ts`, `lib/services/meeting.service.ts`, `lib/validation/meeting.schema.ts`. Rules block: read is Admin/organizer/participant-only (**deliberately not org-wide**, unlike projects/tasks — matches an explicit "regular member sees only what they organize or attend" design choice documented in the rules' own comments); `organizationId`/`organizerId`/`projectId` pinned unchanged on update. [Implemented]
+- UI: `components/meetings/meetings-view.tsx` + `meeting-form-dialog.tsx` — full create/edit/cancel/delete, Upcoming/Past sections, organizer/participant avatars, optional project link and meeting URL. `app/(app)/meetings/page.tsx` renders this directly, not a stub. [Implemented — previous audit listed this as "Not started"; it is not.]
+- List view only within the Meetings page itself; the grid/calendar rendering of meetings lives in the separate Calendar feature (§12), which pulls meetings in as one of its three entry types.
+
+## 14. Productivity (team workload)
+
+- `lib/workload.ts`'s `calculateMemberWorkload` — deterministic LOW/NORMAL/HIGH/OVERLOADED classification from real assigned-task counts (pending/blocked/overdue/active-projects), explicitly documented as never tracking behavioral signals (keystrokes, time-in-app). Consumed by `components/team/workload-view.tsx`, itself a tab inside `components/team/team-tabs-view.tsx` (the `/team` page). [Implemented — previous audit listed this as only "Partially done" with "dedicated workload-distribution view not built"; a dedicated view exists.]
+
+## 15. Admin / Super Admin
+
+- Admin console (`app/admin/*`, `AdminRoute`, `PlatformProvider`): organization profile, users (edit name/title/teamIds/functionalRole/status, suspend/activate — via client-side `updateUser`, safe because `firestore.rules`' admin-update branch excludes `role`/`organizationId` from the allow-list), teams, projects, tasks, analytics, activity log. [Implemented]
+- Super Admin console (`app/superadmin/*`, `SuperAdminRoute`): platform-wide read across all organizations (rules: `isSuperAdmin()` bypasses the org-scoping check on every collection). Includes an `admins`/`organizations`/`projects`/`teams`/`users`/`activity`/`analytics`/`system`/`settings` set of pages. [Implemented]
+- **The Super Admin `system`, `analytics`, and `overview` views consume `systemServices` from `lib/mock-data/platform-data.ts`** (`components/platform/platform-provider.tsx` imports `systemServices as seedSystemServices` and exposes it unchanged through the provider's context; consumed by `superadmin-system-view.tsx`, `superadmin-analytics-view.tsx`, `superadmin-overview-view.tsx`). **This is a second, real exception to `CLAUDE.md`'s "only `deliverables.ts`" claim** — corrected in `CLAUDE.md` as part of this audit (see §18). It renders a hardcoded platform-service-status list (e.g., API/Database/Email uptime), not a real infrastructure health check — there is no live monitoring integration to be real about, so this is a plausible permanent placeholder rather than an oversight, but the doc needed to say so accurately. [Implemented as a static display; not backed by real monitoring]
+
+## 16. Environment configuration
+
+`.env.example` documents: 6 `NEXT_PUBLIC_FIREBASE_*` client vars, `NEXT_PUBLIC_APP_URL` (optional), 3 `NEXT_PUBLIC_DEMO_*_EMAIL` (dev-only login hints, no auth effect), 3 `FIREBASE_ADMIN_*` (server-only, `server-only`-guarded), `RESEND_API_KEY`/`RESEND_FROM_EMAIL`, `EMAIL_DELIVERY_OPTIONAL` (default `false`), `INVITATION_TTL_DAYS` (default 7).
+
+Confirmed this session (values not read, only presence checked): the local `.env.local` has all 6 client Firebase vars, all 3 `FIREBASE_ADMIN_*` vars, `RESEND_API_KEY`, and `EMAIL_DELIVERY_OPTIONAL` set. `RESEND_FROM_EMAIL`, `NEXT_PUBLIC_APP_URL`, `INVITATION_TTL_DAYS`, and the three demo-email hints are unset locally (all have safe defaults or are optional). [Implemented, config present for local dev]
+
+## 17. Vercel deployment
+
+- No `vercel.json` in the repo — deployment relies on Vercel's zero-config Next.js App Router detection.
+- `package.json` pins `"engines": { "node": "22.x" }`. Git history shows this, plus three other deployment-specific fixes, were needed to get this app running on Vercel: `fix: pin Node.js 22.x runtime to resolve ERR_REQUIRE_ESM on Vercel`, `fix: force jose CJS build under jwks-rsa to eliminate ERR_REQUIRE_ESM`, `fix: normalize FIREBASE_ADMIN_PRIVATE_KEY parsing for hosting dashboards`, `fix: reject malformed FIREBASE_ADMIN_PROJECT_ID instead of silently using it`. This indicates real Vercel-specific friction was hit and resolved, not just local-build risk. [Not live-verified this session — whether the current `main` branch is actually deployed and working on Vercel right now was not checked; only local `npm run build` was run.]
+- `README.md` is still the unedited `create-next-app` boilerplate — no project-specific deployment runbook exists in-repo. [Known limitation]
+
+## 18. `CLAUDE.md` accuracy review — corrections made
+
+`CLAUDE.md` was compared line-by-line against the current code (not just this audit's own findings). It was overwhelmingly accurate — far more so than the previous `TASKORA_AUDIT.md` was — and already correctly documents `managerId`, `functionalRole`, the invitation system, the render-body state-sync pattern, the `onlyChangingFields` rule pattern, and more. One inaccuracy was found and corrected in this pass:
+
+- **Mock-data usage claim.** `CLAUDE.md` stated `lib/mock-data/*` is unused live "except `lib/mock-data/deliverables.ts`." In fact, `components/platform/platform-provider.tsx` also imports `systemServices` from `lib/mock-data/platform-data.ts` and exposes it live to three Super Admin views (`system`, `analytics`, `overview`). `CLAUDE.md`'s "Project status" paragraph has been updated to name both exceptions instead of one. No other inaccuracies were found in `CLAUDE.md` during this pass.
+
+No other edits were made to `CLAUDE.md` — it was not restructured, and no other claims in it were altered.
+
+## 19. Summary table
+
+| Area | Status |
 |---|---|
-| Organization & team management (Phase 2) | **Mostly done.** Org CRUD (self-serve + Super Admin path), team CRUD, Team Lead, member add/remove, team workload view. Missing: dedicated "view team projects" panel (projects are filterable by team but no team-centric project list exists yet). |
-| Roles & permissions (Phase 3) | **Different shape than requested — see §3.** Enforced via Firebase custom claims + Firestore rules already (not frontend-only), which matches the new spec's *requirement*, just not its exact role names. |
-| Project management (Phase 4) | **Mostly done** except `managerId`, "Archived" as a distinct status (currently just an `archived: boolean` flag alongside status), project discussions, project files. |
-| Task management (Phase 5) | **Partially done.** Missing: `Blocked` status, `reviewerId`, `estimatedHours`/`actualHours`, tags in UI, submit-for-review step, comments, attachments. |
-| Subtasks (Phase 6) | **Not started.** |
-| Kanban (Phase 7) | **Done and stable** — reliable status-change controls exist (`components/kanban/*`); confirm drag-and-drop stability before deciding whether to touch it. |
-| My Tasks (Phase 8) | **Mostly done** (`(app)/tasks` — `components/tasks/task-management-view.tsx`) — filters/search/sort exist; confirm Today/Upcoming/Overdue groupings match the new spec exactly. |
-| Comments (Phase 9) | **Not started.** |
-| File attachments (Phase 10) | **Not started.** No Storage usage at all. |
-| Notifications (Phase 11) | **Partially done** — collection/service/UI exist; trigger coverage is narrower than the new spec's list, mostly because comments/review don't exist yet. |
-| Activity log (Phase 12) | **Done**, unified vocabulary already covers most of the requested action types. |
-| Dashboard (Phase 13) | **Mostly done** at both org and platform scope. |
-| Project health (Phase 14) | **Not started** — no Healthy/At Risk/Critical indicator exists yet. |
-| Team productivity (Phase 15) | **Partially done** via existing analytics; dedicated workload-distribution/filter-by-team-and-date view not built. |
-| Calendar (Phase 16) | **Not started.** |
-| Meetings (Phase 17) | **Not started.** |
-| Search (Phase 18) | **Basic version exists**, client-side only, no dedicated results page. |
-| Settings (Phase 19) | **Mostly done** except notification preferences don't actually persist yet. |
-| Responsive (Phase 20) | Not audited in this pass (needs a manual pass at 3 breakpoints — not something a repo read alone confirms). |
-| Security (Phase 21) | **Rules already claims-based and tested** — no `if true` anti-pattern present. Needs extending as new collections (comments, subtasks, files, meetings) are added. |
-| Indexes (Phase 22) | **Exists and current**, minor stale-index cleanup recommended. |
+| Auth, role routing, claims | Implemented, not live-verified |
+| Organization isolation | Implemented, not live-verified |
+| Firestore rules | Implemented (code-complete); live deployment state unverified |
+| Storage rules | Implemented (code-complete, previous audit was wrong that it didn't exist); live deployment state unverified |
+| Projects incl. `managerId`, health | Implemented, not live-verified |
+| Tasks incl. `Blocked`, `reviewerId`, hours | Implemented, not live-verified |
+| Subtasks | Implemented; no progress rollup (known limitation) |
+| Comments | Implemented, not live-verified |
+| Notifications incl. preference persistence | Implemented, not live-verified |
+| Attachments / Storage | Implemented, not live-verified |
+| Calendar | Implemented (derived view), not live-verified |
+| Meetings | Implemented, not live-verified |
+| Productivity / workload view | Implemented, not live-verified |
+| Admin / Super Admin consoles | Implemented, not live-verified |
+| Super Admin system/analytics/overview `systemServices` | Implemented as static placeholder data, not real monitoring |
+| Deliverables tab | Known limitation — mock-data-backed by design, not Firestore |
+| Task-detail deep link | Known limitation — no `/tasks/[id]` route |
+| Environment config | Present locally; production/Vercel env parity not checked |
+| Vercel deployment | Config present; live deployment not re-verified this session |
+| Test runner | Not implemented (none configured) |
+| Lint / Build | Both pass clean, verified this session |
 
-## 5. Broken / needs fixing now (independent of the new phases)
+## 20. Recommended next steps (unchanged in spirit from the previous audit, updated for what's actually left)
 
-1. **Dual Project form dialogs** (§2) — the individual-contributor one still has a non-functional Owner selector.
-2. **Notification preference toggles don't persist** (Settings page) — cosmetic-only today.
-3. **`CLAUDE.md` is stale** relative to the actual architecture — should be rewritten as part of this phase so future sessions (and teammates) aren't misled the way this audit almost was.
-4. **Stale Firestore indexes** from the pre-multi-tenant schema remain deployed (harmless, low-priority cleanup).
-5. `labels[]` on tasks exists in the schema but isn't surfaced anywhere in the UI (dead field, not a bug, but worth deciding whether it becomes the new spec's "tags").
-
-No TypeScript, lint, or build errors exist right now — `npm run lint` and `npm run build` both pass clean as of this audit.
-
-## 6. Firestore changes required (once §3 is resolved)
-
-New collections needed: `comments` (taskId|projectId, userId, content, createdAt, updatedAt), `subtasks` (parentTaskId, title, assigneeId, completed, createdAt), `attachments` (metadata only — projectId|taskId, fileName, storagePath, uploadedBy, size, createdAt; actual bytes in Firebase Storage), `meetings` (title, date, participants[], projectId, notes, actionItems[]).
-
-Field additions to existing collections: `projects.managerId` (pending §3), `projects.status` gains `"Archived"`, `tasks.status` gains `"Blocked"`, `tasks.reviewerId`, `tasks.estimatedHours`/`actualHours`, `tasks.createdBy` (distinct from the existing `ownerId` if the new spec's "creator vs owner" distinction is wanted — otherwise `ownerId` already serves this).
-
-Each new collection needs its own `firestore.rules` block (org-scoped read, creator-or-admin-scoped write, following the existing pattern already established for `activityLogs`) and, once real queries exist against them, corresponding composite indexes in `firestore.indexes.json` — added only as actual `FAILED_PRECONDITION` errors demand them, not speculatively, matching this repo's existing "no unnecessary indexes" discipline.
-
-## 7. Security considerations
-
-- The existing rules architecture (claims-only trust, `organizationId` as the hard multi-tenancy boundary, `onlyChangingFields` allow-lists on sensitive documents, Admin-SDK-only writes for privileged collections) is a solid foundation — new collections should follow the exact same pattern, not a new one.
-- File attachments will need **Firebase Storage security rules** (not yet written at all — `storage.rules` doesn't exist in this repo) scoped the same way: a file path should encode `organizationId` and the rule should check the same custom claims Firestore already trusts.
-- Comments need an "edit/delete own comment only" rule (`isSelf(resource.data.userId)`), mirroring the existing `notifications` pattern.
-- Whatever §3's resolution is, a `PROJECT_MANAGER`-equivalent capability must be enforced in `firestore.rules`, not just hidden in the UI — consistent with this repo's existing practice and the new spec's own explicit requirement.
-
-## 8. Recommended implementation order
-
-Given how much is already built, I'd adjust the new spec's own suggested phase order slightly to avoid rework:
-
-1. **Resolve §3** (role/manager model) — blocks everything else that touches permissions.
-2. **Phase B-lite**: add `managerId` (or the agreed equivalent) to projects + rules + UI, fix the dual-dialog Owner bug, wire notification-preference persistence, rewrite `CLAUDE.md`.
-3. **Phase C**: task schema additions (`Blocked` status, `reviewerId`, hours, tags-in-UI) — additive, low-risk, unlocks the review workflow.
-4. **Phase D**: subtasks (lightweight, single collection, no dependency engine).
-5. **Phase E**: comments (task + project) — needed before most of Phase 11's remaining notification triggers can exist at all.
-6. **Phase F**: file attachments (Storage + rules + metadata collection) — the largest net-new infrastructure piece.
-7. **Phase G**: notifications trigger expansion (now that comments/review exist) + project health indicator (pure rule-based calculation, no AI, straightforward once task/project fields above exist).
-8. **Phase H**: team productivity/workload view, calendar, meetings, search page upgrade — all additive UI over data that will already exist by this point.
-9. **Phase I**: responsive QA pass + Storage rules hardening + stale-index cleanup.
-
-Each step ends with `npm run lint` + `npm run build` + a manual smoke check, per this repo's existing (and already-followed) development principle — not a new process, just continuing what's already been the practice throughout this project.
-
----
-
-**Waiting for your approval before writing any code**, per your instructions — specifically your decision on §3 (role/manager model: Option A additive vs. Option B rename), and confirmation of the implementation order above.
+1. Confirm `firestore.rules`/`storage.rules`/`firestore.indexes.json` as committed are actually the versions deployed and `READY` on `taskora-38082` (`firebase deploy --only firestore` + console check) — this was the one thing this audit could not verify from a repo read alone.
+2. Do a live smoke test of the deployed Vercel app (login, invite-accept, a Firestore read/write) given the run of deployment-specific fix commits already in history.
+3. Decide whether subtask→task progress rollup is worth adding (currently display-local only).
+4. Decide whether a dedicated `/tasks/[id]` route is worth adding, or whether the dialog-based task detail is the intended permanent design.
+5. Once a Resend domain is verified, flip `EMAIL_DELIVERY_OPTIONAL=false` and set `RESEND_FROM_EMAIL`.
+6. `README.md` still reflects `create-next-app` defaults — worth a real project-specific rewrite whenever documentation work is next in scope.
