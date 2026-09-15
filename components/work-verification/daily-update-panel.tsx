@@ -45,6 +45,8 @@ interface DailyUpdatePanelProps {
   recentUpdates: DailyWorkUpdate[];
   notifyRecipientIds: Array<string | null | undefined>;
   getRecipientPreferences?: (uid: string) => Record<string, boolean> | undefined;
+  /** Preselects the Task field — set when arriving here via a task's own "Daily Work Update" button, so the employee doesn't have to re-pick a task TASKORA already knows. Only applied to a fresh (not-yet-submitted) form; never overrides an existing todayUpdate's own taskId. */
+  initialTaskId?: string | null;
 }
 
 const emptyEvidence = { type: EVIDENCE_TYPES[0], url: "", title: "", description: "" };
@@ -60,6 +62,7 @@ export function DailyUpdatePanel({
   recentUpdates,
   notifyRecipientIds,
   getRecipientPreferences,
+  initialTaskId,
 }: DailyUpdatePanelProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,10 +76,11 @@ export function DailyUpdatePanel({
     handleSubmit,
     control,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<DailyWorkUpdateFormValues>({
     resolver: zodResolver(dailyWorkUpdateFormSchema),
-    defaultValues: { taskId: undefined, workSummary: "", completedWork: "", blockers: "", tomorrowPlan: "", evidence: [] },
+    defaultValues: { taskId: initialTaskId ?? undefined, workSummary: "", completedWork: "", blockers: "", tomorrowPlan: "", evidence: [] },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "evidence" });
 
@@ -92,6 +96,17 @@ export function DailyUpdatePanel({
       });
     }
   }, [todayUpdate, reset]);
+
+  // Reactive, not just the initial defaultValues — covers arriving at an
+  // already-mounted panel (e.g. Tabs keeps this mounted while hidden) via a
+  // second "Daily Work Update" click from a different task. Never runs once
+  // a real update already exists for today — that update's own taskId
+  // already won via the effect above.
+  useEffect(() => {
+    if (!todayUpdate && initialTaskId) {
+      setValue("taskId", initialTaskId);
+    }
+  }, [initialTaskId, todayUpdate, setValue]);
 
   async function onSubmit(values: DailyWorkUpdateFormValues) {
     setSubmitting(true);
@@ -276,19 +291,28 @@ export function DailyUpdatePanel({
       {recentUpdates.length > 0 && (
         <Card className="max-w-2xl">
           <CardHeader>
-            <CardTitle className="text-base">Recent updates</CardTitle>
+            <CardTitle className="text-base">Daily Update History</CardTitle>
+            <CardDescription>Your past submissions on this project</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 divide-y divide-border">
             {recentUpdates.slice(0, 7).map((u) => {
               const meta = STATUS_META[u.status];
               const Icon = meta.icon;
+              const task = u.taskId ? tasks.find((t) => t.id === u.taskId) : null;
               return (
-                <div key={u.id} className="flex items-center justify-between gap-3 pt-3 first:pt-0">
-                  <span className="text-sm text-foreground">{formatDate(u.date)}</span>
-                  <span className={`flex items-center gap-1.5 text-xs ${meta.className}`}>
-                    <Icon className="size-3.5" />
-                    {meta.label}
-                  </span>
+                <div key={u.id} className="pt-3 first:pt-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-foreground">{formatDate(u.date)}</span>
+                    <span className={`flex items-center gap-1.5 text-xs ${meta.className}`}>
+                      <Icon className="size-3.5" />
+                      {meta.label}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {task ? task.title : "Project-level"} · {u.workSummary}
+                    {u.evidence.length > 0 && ` · ${u.evidence.length} evidence item${u.evidence.length === 1 ? "" : "s"}`}
+                  </p>
+                  {u.reviewerComment && <p className="mt-0.5 text-xs text-foreground">&quot;{u.reviewerComment}&quot;</p>}
                 </div>
               );
             })}

@@ -197,7 +197,7 @@ export function AdminTasksView() {
                     const assignee = task.assigneeId ? getUser(task.assigneeId) : undefined;
                     const overdue = isOverdue(task.dueDate, task.status === "Completed");
                     return (
-                      <TableRow key={task.id}>
+                      <TableRow key={task.id} className="cursor-pointer" onClick={() => openEdit(task)}>
                         <TableCell className="whitespace-normal font-medium text-foreground">{task.title}</TableCell>
                         <TableCell className="text-muted-foreground">{project?.name ?? "—"}</TableCell>
                         <TableCell className="text-muted-foreground">{assignee?.name ?? "Unassigned"}</TableCell>
@@ -213,7 +213,16 @@ export function AdminTasksView() {
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
-                            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${task.title}`} />}>
+                            <DropdownMenuTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`Actions for ${task.title}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              }
+                            >
                               <MoreHorizontal />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">

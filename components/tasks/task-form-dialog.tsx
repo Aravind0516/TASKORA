@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ClipboardList } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,14 +24,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { PriorityBadge } from "@/components/shared/priority-badge";
 import { taskFormSchema, type TaskFormValues } from "@/lib/validation/task.schema";
 import { SubtaskChecklist } from "@/components/tasks/subtask-checklist";
 import { CommentSection } from "@/components/comments/comment-section";
 import { AttachmentSection } from "@/components/attachments/attachment-section";
-import { parseOptionalHours } from "@/lib/format";
+import { parseOptionalHours, formatDate } from "@/lib/format";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
-import { TASK_STATUSES, type Task, type TaskPriority } from "@/types/task";
+import { TASK_STATUSES, type Task, type TaskPriority, type TaskStatus } from "@/types/task";
 
 const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High", "Critical"];
 
@@ -44,6 +47,15 @@ interface TaskFormDialogProps {
   onSaved: (task: Task) => void;
   task?: Task | null;
   defaultAssigneeId?: string;
+  /**
+   * Opens the Daily Work Update flow for this task without leaving the
+   * current page — passed only by callers that already render the Work
+   * Verification tab themselves (the project detail page). Callers without
+   * this (Kanban, My Tasks — different pages entirely) fall back to a real
+   * navigation link instead; either way it's the SAME underlying feature,
+   * never a second implementation.
+   */
+  onOpenDailyUpdate?: (task: Task) => void;
 }
 
 function buildDefaultValues(defaultAssigneeId?: string): TaskFormValues {
@@ -76,11 +88,41 @@ function taskToFormValues(task: Task): TaskFormValues {
   };
 }
 
-export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssigneeId }: TaskFormDialogProps) {
-  const { user } = useAuth();
-  const { uid, members, projects, organizationId, getMemberById, createTask, updateTask } = useWorkspace();
+/** A locked field shown to a viewer who isn't authorized to change it — reads exactly like the equivalent input would, just not editable, so the form doesn't silently reformat itself between roles. */
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-muted-foreground">{label}</Label>
+      <p className="truncate rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">{value || "—"}</p>
+    </div>
+  );
+}
+
+export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssigneeId, onOpenDailyUpdate }: TaskFormDialogProps) {
+  const { user, role } = useAuth();
+  const { uid, members, projects, organizationId, getMemberById, createTask, updateTask, updateTaskStatus } = useWorkspace();
   const isEditing = Boolean(task);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
+  // Local, optimistic — the `task` prop is a snapshot from whenever the
+  // dialog opened and doesn't refresh itself after a save, so without this
+  // the status-only Select below would visually snap back to the old value
+  // after a successful change instead of showing what was just picked.
+  const [displayStatus, setDisplayStatus] = useState(task?.status);
+
+  const taskProject = task ? projects.find((p) => p.id === task.projectId) : undefined;
+  // Mirrors firestore.rules' tasks update rule exactly: only Super Admin,
+  // that org's Admin, or the task's project's assigned manager may change
+  // anything beyond status. A plain assignee's only real write path is
+  // status (onlyChangingFields(["status", "updatedAt"])) — estimated/actual
+  // hours, the reviewer, dates, and assignment are NOT writable by a plain
+  // employee today, so showing them as editable inputs would just produce a
+  // permission-denied error on submit. Someone who is neither the assignee
+  // nor privileged has no write path here at all, so even status is locked.
+  const canEditFull = isEditing && (role === "admin" || role === "super_admin" || taskProject?.managerId === uid);
+  const isAssigneeSelf = isEditing && task!.assignedTo === uid;
+  const canEditStatusOnly = isEditing && !canEditFull && isAssigneeSelf;
+  const fieldsLocked = isEditing && !canEditFull;
 
   const {
     register,
@@ -117,187 +159,303 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
     }
   }
 
+  async function handleStatusOnlyChange(nextStatus: TaskStatus) {
+    if (!task || nextStatus === displayStatus) return;
+    const previousStatus = displayStatus;
+    setDisplayStatus(nextStatus);
+    setStatusSaving(true);
+    setSubmitError(null);
+    try {
+      await updateTaskStatus(task.id, nextStatus);
+      onSaved({ ...task, status: nextStatus });
+    } catch (error) {
+      setDisplayStatus(previousStatus);
+      setSubmitError(error instanceof Error ? error.message : "Failed to update status.");
+    } finally {
+      setStatusSaving(false);
+    }
+  }
+
+  const assigneeName = task ? (getMemberById(task.assignedTo)?.name ?? "Unassigned") : "";
+  const reviewerName = task?.reviewerId ? (getMemberById(task.reviewerId)?.name ?? "—") : "No reviewer";
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit Task" : "Create Task"}</DialogTitle>
+          <DialogTitle>{isEditing ? "Task Details" : "Create Task"}</DialogTitle>
           <DialogDescription>
-            {isEditing ? "Update this task's details." : "Add a new task to a project."}
+            {isEditing
+              ? fieldsLocked
+                ? "Project, dates, and assignment are set by your project manager or admin."
+                : "Update this task's details."
+              : "Add a new task to a project."}
           </DialogDescription>
         </DialogHeader>
 
-        <form id="task-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {submitError && (
-            <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
-              <AlertCircle className="mt-0.5 size-4 shrink-0" />
-              <span>{submitError}</span>
+        {submitError && (
+          <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        )}
+
+        <form id="task-form" onSubmit={fieldsLocked ? (e) => e.preventDefault() : handleSubmit(onSubmit)} className="space-y-4">
+          {fieldsLocked ? (
+            <ReadOnlyField label="Title" value={task!.title} />
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="task-title">Title</Label>
+              <Input id="task-title" placeholder="e.g. Set up CI pipeline" {...register("title")} />
+              {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="task-title">Title</Label>
-            <Input id="task-title" placeholder="e.g. Set up CI pipeline" {...register("title")} />
-            {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
-          </div>
+          {fieldsLocked ? (
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground">Description</Label>
+              <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm whitespace-pre-wrap text-foreground">{task!.description || "—"}</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="task-description">Description</Label>
+              <Textarea id="task-description" placeholder="What needs to be done?" rows={3} {...register("description")} />
+              {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
+            </div>
+          )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="task-description">Description</Label>
-            <Textarea id="task-description" placeholder="What needs to be done?" rows={3} {...register("description")} />
-            {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="task-project">Project</Label>
-            <Controller
-              control={control}
-              name="projectId"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
-                  <SelectTrigger id="task-project" className="w-full">
-                    <SelectValue placeholder="Select a project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.projectId && <p className="text-xs text-destructive">{errors.projectId.message}</p>}
-          </div>
+          {fieldsLocked ? (
+            <ReadOnlyField label="Project" value={taskProject?.name ?? "—"} />
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="task-project">Project</Label>
+              <Controller
+                control={control}
+                name="projectId"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
+                    <SelectTrigger id="task-project" className="w-full">
+                      <SelectValue placeholder="Select a project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.projectId && <p className="text-xs text-destructive">{errors.projectId.message}</p>}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="task-status">Status</Label>
-              <Controller
-                control={control}
-                name="status"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "Backlog")}>
-                    <SelectTrigger id="task-status" className="w-full">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TASK_STATUSES.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
+              {/*
+                Order matters: `fieldsLocked` and `canEditStatusOnly` are only
+                ever true when `isEditing` is true (an existing `task` is
+                guaranteed), so they must be checked FIRST. The fallback
+                branch is reached both for a genuinely locked view AND for
+                plain CREATE mode (`isEditing` false, so both the flags above
+                are false) — it must never assume `task` exists. A prior
+                version checked `canEditFull` first and let a falsy
+                `canEditStatusOnly` fall through to `task!.status` on CREATE,
+                crashing with "Cannot read properties of null (reading
+                'status')" since `task` is null/undefined while creating.
+              */}
+              {fieldsLocked ? (
+                <div className="flex h-9 items-center">
+                  <StatusBadge status={task!.status} />
+                </div>
+              ) : canEditStatusOnly ? (
+                <Select value={displayStatus} onValueChange={(value) => handleStatusOnlyChange(value as TaskStatus)} disabled={statusSaving}>
+                  <SelectTrigger id="task-status" className="w-full">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TASK_STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Controller
+                  control={control}
+                  name="status"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "Backlog")}>
+                      <SelectTrigger id="task-status" className="w-full">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_STATUSES.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              )}
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="task-priority">Priority</Label>
-              <Controller
-                control={control}
-                name="priority"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "Medium")}>
-                    <SelectTrigger id="task-priority" className="w-full">
-                      <SelectValue placeholder="Priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PRIORITIES.map((priority) => (
-                        <SelectItem key={priority} value={priority}>
-                          {priority}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
+              <Label className={fieldsLocked ? "text-muted-foreground" : undefined} htmlFor={fieldsLocked ? undefined : "task-priority"}>
+                Priority
+              </Label>
+              {fieldsLocked ? (
+                <div className="flex h-9 items-center">
+                  <PriorityBadge priority={task!.priority} />
+                </div>
+              ) : (
+                <Controller
+                  control={control}
+                  name="priority"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "Medium")}>
+                      <SelectTrigger id="task-priority" className="w-full">
+                        <SelectValue placeholder="Priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRIORITIES.map((priority) => (
+                          <SelectItem key={priority} value={priority}>
+                            {priority}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="task-assignee">Assignee</Label>
-              <Controller
-                control={control}
-                name="assignedTo"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
-                    <SelectTrigger id="task-assignee" className="w-full">
-                      <SelectValue placeholder="Assign to" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {members.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.assignedTo && <p className="text-xs text-destructive">{errors.assignedTo.message}</p>}
-            </div>
+            {fieldsLocked ? (
+              <ReadOnlyField label="Assignee" value={assigneeName} />
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="task-assignee">Assignee</Label>
+                <Controller
+                  control={control}
+                  name="assignedTo"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
+                      <SelectTrigger id="task-assignee" className="w-full">
+                        <SelectValue placeholder="Assign to" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {members.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.assignedTo && <p className="text-xs text-destructive">{errors.assignedTo.message}</p>}
+              </div>
+            )}
 
-            <div className="space-y-1.5">
-              <Label htmlFor="task-due-date">Due date</Label>
-              <Input id="task-due-date" type="date" {...register("dueDate")} />
-              {errors.dueDate && <p className="text-xs text-destructive">{errors.dueDate.message}</p>}
-            </div>
+            {fieldsLocked ? (
+              <ReadOnlyField label="Due date" value={task ? formatDate(task.dueDate) : ""} />
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="task-due-date">Due date</Label>
+                <Input id="task-due-date" type="date" {...register("dueDate")} />
+                {errors.dueDate && <p className="text-xs text-destructive">{errors.dueDate.message}</p>}
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="task-reviewer">Reviewer</Label>
-              <Controller
-                control={control}
-                name="reviewerId"
-                render={({ field }) => (
-                  <Select value={field.value || NO_REVIEWER} onValueChange={(value) => field.onChange(value === NO_REVIEWER ? undefined : value)}>
-                    <SelectTrigger id="task-reviewer" className="w-full">
-                      <SelectValue placeholder="No reviewer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NO_REVIEWER}>No reviewer</SelectItem>
-                      {members.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
+          {fieldsLocked ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <ReadOnlyField label="Reviewer" value={reviewerName} />
+              <ReadOnlyField label="Estimated hours" value={task?.estimatedHours != null ? String(task.estimatedHours) : "—"} />
+              <ReadOnlyField label="Actual hours" value={task?.actualHours != null ? String(task.actualHours) : "—"} />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="task-estimated-hours">Estimated hours</Label>
-              <Input
-                id="task-estimated-hours"
-                type="number"
-                min={0}
-                step={0.5}
-                placeholder="e.g. 8"
-                {...register("estimatedHours", { setValueAs: parseOptionalHours })}
-              />
-              {errors.estimatedHours && <p className="text-xs text-destructive">{errors.estimatedHours.message}</p>}
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="task-reviewer">Reviewer</Label>
+                <Controller
+                  control={control}
+                  name="reviewerId"
+                  render={({ field }) => (
+                    <Select value={field.value || NO_REVIEWER} onValueChange={(value) => field.onChange(value === NO_REVIEWER ? undefined : value)}>
+                      <SelectTrigger id="task-reviewer" className="w-full">
+                        <SelectValue placeholder="No reviewer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NO_REVIEWER}>No reviewer</SelectItem>
+                        {members.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="task-estimated-hours">Estimated hours</Label>
+                <Input
+                  id="task-estimated-hours"
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  placeholder="e.g. 8"
+                  {...register("estimatedHours", { setValueAs: parseOptionalHours })}
+                />
+                {errors.estimatedHours && <p className="text-xs text-destructive">{errors.estimatedHours.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="task-actual-hours">Actual hours</Label>
+                <Input
+                  id="task-actual-hours"
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  placeholder="e.g. 6.5"
+                  {...register("actualHours", { setValueAs: parseOptionalHours })}
+                />
+                {errors.actualHours && <p className="text-xs text-destructive">{errors.actualHours.message}</p>}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="task-actual-hours">Actual hours</Label>
-              <Input
-                id="task-actual-hours"
-                type="number"
-                min={0}
-                step={0.5}
-                placeholder="e.g. 6.5"
-                {...register("actualHours", { setValueAs: parseOptionalHours })}
-              />
-              {errors.actualHours && <p className="text-xs text-destructive">{errors.actualHours.message}</p>}
-            </div>
-          </div>
+          )}
         </form>
 
-        {task && organizationId && <SubtaskChecklist taskId={task.id} organizationId={organizationId} members={members} />}
+        {task && taskProject?.workVerificationEnabled && (
+          <div className="border-t border-border pt-4">
+            {onOpenDailyUpdate ? (
+              <Button type="button" variant="outline" className="w-full" onClick={() => onOpenDailyUpdate(task)}>
+                <ClipboardList />
+                Daily Work Update
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                nativeButton={false}
+                render={<Link href={`/projects/${task.projectId}?tab=work-verification&task=${task.id}`} />}
+              >
+                <ClipboardList />
+                Daily Work Update
+              </Button>
+            )}
+          </div>
+        )}
+
+        {task && organizationId && <SubtaskChecklist taskId={task.id} organizationId={organizationId} projectId={task.projectId} members={members} />}
 
         {task && organizationId && uid && (
           <AttachmentSection
@@ -325,11 +483,13 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-            Cancel
+            {fieldsLocked ? "Close" : "Cancel"}
           </Button>
-          <Button type="submit" form="task-form" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : isEditing ? "Save changes" : "Create Task"}
-          </Button>
+          {!fieldsLocked && (
+            <Button type="submit" form="task-form" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : isEditing ? "Save changes" : "Create Task"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

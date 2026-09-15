@@ -150,7 +150,7 @@ export function AdminOrganizationView() {
           <p className="text-xs text-muted-foreground">
             Plan and billing changes are managed on the Billing page and reviewed by NxtWise Platform Administration.
           </p>
-          <Button size="sm" variant="outline" render={<Link href="/admin/billing" />}>
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link href="/admin/billing" />}>
             Go to Billing
           </Button>
         </CardFooter>

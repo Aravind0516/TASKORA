@@ -22,7 +22,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
         <Button variant="outline" size="sm" onClick={() => reset()}>
           Try again
         </Button>
-        <Button size="sm" render={<a href="/overview" />}>
+        <Button size="sm" nativeButton={false} render={<a href="/overview" />}>
           Back to Overview
         </Button>
       </div>

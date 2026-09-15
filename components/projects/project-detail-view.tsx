@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { notFound, useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, CheckCircle2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { notFound, useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, CalendarDays, CheckCircle2, FileText, ListChecks, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -30,6 +30,9 @@ import { ProjectTeam } from "@/components/projects/project-team";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { DeliverablesList } from "@/components/projects/deliverables-list";
 import { TaskTable } from "@/components/tasks/task-table";
+import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
+import { ProjectMyTasksPanel } from "@/components/projects/project-my-tasks-panel";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { CommentSection } from "@/components/comments/comment-section";
 import { AttachmentSection } from "@/components/attachments/attachment-section";
@@ -44,9 +47,11 @@ import { useWorkspace } from "@/components/workspace/workspace-provider";
 import * as dailyUpdateService from "@/lib/services/daily-work-update.service";
 import type { ProjectStatus } from "@/types/project";
 import type { DailyWorkUpdate } from "@/types/daily-work-update";
+import type { Task } from "@/types/task";
 
 export function ProjectDetailView({ projectId }: { projectId: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, role } = useAuth();
   const {
     uid,
@@ -66,6 +71,20 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Lazy initializer (not an effect) — lets a link like
+  // /projects/[id]?tab=work-verification land directly on that tab, e.g.
+  // from the dashboard's "Submit Daily Update" / manager "Review" CTAs,
+  // instead of always opening on Overview and making the user find the tab
+  // themselves a second time.
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") ?? "overview");
+  // Same lazy-init pattern — preselects the Daily Work Update form's Task
+  // field when arriving via a link like ?task=<id> (e.g. the "Daily Work
+  // Update" button inside a task's own detail dialog, opened from Kanban or
+  // My Tasks — different pages, so that button navigates here rather than
+  // switching a tab it doesn't have access to).
+  const [preselectTaskId, setPreselectTaskId] = useState(() => searchParams.get("task"));
+  const [openTask, setOpenTask] = useState<Task | null>(null);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
 
   const loading = !loaded.projects || !loaded.tasks || !loaded.members || !loaded.activity;
   const project = getProjectById(projectId);
@@ -134,6 +153,15 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   }
 
   const health = calculateProjectHealth(project, tasks);
+  // Same "management data vs. execution data" boundary as TaskFormDialog:
+  // an Org Admin, Super Admin, or this specific project's assigned manager
+  // gets the full workspace (Tasks/Members/Deliverables, project edit/
+  // delete); everyone else gets the trimmed, execution-focused view (My
+  // Tasks instead of the full Tasks table) — matching what firestore.rules
+  // actually lets each of them do to this project.
+  const canManageProject = role === "admin" || role === "super_admin" || project.managerId === uid;
+  const canDeleteProject = role === "admin" || role === "super_admin";
+  const myTasks = tasks.filter((task) => task.assignedTo === uid);
 
   async function handleStatusChange(nextStatus: ProjectStatus) {
     if (!project || nextStatus === project.status) return;
@@ -146,6 +174,20 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     } finally {
       setStatusSaving(false);
     }
+  }
+
+  function handleOpenTask(task: Task) {
+    setOpenTask(task);
+    setTaskDialogOpen(true);
+  }
+
+  // Same page, no navigation needed — switch straight to the Work
+  // Verification tab with this task preselected, and close the task dialog
+  // that triggered it.
+  function handleOpenDailyUpdateForTask(task: Task) {
+    setPreselectTaskId(task.id);
+    setActiveTab("work-verification");
+    setTaskDialogOpen(false);
   }
 
   async function handleDelete() {
@@ -185,24 +227,36 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         </div>
         <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
           <div className="flex items-center gap-2">
+            {project.workVerificationEnabled && (
+              <Button size="sm" variant="outline" onClick={() => setActiveTab("work-verification")}>
+                <ListChecks />
+                Submit Daily Update
+              </Button>
+            )}
             <ProjectStatusControl status={project.status} onStatusChange={handleStatusChange} saving={statusSaving} />
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="outline" size="icon-sm" aria-label="Project actions" />}
-              >
-                <MoreHorizontal />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setEditOpen(true)}>
-                  <Pencil />
-                  Edit project
-                </DropdownMenuItem>
-                <DropdownMenuItem variant="destructive" onClick={handleDelete} disabled={deleting}>
-                  <Trash2 />
-                  {deleting ? "Deleting..." : "Delete project"}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {(canManageProject || canDeleteProject) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<Button variant="outline" size="icon-sm" aria-label="Project actions" />}
+                >
+                  <MoreHorizontal />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {canManageProject && (
+                    <DropdownMenuItem onClick={() => setEditOpen(true)}>
+                      <Pencil />
+                      Edit project
+                    </DropdownMenuItem>
+                  )}
+                  {canDeleteProject && (
+                    <DropdownMenuItem variant="destructive" onClick={handleDelete} disabled={deleting}>
+                      <Trash2 />
+                      {deleting ? "Deleting..." : "Delete project"}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <CalendarDays className="size-3.5" />
@@ -218,15 +272,23 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      <Tabs defaultValue="overview">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value ?? "overview")}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks ({tasks.length})</TabsTrigger>
-          <TabsTrigger value="members">Members ({project.memberIds.length})</TabsTrigger>
-          <TabsTrigger value="deliverables">Deliverables ({deliverables.length})</TabsTrigger>
-          <TabsTrigger value="files">Files</TabsTrigger>
+          {canManageProject ? (
+            <>
+              <TabsTrigger value="tasks">Tasks ({tasks.length})</TabsTrigger>
+              <TabsTrigger value="members">Members ({project.memberIds.length})</TabsTrigger>
+              <TabsTrigger value="deliverables">Deliverables ({deliverables.length})</TabsTrigger>
+            </>
+          ) : (
+            <TabsTrigger value="my-tasks">My Tasks ({myTasks.length})</TabsTrigger>
+          )}
+          <TabsTrigger value="files">Files &amp; Requirements</TabsTrigger>
           <TabsTrigger value="discussion">Discussion</TabsTrigger>
-          {project.workVerificationEnabled && <TabsTrigger value="work-verification">Work Verification</TabsTrigger>}
+          {project.workVerificationEnabled && (
+            <TabsTrigger value="work-verification">{canManageProject ? "Work Verification" : "Daily Updates"}</TabsTrigger>
+          )}
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -268,6 +330,49 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                 <ProjectTimeline project={project} activity={activity} />
               </CardContent>
             </Card>
+
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Task Breakdown</CardTitle>
+                <CardDescription>Where each task in this project currently stands</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {tasks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No tasks yet.</p>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {tasks.map((task) => (
+                      <li key={task.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenTask(task)}
+                          className="min-w-0 flex-1 truncate text-left text-sm text-foreground hover:text-primary hover:underline"
+                        >
+                          {task.title}
+                        </button>
+                        <StatusBadge status={task.status} className="shrink-0" />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Project Requirements</CardTitle>
+                <CardDescription>Requirement documents and reference files</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FileText className="size-4 shrink-0" />
+                  Attached under Files &amp; Requirements
+                </p>
+                <Button size="sm" variant="outline" onClick={() => setActiveTab("files")}>
+                  View Requirements &amp; Files
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
@@ -278,9 +383,13 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
               <CardDescription>{tasks.length} tasks in this project</CardDescription>
             </CardHeader>
             <CardContent>
-              <TaskTable tasks={tasks} />
+              <TaskTable tasks={tasks} onEdit={handleOpenTask} />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="my-tasks" className="mt-4">
+          {organizationId && <ProjectMyTasksPanel organizationId={organizationId} projectId={project.id} myTasks={myTasks} onOpenTask={handleOpenTask} />}
         </TabsContent>
 
         <TabsContent value="members" className="mt-4">
@@ -310,8 +419,8 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         <TabsContent value="files" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Files</CardTitle>
-              <CardDescription>Documents and files attached to this project</CardDescription>
+              <CardTitle>Files &amp; Requirements</CardTitle>
+              <CardDescription>Project requirement documents and other files — upload the requirement doc here so every assigned member can find it</CardDescription>
             </CardHeader>
             <CardContent>
               {uid && organizationId && (
@@ -374,6 +483,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                     recentUpdates={recentUpdates}
                     notifyRecipientIds={reviewRecipientIds}
                     getRecipientPreferences={(memberUid) => getMemberById(memberUid)?.notificationPreferences}
+                    initialTaskId={preselectTaskId}
                   />
                   {canReview && (
                     <ProjectVerificationDashboard
@@ -416,6 +526,15 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         onOpenChange={setEditOpen}
         project={project}
         onSaved={() => setSuccessMessage(`"${project.name}" was updated.`)}
+      />
+
+      <TaskFormDialog
+        key={openTask?.id ?? "none"}
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        onSaved={() => {}}
+        task={openTask}
+        onOpenDailyUpdate={handleOpenDailyUpdateForTask}
       />
     </div>
   );

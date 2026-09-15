@@ -22,6 +22,7 @@ function subtaskFromDoc(docSnap: QueryDocumentSnapshot): Subtask {
     id: docSnap.id,
     organizationId: data.organizationId,
     taskId: data.taskId,
+    projectId: data.projectId,
     title: data.title,
     completed: Boolean(data.completed),
     assigneeId: data.assigneeId ?? null,
@@ -37,13 +38,27 @@ function subtaskFromDoc(docSnap: QueryDocumentSnapshot): Subtask {
  * ever needed while a specific task's edit dialog is open (see
  * components/tasks/subtask-checklist.tsx). Avoids an unnecessary realtime
  * listener per this repo's performance principles.
+ *
+ * organizationId is an explicit query filter (not just taskId) for the same
+ * reason comment.service.ts/attachment.service.ts already document:
+ * firestore.rules' read rule depends on resource.data.organizationId (or,
+ * now, resource.data.projectId), and Firestore can only verify a list
+ * query's rule from the query's OWN filters — a taskId-only query left this
+ * genuinely broken for any non-admin caller (verified live; there was
+ * simply no real subtask data yet to ever surface it).
  */
 export function subscribeToSubtasks(
+  organizationId: string,
   taskId: string,
   onData: (subtasks: Subtask[]) => void,
   onError: (message: string) => void
 ): () => void {
-  const q = query(collection(db, "subtasks"), where("taskId", "==", taskId), orderBy("order", "asc"));
+  const q = query(
+    collection(db, "subtasks"),
+    where("organizationId", "==", organizationId),
+    where("taskId", "==", taskId),
+    orderBy("order", "asc")
+  );
   return onSnapshot(
     q,
     (snapshot) => onData(snapshot.docs.map(subtaskFromDoc)),
@@ -51,9 +66,44 @@ export function subscribeToSubtasks(
   );
 }
 
+/**
+ * Subtask completion for several tasks in ONE project at once (e.g. a "My
+ * Tasks" list) — one query instead of one listener per task. `projectId` is
+ * pinned to a single, known project (every caller only ever passes tasks
+ * from one project page) so firestore.rules' isAuthorizedForProject() — a
+ * get()-based check — is provable from this query; the `taskId in [...]`
+ * filter only narrows further within that already-authorized project, it
+ * never substitutes for the project check. Firestore's `in` operator caps
+ * at 30 values.
+ */
+export function subscribeToSubtasksByTaskIds(
+  organizationId: string,
+  projectId: string,
+  taskIds: string[],
+  onData: (subtasks: Subtask[]) => void,
+  onError: (message: string) => void
+): () => void {
+  if (taskIds.length === 0 || taskIds.length > 30) {
+    onData([]);
+    return () => {};
+  }
+  const q = query(
+    collection(db, "subtasks"),
+    where("organizationId", "==", organizationId),
+    where("projectId", "==", projectId),
+    where("taskId", "in", taskIds)
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => onData(snapshot.docs.map(subtaskFromDoc)),
+    (error) => onError(getFirestoreErrorMessage(error, "subtasks:byTaskIds"))
+  );
+}
+
 export interface SubtaskInput {
   organizationId: string;
   taskId: string;
+  projectId: string;
   title: string;
   assigneeId?: string | null;
   order: number;
@@ -66,6 +116,7 @@ export async function createSubtask(input: SubtaskInput): Promise<string> {
     await setDoc(ref, {
       organizationId: input.organizationId,
       taskId: input.taskId,
+      projectId: input.projectId,
       title: input.title,
       completed: false,
       assigneeId: input.assigneeId ?? null,

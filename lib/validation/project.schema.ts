@@ -15,6 +15,11 @@ export const projectFormSchema = z
     memberIds: z.array(z.string()),
     // Optional, project-scoped manager — never required to create a project.
     managerId: z.string().optional(),
+    // Admin-only in the UI (components/projects/project-form-dialog.tsx hides
+    // this field entirely for a non-admin editor) — a project manager's
+    // firestore.rules onlyChangingFields allow-list doesn't include it, so a
+    // manager submitting a value here would just get permission-denied.
+    workVerificationEnabled: z.boolean().optional(),
   })
   .refine((data) => new Date(data.dueDate) >= new Date(data.startDate), {
     message: "Due date must be on or after the start date",

@@ -55,7 +55,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
       {role === "admin" ? (
         <>
           <p className="max-w-sm text-sm text-muted-foreground">Choose a plan to continue using TASKORA.</p>
-          <Button className="mt-1" render={<Link href={BILLING_PATH} />}>
+          <Button className="mt-1" nativeButton={false} render={<Link href={BILLING_PATH} />}>
             Go to Billing
           </Button>
         </>

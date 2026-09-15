@@ -26,6 +26,14 @@ export async function logActivity(input: LogActivityInput): Promise<void> {
     await getAdminDb().collection("activityLogs").add({
       ...input,
       metadata: input.metadata ?? {},
+      // This writer is only ever called for sensitive platform events (see
+      // doc comment above) — kept in sync with firestore.rules'
+      // isSensitiveActivityAction() list. A plain member's activity query
+      // filters on this field, so it never surfaces here.
+      visibleToMembers: false,
+      // Sensitive platform events (org/admin/invitation lifecycle) never
+      // belong to a single project.
+      projectId: null,
       createdAt: FieldValue.serverTimestamp(),
     });
   } catch (error) {

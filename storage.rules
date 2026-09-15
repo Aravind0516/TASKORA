@@ -57,6 +57,16 @@ service firebase.storage {
     function isManagerOfProject(projectId) {
       return isSignedIn() && projectDoc(projectId).managerId == request.auth.uid;
     }
+    // Mirrors firestore.rules' isAuthorizedForProject() exactly — projects
+    // may be assigned to specific employees, so organization membership
+    // alone is never sufficient to download a project/task's attached
+    // files either. Storage rules evaluate per-object-path directly (no
+    // list-query provability concern the way Firestore list queries have),
+    // so this get()-based check is safe regardless of how the request is made.
+    function isAuthorizedForProject(projectId) {
+      let p = projectDoc(projectId);
+      return isSignedIn() && (p.managerId == request.auth.uid || request.auth.uid in p.memberIds);
+    }
 
     // Kept in sync with lib/validation/attachment.ts's ALLOWED_ATTACHMENT_TYPES
     // and MAX_ATTACHMENT_SIZE_BYTES — the client list is a UX convenience,
@@ -103,7 +113,7 @@ service firebase.storage {
 
     // ── Project-level attachments ──────────────────────────────────────
     match /organizations/{orgId}/projects/{projectId}/attachments/{attachmentId} {
-      allow read: if isSuperAdmin() || isMemberOfOrg(orgId);
+      allow read: if isSuperAdmin() || isAdminOfOrg(orgId) || isAuthorizedForProject(projectId);
 
       // Any member of the project's own organization may upload — same
       // authorization level as posting a comment (firestore.rules'
@@ -123,7 +133,7 @@ service firebase.storage {
 
     // ── Task-level attachments ─────────────────────────────────────────
     match /organizations/{orgId}/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId} {
-      allow read: if isSuperAdmin() || isMemberOfOrg(orgId);
+      allow read: if isSuperAdmin() || isAdminOfOrg(orgId) || isAuthorizedForProject(projectId);
 
       // The task's real organizationId AND its real projectId must both
       // match the path — prevents uploading under a task that actually

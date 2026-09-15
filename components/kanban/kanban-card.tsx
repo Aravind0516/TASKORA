@@ -19,22 +19,36 @@ import { TASK_STATUSES, type Task, type TaskStatus } from "@/types/task";
 interface KanbanCardProps {
   task: Task;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
+  /** Opens the task's detail dialog (title/description/subtasks/comments/attachments) — the Kanban board previously had no way to open a task at all, only this status-change menu. */
+  onOpen: (task: Task) => void;
 }
 
-export function KanbanCard({ task, onStatusChange }: KanbanCardProps) {
+export function KanbanCard({ task, onStatusChange, onOpen }: KanbanCardProps) {
   const { getProjectById, getMemberById } = useWorkspace();
   const project = getProjectById(task.projectId);
   const assignee = getMemberById(task.assignedTo);
   const overdue = isOverdue(task.dueDate, task.status === "Completed");
 
   return (
-    <Card size="sm" className="gap-2.5">
+    <Card
+      size="sm"
+      className="cursor-pointer gap-2.5 transition-colors hover:border-primary/40"
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(task)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen(task);
+        }
+      }}
+    >
       <CardContent className="px-3">
         <div className="flex items-start justify-between gap-2">
           <p className="text-xs font-medium text-muted-foreground">{project?.name}</p>
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon-xs" aria-label={`Move ${task.title}`} />}
+              render={<Button variant="ghost" size="icon-xs" aria-label={`Move ${task.title}`} onClick={(e) => e.stopPropagation()} />}
             >
               <MoreHorizontal />
             </DropdownMenuTrigger>

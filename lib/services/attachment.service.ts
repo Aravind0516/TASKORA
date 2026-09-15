@@ -62,13 +62,25 @@ export function subscribeToProjectAttachments(
   );
 }
 
+/**
+ * organizationId AND projectId are both explicit filters for the same
+ * reason comment.service.ts's subscribeToTaskComments documents —
+ * firestore.rules' isAuthorizedForProject() check needs projectId pinned by
+ * this query to be provable for a plain member.
+ */
 export function subscribeToTaskAttachments(
   organizationId: string,
+  projectId: string,
   taskId: string,
   onData: (attachments: Attachment[]) => void,
   onError: (message: string) => void
 ): () => void {
-  const q = query(collection(db, "attachments"), where("organizationId", "==", organizationId), where("taskId", "==", taskId));
+  const q = query(
+    collection(db, "attachments"),
+    where("organizationId", "==", organizationId),
+    where("projectId", "==", projectId),
+    where("taskId", "==", taskId)
+  );
   return onSnapshot(
     q,
     (snapshot) => onData(snapshot.docs.map(attachmentFromDoc).sort(byCreatedAtDesc)),

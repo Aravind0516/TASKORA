@@ -56,6 +56,7 @@ const defaultValues: ProjectFormValues = {
   teamId: "",
   memberIds: [],
   managerId: undefined,
+  workVerificationEnabled: false,
 };
 
 function projectToFormValues(project: Project): ProjectFormValues {
@@ -69,14 +70,20 @@ function projectToFormValues(project: Project): ProjectFormValues {
     teamId: project.teamId,
     memberIds: project.memberIds,
     managerId: project.managerId ?? undefined,
+    workVerificationEnabled: project.workVerificationEnabled,
   };
 }
 
 export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: ProjectFormDialogProps) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { members, teams, uid, getMemberById, createProject, updateProject } = useWorkspace();
   const isEditing = Boolean(project);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Only an Admin's write path is unrestricted enough to change this field —
+  // a project's assigned manager's firestore.rules onlyChangingFields
+  // allow-list doesn't include workVerificationEnabled, so the control is
+  // hidden rather than shown-then-denied for anyone else.
+  const canConfigureWorkVerification = role === "admin" || role === "super_admin";
 
   // Owner is never a form field (see PROJECT OWNER fix) — always the
   // authenticated creator, read-only thereafter.
@@ -303,6 +310,27 @@ export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: Proj
               })}
             </div>
           </div>
+
+          {canConfigureWorkVerification && (
+            <div className="space-y-3 rounded-lg border border-border p-3.5">
+              <label className="flex cursor-pointer items-start gap-2.5">
+                <Controller
+                  control={control}
+                  name="workVerificationEnabled"
+                  render={({ field }) => (
+                    <Checkbox checked={field.value ?? false} onCheckedChange={(next) => field.onChange(Boolean(next))} className="mt-0.5" />
+                  )}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">Enable Work Verification</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Members submit a daily work update with optional evidence; you or the project manager review it. Off
+                    by default — existing project behavior is unaffected.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
         </form>
 
         <DialogFooter>

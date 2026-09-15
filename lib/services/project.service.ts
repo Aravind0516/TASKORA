@@ -86,6 +86,55 @@ export function subscribeToAllProjects(onData: (projects: Project[]) => void, on
   );
 }
 
+/**
+ * A plain member's own projects only — NOT every project in the
+ * organization. Projects may be assigned to specific employees; organization
+ * membership alone must never be sufficient to see a project someone hasn't
+ * been added to. Two separate listeners (a project's assigned manager isn't
+ * necessarily also in memberIds, and vice versa) merged and de-duplicated by
+ * project id — each query constrains exactly the field firestore.rules'
+ * corresponding read branch checks (managerId or memberIds), directly off
+ * the project document itself with no get() involved, so both are provably
+ * safe for any org member regardless of which projects exist. Admin/Super
+ * Admin keep using subscribeToProjects (unrestricted, unchanged) instead —
+ * this is for role "user" callers only (see workspace-provider.tsx).
+ */
+export function subscribeToMyProjects(
+  organizationId: string,
+  uid: string,
+  onData: (projects: Project[]) => void,
+  onError: (message: string) => void
+): () => void {
+  const managed = new Map<string, Project>();
+  const asMember = new Map<string, Project>();
+  function emit() {
+    const merged = new Map([...managed, ...asMember]);
+    onData(Array.from(merged.values()));
+  }
+  const unsubManaged = onSnapshot(
+    query(collection(db, "projects"), where("organizationId", "==", organizationId), where("managerId", "==", uid)),
+    (snapshot) => {
+      managed.clear();
+      snapshot.docs.forEach((d) => managed.set(d.id, projectFromDoc(d)));
+      emit();
+    },
+    (error) => onError(getFirestoreErrorMessage(error, "projects:mine:managed"))
+  );
+  const unsubMember = onSnapshot(
+    query(collection(db, "projects"), where("organizationId", "==", organizationId), where("memberIds", "array-contains", uid)),
+    (snapshot) => {
+      asMember.clear();
+      snapshot.docs.forEach((d) => asMember.set(d.id, projectFromDoc(d)));
+      emit();
+    },
+    (error) => onError(getFirestoreErrorMessage(error, "projects:mine:member"))
+  );
+  return () => {
+    unsubManaged();
+    unsubMember();
+  };
+}
+
 export interface ProjectInput {
   organizationId: string;
   teamId: string;

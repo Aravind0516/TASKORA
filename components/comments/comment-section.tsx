@@ -96,7 +96,7 @@ export function CommentSection({
     const unsubscribe =
       target.kind === "project"
         ? commentService.subscribeToProjectComments(organizationId, target.projectId, onData, onError)
-        : commentService.subscribeToTaskComments(organizationId, target.taskId, onData, onError);
+        : commentService.subscribeToTaskComments(organizationId, target.projectId, target.taskId, onData, onError);
     return unsubscribe;
   }, [organizationId, target]);
 

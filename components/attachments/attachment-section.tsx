@@ -59,7 +59,7 @@ export function AttachmentSection({ organizationId, currentUserId, getUploaderNa
     const unsubscribe =
       target.kind === "project"
         ? attachmentService.subscribeToProjectAttachments(organizationId, target.projectId, onData, onError)
-        : attachmentService.subscribeToTaskAttachments(organizationId, target.taskId, onData, onError);
+        : attachmentService.subscribeToTaskAttachments(organizationId, target.projectId, target.taskId, onData, onError);
     return unsubscribe;
   }, [organizationId, target]);
 

@@ -427,6 +427,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         entityType: "team",
         entityId: id,
         entityName: input.name,
+        projectId: null,
       });
       return toDisplayTeam({
         id,
@@ -466,6 +467,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         entityType: "project",
         entityId: id,
         entityName: input.name,
+        projectId: id,
       });
       return {
         ...input,
@@ -517,6 +519,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           entityType: "task",
           entityId: id,
           entityName: input.title,
+          projectId: input.projectId,
         });
         await notificationService.notifyUsers({
           organizationId: input.organizationId,
@@ -550,6 +553,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           entityType: "task",
           entityId: id,
           entityName: existing.title,
+          projectId: existing.projectId,
         });
         const statusRecipients = [existing.assignedTo];
         if (patch.status === "In Review" && existing.reviewerId) statusRecipients.push(existing.reviewerId);
@@ -616,6 +620,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         actorId: entry.actorId || uid,
         actorName: entry.actorName || actorName,
         entityId: "",
+        projectId: null,
       });
     },
     [uid, actorName]

@@ -17,6 +17,14 @@ export interface Subtask {
   organizationId: string;
   /** The parent task this subtask belongs to — never reassignable to a different task after creation (see firestore.rules). */
   taskId: string;
+  /**
+   * Denormalized from the parent task at creation time, same rationale as
+   * organizationId above — lets firestore.rules check project-level
+   * authorization (a subtask is only visible to someone authorized for its
+   * project) via a single get() on the project, without first reading the
+   * parent task.
+   */
+  projectId: string;
   title: string;
   completed: boolean;
   /** Optional — who's doing this specific checklist item. null = unassigned. */

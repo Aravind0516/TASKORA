@@ -38,22 +38,32 @@ function commentFromDoc(docSnap: QueryDocumentSnapshot): Comment {
  * task/project is small, and this avoids a composite index for what
  * equality filters already serve.
  *
- * organizationId is included as an explicit filter even though taskId alone
- * is already enough to uniquely scope the results — Firestore evaluates a
- * `list` query's security rule against the QUERY'S OWN filters, not the
- * actual matching documents, so a rule that checks resource.data.organizationId
- * is unprovable (and the whole query is denied) unless organizationId is
- * itself one of the query's where() clauses. Every other collection in this
- * app already follows this (see subscribeToTasks, subscribeToProjects) —
- * this was a real bug caught by live-testing, not a stylistic choice.
+ * organizationId AND projectId are both included as explicit filters even
+ * though taskId alone is already enough to uniquely scope the results —
+ * Firestore evaluates a `list` query's security rule against the QUERY'S
+ * OWN filters, not the actual matching documents, so a rule that checks
+ * resource.data.organizationId/projectId is unprovable (and the whole query
+ * is denied) unless those fields are themselves among the query's where()
+ * clauses. Every other collection in this app already follows this (see
+ * subscribeToTasks, subscribeToProjects) — this was a real bug caught by
+ * live-testing, not a stylistic choice. projectId specifically is what lets
+ * firestore.rules' isAuthorizedForProject() (a get()-based project
+ * membership check) be verified from this query at all — a comment's own
+ * project privacy inherits directly from its parent project/task.
  */
 export function subscribeToTaskComments(
   organizationId: string,
+  projectId: string,
   taskId: string,
   onData: (comments: Comment[]) => void,
   onError: (message: string) => void
 ): () => void {
-  const q = query(collection(db, "comments"), where("organizationId", "==", organizationId), where("taskId", "==", taskId));
+  const q = query(
+    collection(db, "comments"),
+    where("organizationId", "==", organizationId),
+    where("projectId", "==", projectId),
+    where("taskId", "==", taskId)
+  );
   return onSnapshot(
     q,
     (snapshot) => onData(snapshot.docs.map(commentFromDoc).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())),

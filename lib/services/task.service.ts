@@ -68,6 +68,45 @@ export function subscribeToAllTasks(onData: (tasks: Task[]) => void, onError: (m
   );
 }
 
+/**
+ * A plain member's tasks, scoped to a known set of projects they're already
+ * authorized for (see project.service.ts's subscribeToMyProjects) — one
+ * listener per project rather than a single `projectId in [...]` query.
+ * firestore.rules' non-admin read branch checks isAuthorizedForProject(),
+ * a get()-based condition; combining that with a multi-value "in" filter
+ * isn't a pattern this app relies on anywhere; a plain `projectId == X`
+ * equality filter is the same, already-proven shape dailyWorkUpdates' own
+ * project-scoped read uses. Re-subscribes only when the actual set of
+ * project ids changes (see workspace-provider.tsx's caller).
+ */
+export function subscribeToTasksForProjects(
+  organizationId: string,
+  projectIds: string[],
+  onData: (tasks: Task[]) => void,
+  onError: (message: string) => void
+): () => void {
+  if (projectIds.length === 0) {
+    onData([]);
+    return () => {};
+  }
+  const resultsByProject = new Map<string, Task[]>();
+  function emit() {
+    onData(Array.from(resultsByProject.values()).flat());
+  }
+  const unsubscribers = projectIds.map((projectId) => {
+    const q = query(collection(db, "tasks"), where("organizationId", "==", organizationId), where("projectId", "==", projectId));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        resultsByProject.set(projectId, snapshot.docs.map(taskFromDoc));
+        emit();
+      },
+      (error) => onError(getFirestoreErrorMessage(error, "tasks:forProjects"))
+    );
+  });
+  return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+}
+
 export interface TaskInput {
   organizationId: string;
   teamId: string;

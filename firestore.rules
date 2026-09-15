@@ -49,6 +49,21 @@ service cloud.firestore {
       return isSignedIn()
         && get(/databases/$(database)/documents/projects/$(projectId)).data.managerId == request.auth.uid;
     }
+    // Projects may be assigned to specific employees — organization
+    // membership alone is never sufficient to read a project's data (or
+    // anything scoped to it: tasks, subtasks, comments, attachments,
+    // activity). True for that project's assigned manager OR anyone in its
+    // memberIds. Used everywhere a collection references a project only by
+    // id (tasks/subtasks/comments/attachments/activityLogs) — a single get()
+    // per check, same cost profile as isManagerOfProject() above. Query
+    // callers always pin `projectId` to ONE known value via an equality
+    // where() clause (never an "in" list) specifically so this get()-based
+    // check stays provable to Firestore's list-query rule analysis — see
+    // lib/services/task.service.ts's subscribeToTasksForProjects for why.
+    function isAuthorizedForProject(projectId) {
+      let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
+      return isSignedIn() && (project.managerId == request.auth.uid || request.auth.uid in project.memberIds);
+    }
     // A task's reviewer is a descriptive field only (never grants any
     // permission — see PHASE C's Task Management Foundation), but it must
     // still be bound to the same organization as the task itself, so a
@@ -81,6 +96,9 @@ service cloud.firestore {
     // task's project" requires reading the task, then that task's project.
     function taskOrgId(taskId) {
       return get(/databases/$(database)/documents/tasks/$(taskId)).data.organizationId;
+    }
+    function taskProjectId(taskId) {
+      return get(/databases/$(database)/documents/tasks/$(taskId)).data.projectId;
     }
     function isManagerOfTaskProject(taskId) {
       return isSignedIn()
@@ -158,18 +176,29 @@ service cloud.firestore {
     }
 
     // ── projects/{projectId} ────────────────────────────────────────────
-    // organizationId is the security boundary, never ownerId alone. Any
-    // member of the organization may read; only that organization's admin
-    // (or Super Admin) may write. ownerId must equal the creator's own uid on
-    // create (see PROJECT OWNER fix) AND can never change on update — an
-    // earlier version of this rule only checked ownerId at create time,
-    // which left it silently reassignable via any ordinary update (the old
-    // components/projects/project-form-dialog.tsx briefly exploited exactly
-    // this — an editable Owner field whose value flowed straight into
-    // updateDoc). The project's assigned manager (managerId) may update
-    // day-to-day fields but never organizationId/ownerId/managerId itself.
+    // organizationId is the security boundary, never ownerId alone — but
+    // organization membership ALONE is no longer sufficient to READ a
+    // project either: projects may be assigned to specific employees, and a
+    // plain member must be that project's assigned manager or explicitly in
+    // its memberIds to see it at all (checked directly against
+    // resource.data — no get() needed, since the project document IS the
+    // resource being read). Org Admin/Super Admin still see every project in
+    // the organization, unrestricted — this privacy boundary is specifically
+    // employee-to-employee, never employee-to-management. Only that
+    // organization's admin (or Super Admin) may write. ownerId must equal
+    // the creator's own uid on create (see PROJECT OWNER fix) AND can never
+    // change on update — an earlier version of this rule only checked
+    // ownerId at create time, which left it silently reassignable via any
+    // ordinary update (the old components/projects/project-form-dialog.tsx
+    // briefly exploited exactly this — an editable Owner field whose value
+    // flowed straight into updateDoc). The project's assigned manager
+    // (managerId) may update day-to-day fields but never
+    // organizationId/ownerId/managerId itself.
     match /projects/{projectId} {
-      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow read: if isSuperAdmin()
+        || isAdminOfOrg(resource.data.organizationId)
+        || (isMemberOfOrg(resource.data.organizationId)
+            && (resource.data.managerId == request.auth.uid || request.auth.uid in resource.data.memberIds));
       allow create: if isAdminOfOrg(request.resource.data.organizationId)
         && request.resource.data.ownerId == request.auth.uid;
       allow update: if isSuperAdmin()
@@ -188,8 +217,15 @@ service cloud.firestore {
     // manager (see projects/{id}.managerId) may create/update tasks that
     // belong to THAT project — not organization-wide, matching "manage
     // assigned projects" rather than a full account-wide role.
+    //
+    // Read inherits the parent project's authorization (isAuthorizedForProject)
+    // rather than plain organization membership — a task in a private
+    // project must be exactly as invisible as that project itself to anyone
+    // not authorized for it. Org Admin/Super Admin unaffected.
     match /tasks/{taskId} {
-      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow read: if isSuperAdmin()
+        || isAdminOfOrg(resource.data.organizationId)
+        || isAuthorizedForProject(resource.data.projectId);
       allow create: if (isAdminOfOrg(request.resource.data.organizationId)
           || (isMemberOfOrg(request.resource.data.organizationId) && isManagerOfProject(request.resource.data.projectId)))
         && isValidReviewer(request.resource.data.get("reviewerId", null), request.resource.data.organizationId)
@@ -213,25 +249,35 @@ service cloud.firestore {
 
     // ── subtasks/{subtaskId} ────────────────────────────────────────────
     // A lightweight checklist item under exactly one task — organizationId
-    // is denormalized from the parent task at creation time (see
-    // types/subtask.ts) so reads don't need a get() per document, but
-    // WRITES always verify it against the parent task's real, live
-    // organizationId via taskOrgId() — never trust the client-declared
-    // value alone. taskId is pinned unchanged on update (via
-    // onlyChangingFields' allow-lists never including it), which also
-    // rules out circular/cross-parent reassignment by construction: a
-    // subtask can only ever point at the one task it was created under.
+    // AND projectId are both denormalized from the parent task at creation
+    // time (see types/subtask.ts) so reads don't need a get() chain through
+    // the parent task per document, but WRITES always verify both against
+    // the parent task's real, live values via taskOrgId()/taskProjectId() —
+    // never trust the client-declared value alone. taskId is pinned
+    // unchanged on update (via onlyChangingFields' allow-lists never
+    // including it), which also rules out circular/cross-parent
+    // reassignment by construction: a subtask can only ever point at the
+    // one task it was created under.
+    //
+    // Read inherits the parent project's authorization exactly like tasks
+    // do — a subtask under a private project's task is exactly as invisible
+    // to an unauthorized member as the task itself.
     match /subtasks/{subtaskId} {
-      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow read: if isSuperAdmin()
+        || isAdminOfOrg(resource.data.organizationId)
+        || isAuthorizedForProject(resource.data.projectId);
       allow create: if request.resource.data.organizationId == taskOrgId(request.resource.data.taskId)
+        && request.resource.data.projectId == taskProjectId(request.resource.data.taskId)
         && (isAdminOfOrg(request.resource.data.organizationId) || isManagerOfTaskProject(request.resource.data.taskId));
       allow update: if isSuperAdmin()
         || (isAdminOfOrg(resource.data.organizationId)
             && request.resource.data.organizationId == resource.data.organizationId
-            && request.resource.data.taskId == resource.data.taskId)
+            && request.resource.data.taskId == resource.data.taskId
+            && request.resource.data.projectId == resource.data.projectId)
         || (isManagerOfTaskProject(resource.data.taskId)
             && request.resource.data.organizationId == resource.data.organizationId
-            && request.resource.data.taskId == resource.data.taskId)
+            && request.resource.data.taskId == resource.data.taskId
+            && request.resource.data.projectId == resource.data.projectId)
         || (isSignedIn() && resource.data.assigneeId == request.auth.uid
             && resource.data.organizationId == myOrgId()
             && onlyChangingFields(["completed", "updatedAt"]));
@@ -250,9 +296,15 @@ service cloud.firestore {
     // resolves to a denial, not a crash (same mechanism already proven by
     // Phase C's "subtask against a non-existent parent task" test).
     match /comments/{commentId} {
-      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      // Read inherits the project's authorization exactly like tasks — a
+      // comment (project-level or task-level; both always carry projectId)
+      // is exactly as invisible to an unauthorized member as its parent.
+      allow read: if isSuperAdmin()
+        || isAdminOfOrg(resource.data.organizationId)
+        || isAuthorizedForProject(resource.data.projectId);
       allow create: if isMemberOfOrg(request.resource.data.organizationId)
         && request.resource.data.authorId == request.auth.uid
+        && (isAdminOfOrg(request.resource.data.organizationId) || isAuthorizedForProject(request.resource.data.projectId))
         && (
           // Project-level comment.
           (request.resource.data.taskId == null
@@ -298,9 +350,13 @@ service cloud.firestore {
     // Storage-side delete decision, so Storage and Firestore always agree on
     // who's allowed to delete a given file.
     match /attachments/{attachmentId} {
-      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      // Read inherits the project's authorization exactly like tasks/comments.
+      allow read: if isSuperAdmin()
+        || isAdminOfOrg(resource.data.organizationId)
+        || isAuthorizedForProject(resource.data.projectId);
       allow create: if isMemberOfOrg(request.resource.data.organizationId)
         && request.resource.data.uploadedBy == request.auth.uid
+        && (isAdminOfOrg(request.resource.data.organizationId) || isAuthorizedForProject(request.resource.data.projectId))
         && (
           // Project-level attachment.
           (request.resource.data.taskId == null
@@ -456,11 +512,42 @@ service cloud.firestore {
         "user_invited", "user_invitation_resent", "user_invitation_cancelled", "user_accepted_invitation", "user_joined"
       ];
     }
+    // Either null, or a real project in the SAME organization (never trust
+    // the client-declared value alone, same pattern as projectOrgId()
+    // elsewhere). Deliberately doesn't re-derive projectId per action type
+    // (e.g. re-verifying a task event's projectId against that task) —
+    // every caller of this create path is this app's own client code, and
+    // projectId here only ever gates READ-side visibility, never grants any
+    // additional write access.
+    function isValidActivityProjectId(orgId, projId) {
+      return projId == null || projectOrgId(projId) == orgId;
+    }
     match /activityLogs/{activityId} {
-      allow read: if isSuperAdmin() || isAdminOfOrg(resource.data.organizationId);
+      // Read scope: Org Admin/Super Admin see every event in the
+      // organization, unrestricted (their oversight is intentionally not
+      // project-scoped). A plain member sees non-sensitive events (same
+      // `visibleToMembers` reasoning as before) AND either has no single
+      // owning project (team/user lifecycle — always visible org-wide) OR
+      // belongs to a project they're actually authorized for — a private
+      // project's activity must be exactly as invisible as the project
+      // itself. `projectId` must be pinned by the query to ONE known value
+      // (or explicitly null) for the same get()-vs-list-query-provability
+      // reason documented on isAuthorizedForProject() — see
+      // lib/services/activity.service.ts's subscribeToProjectVisibleActivity
+      // / subscribeToOrgLevelVisibleActivity, used instead of one combined
+      // "all my projects" query.
+      allow read: if isSuperAdmin()
+        || isAdminOfOrg(resource.data.organizationId)
+        || (isMemberOfOrg(resource.data.organizationId)
+            && resource.data.visibleToMembers == true
+            && (resource.data.projectId == null || isAuthorizedForProject(resource.data.projectId)));
+      // Create: same actor/sensitivity checks as before, plus the projectId
+      // integrity check above.
       allow create: if isMemberOfOrg(request.resource.data.organizationId)
         && request.resource.data.actorId == request.auth.uid
-        && !isSensitiveActivityAction(request.resource.data.action);
+        && !isSensitiveActivityAction(request.resource.data.action)
+        && request.resource.data.visibleToMembers == true
+        && isValidActivityProjectId(request.resource.data.organizationId, request.resource.data.get("projectId", null));
       allow update, delete: if false;
     }
 

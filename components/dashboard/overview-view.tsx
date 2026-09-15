@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FolderKanban, ListChecks, TrendingUp, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -7,7 +8,11 @@ import { ProjectProgressList } from "@/components/dashboard/project-progress-lis
 import { TaskDistribution } from "@/components/dashboard/task-distribution";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingDeadlines } from "@/components/dashboard/upcoming-deadlines";
+import { MyWorkVerificationCard } from "@/components/dashboard/my-work-verification-card";
+import { ManagerPendingReviewsCard } from "@/components/dashboard/manager-pending-reviews-card";
 import { WidgetError } from "@/components/shared/widget-error";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardHeader,
@@ -22,7 +27,7 @@ import { isOverdue, daysUntil } from "@/lib/format";
 
 export function OverviewView() {
   const { user } = useAuth();
-  const { projects, tasks, activity, loaded, errors, retry } = useWorkspace();
+  const { uid, projects, tasks, activity, loaded, errors, retry } = useWorkspace();
 
   const initialLoading = !loaded.projects || !loaded.tasks || !loaded.activity;
   const firstName = (user?.displayName || user?.email || "there").split(" ")[0];
@@ -65,12 +70,89 @@ export function OverviewView() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 6);
 
+  // "My Work" — personally-scoped, distinct from the org-wide KPI row below.
+  // The Overview page previously showed only organization-wide aggregates,
+  // which is why "my immediate work" (assigned tasks, my projects, today's
+  // Daily Work Update) wasn't visible without navigating elsewhere first.
+  const myTasks = tasks.filter((task) => task.assignedTo === uid);
+  const myActiveTasks = myTasks.filter((task) => task.status !== "Completed" && task.status !== "Blocked");
+  const myCompletedTasks = myTasks.filter((task) => task.status === "Completed");
+  const myOverdueTasks = myTasks.filter((task) => isOverdue(task.dueDate, task.status === "Completed"));
+  const myBlockedTasks = myTasks.filter((task) => task.status === "Blocked");
+  const myProjects = projects.filter((project) => project.memberIds.includes(uid ?? ""));
+  const myWorkVerificationProjects = myProjects.filter((project) => project.workVerificationEnabled);
+  const myManagedProjects = projects.filter((project) => project.managerId === uid);
+
   return (
     <div>
       <PageHeader
         title="Overview"
         description={`Welcome back, ${firstName} — here's what's happening across your projects.`}
       />
+
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>My Tasks</CardTitle>
+            <CardDescription>Assigned to you, across all projects</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Active</span>
+              <span className="font-medium text-foreground">{myActiveTasks.length}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Overdue</span>
+              <span className={myOverdueTasks.length > 0 ? "font-medium text-[#d03b3b]" : "font-medium text-foreground"}>{myOverdueTasks.length}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Blocked</span>
+              <span className="font-medium text-foreground">{myBlockedTasks.length}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Completed</span>
+              <span className="font-medium text-foreground">{myCompletedTasks.length}</span>
+            </div>
+            <Button size="sm" variant="outline" className="mt-2 w-full" nativeButton={false} render={<Link href="/tasks" />}>
+              View My Tasks
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>My Projects</CardTitle>
+            <CardDescription>Projects you&apos;re a member of</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {myProjects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">You&apos;re not on any projects yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {myProjects.slice(0, 4).map((project) => (
+                  <li key={project.id}>
+                    <Link href={`/projects/${project.id}`} className="text-sm font-medium text-foreground hover:text-primary hover:underline">
+                      {project.name}
+                    </Link>
+                    <div className="mt-1 flex items-center gap-2">
+                      <Progress value={project.progress} className="h-1.5" />
+                      <span className="shrink-0 text-xs text-muted-foreground">{project.progress}%</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {uid && <MyWorkVerificationCard uid={uid} workVerificationProjects={myWorkVerificationProjects} />}
+      </div>
+
+      {myManagedProjects.length > 0 && (
+        <div className="mb-6">
+          <ManagerPendingReviewsCard managedProjects={myManagedProjects} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpiError ? (

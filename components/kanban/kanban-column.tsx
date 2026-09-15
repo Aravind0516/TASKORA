@@ -5,9 +5,10 @@ interface KanbanColumnProps {
   status: TaskStatus;
   tasks: Task[];
   onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onOpen: (task: Task) => void;
 }
 
-export function KanbanColumn({ status, tasks, onStatusChange }: KanbanColumnProps) {
+export function KanbanColumn({ status, tasks, onStatusChange, onOpen }: KanbanColumnProps) {
   return (
     <div className="flex w-72 shrink-0 flex-col rounded-xl bg-muted/40">
       <div className="flex items-center justify-between px-3 py-3">
@@ -18,7 +19,7 @@ export function KanbanColumn({ status, tasks, onStatusChange }: KanbanColumnProp
       </div>
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3">
         {tasks.map((task) => (
-          <KanbanCard key={task.id} task={task} onStatusChange={onStatusChange} />
+          <KanbanCard key={task.id} task={task} onStatusChange={onStatusChange} onOpen={onOpen} />
         ))}
         {tasks.length === 0 && (
           <p className="rounded-lg border border-dashed border-border py-6 text-center text-xs text-muted-foreground">

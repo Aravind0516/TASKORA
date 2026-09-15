@@ -24,6 +24,7 @@ const UNASSIGNED = "none";
 interface SubtaskChecklistProps {
   taskId: string;
   organizationId: string;
+  projectId: string;
   /** Kept structurally loose so both the (app)-group's TeamMember[] and the admin console's PlatformUser[] can be passed without a shared type. */
   members: Array<{ id: string; name: string }>;
 }
@@ -39,7 +40,7 @@ interface SubtaskChecklistProps {
  * dialog is closed. This is still "go through a service function," per
  * this repo's data-access rule — just not through the global providers.
  */
-export function SubtaskChecklist({ taskId, organizationId, members }: SubtaskChecklistProps) {
+export function SubtaskChecklist({ taskId, organizationId, projectId, members }: SubtaskChecklistProps) {
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export function SubtaskChecklist({ taskId, organizationId, members }: SubtaskChe
     // edited task changes (this repo's standard convention for record-editing
     // dialogs), so this subscription effect only ever runs once per mount.
     const unsubscribe = subtaskService.subscribeToSubtasks(
+      organizationId,
       taskId,
       (data) => {
         setSubtasks(data);
@@ -63,7 +65,7 @@ export function SubtaskChecklist({ taskId, organizationId, members }: SubtaskChe
       }
     );
     return unsubscribe;
-  }, [taskId]);
+  }, [organizationId, taskId]);
 
   const completedCount = subtasks.filter((s) => s.completed).length;
   const progressPct = subtasks.length > 0 ? Math.round((completedCount / subtasks.length) * 100) : 0;
@@ -74,7 +76,7 @@ export function SubtaskChecklist({ taskId, organizationId, members }: SubtaskChe
     setAdding(true);
     setError(null);
     try {
-      await subtaskService.createSubtask({ organizationId, taskId, title, order: subtasks.length });
+      await subtaskService.createSubtask({ organizationId, taskId, projectId, title, order: subtasks.length });
       setNewTitle("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add subtask.");

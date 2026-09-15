@@ -122,7 +122,11 @@ export function TaskTable({ tasks, onEdit, onDelete, emptyMessage = "No tasks ye
               const overdue = isOverdue(task.dueDate, task.status === "Completed");
 
               return (
-                <TableRow key={task.id}>
+                <TableRow
+                  key={task.id}
+                  className={onEdit ? "cursor-pointer" : undefined}
+                  onClick={onEdit ? () => onEdit(task) : undefined}
+                >
                   <TableCell className="whitespace-normal font-medium text-foreground">
                     {task.title}
                   </TableCell>
@@ -141,7 +145,14 @@ export function TaskTable({ tasks, onEdit, onDelete, emptyMessage = "No tasks ye
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger
-                          render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${task.title}`} />}
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Actions for ${task.title}`}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          }
                         >
                           <MoreHorizontal />
                         </DropdownMenuTrigger>

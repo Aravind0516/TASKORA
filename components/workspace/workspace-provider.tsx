@@ -130,8 +130,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   // organizationId comes from AuthProvider — the one place Firebase ID token
   // custom claims are resolved (see the 2026-09-07 role-resolution
   // consolidation) — never re-derived here.
-  const { user, organizationId, loading: identityLoading } = useAuth();
+  const { user, organizationId, role, loading: identityLoading } = useAuth();
   const uid = user?.uid ?? null;
+  // Projects may be assigned to specific employees — organization membership
+  // alone is never sufficient for a plain "user" to see a project (or its
+  // tasks/activity). Admin/Super Admin keep the exact same unrestricted,
+  // organization-wide subscriptions as before this changed; only the "user"
+  // branch below narrows to what that account is actually authorized for.
+  const isPrivileged = role === "admin" || role === "super_admin";
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -199,22 +205,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
 
     const unsubscribers = [
-      projectService.subscribeToProjects(
-        organizationId,
-        (data) => {
-          setProjects(data);
-          markLoaded("projects");
-        },
-        (message) => setError("projects", message)
-      ),
-      taskService.subscribeToTasks(
-        organizationId,
-        (data) => {
-          setTasks(data);
-          markLoaded("tasks");
-        },
-        (message) => setError("tasks", message)
-      ),
+      isPrivileged
+        ? projectService.subscribeToProjects(
+            organizationId,
+            (data) => {
+              setProjects(data);
+              markLoaded("projects");
+            },
+            (message) => setError("projects", message)
+          )
+        : projectService.subscribeToMyProjects(
+            organizationId,
+            uid,
+            (data) => {
+              setProjects(data);
+              markLoaded("projects");
+            },
+            (message) => setError("projects", message)
+          ),
       userService.subscribeToOrgUsers(
         organizationId,
         (data) => {
@@ -239,14 +247,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         },
         (message) => setError("notifications", message)
       ),
-      activityService.subscribeToActivity(
-        organizationId,
-        (data) => {
-          setActivity(data);
-          markLoaded("activity");
-        },
-        (message) => setError("activity", message)
-      ),
       meetingService.subscribeToMyMeetings(
         organizationId,
         uid,
@@ -259,7 +259,109 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     ];
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [uid, organizationId, identityLoading, retryKey]);
+  }, [uid, organizationId, identityLoading, retryKey, isPrivileged]);
+
+  // Tasks and activity both inherit project-level authorization for a plain
+  // "user" (see project.service.ts's subscribeToMyProjects and
+  // task.service.ts's subscribeToTasksForProjects) — they can only be
+  // correctly scoped once this account's REAL authorized project set is
+  // known, so these two effects depend on `projects` (via a stable,
+  // joined-ids key so they don't re-subscribe on every snapshot, only when
+  // the actual SET of projects changes) and wait for `loaded.projects`
+  // before subscribing at all, rather than briefly subscribing to an empty
+  // project list and flashing "no tasks" before the real list arrives.
+  // Admin/Super Admin are unaffected either way — their org-wide
+  // subscriptions never depended on `projects` to begin with.
+  const myProjectIdsKey = useMemo(() => (isPrivileged ? "" : [...projects.map((p) => p.id)].sort().join(",")), [isPrivileged, projects]);
+
+  useEffect(() => {
+    if (!uid || identityLoading || !organizationId) return;
+    if (!isPrivileged && !loaded.projects) return;
+
+    const markLoaded = (key: keyof CollectionState) =>
+      setLoaded((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+    const setError = (key: keyof CollectionState, message: string) => {
+      setErrors((prev) => ({ ...prev, [key]: message }));
+      markLoaded(key);
+    };
+
+    if (isPrivileged) {
+      const unsubscribe = taskService.subscribeToTasks(
+        organizationId,
+        (data) => {
+          setTasks(data);
+          markLoaded("tasks");
+        },
+        (message) => setError("tasks", message)
+      );
+      return unsubscribe;
+    }
+
+    const projectIds = myProjectIdsKey ? myProjectIdsKey.split(",") : [];
+    const unsubscribe = taskService.subscribeToTasksForProjects(
+      organizationId,
+      projectIds,
+      (data) => {
+        setTasks(data);
+        markLoaded("tasks");
+      },
+      (message) => setError("tasks", message)
+    );
+    return unsubscribe;
+  }, [uid, identityLoading, organizationId, isPrivileged, myProjectIdsKey, loaded.projects, retryKey]);
+
+  useEffect(() => {
+    if (!uid || identityLoading || !organizationId) return;
+    if (!isPrivileged && !loaded.projects) return;
+
+    const markLoaded = (key: keyof CollectionState) =>
+      setLoaded((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+    const setError = (key: keyof CollectionState, message: string) => {
+      setErrors((prev) => ({ ...prev, [key]: message }));
+      markLoaded(key);
+    };
+
+    if (isPrivileged) {
+      const unsubscribe = activityService.subscribeToActivity(
+        organizationId,
+        (data) => {
+          setActivity(data);
+          markLoaded("activity");
+        },
+        (message) => setError("activity", message)
+      );
+      return unsubscribe;
+    }
+
+    const projectIds = myProjectIdsKey ? myProjectIdsKey.split(",") : [];
+    const resultsByKey = new Map<string, ActivityLogEntry[]>();
+    function emit() {
+      setActivity(Array.from(resultsByKey.values()).flat());
+      markLoaded("activity");
+    }
+    const unsubscribers = [
+      activityService.subscribeToOrgLevelVisibleActivity(
+        organizationId,
+        (data) => {
+          resultsByKey.set("__org__", data);
+          emit();
+        },
+        (message) => setError("activity", message)
+      ),
+      ...projectIds.map((projectId) =>
+        activityService.subscribeToProjectVisibleActivity(
+          organizationId,
+          projectId,
+          (data) => {
+            resultsByKey.set(projectId, data);
+            emit();
+          },
+          (message) => setError("activity", message)
+        )
+      ),
+    ];
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [uid, identityLoading, organizationId, isPrivileged, myProjectIdsKey, loaded.projects, retryKey]);
 
   const members = useMemo(() => rawUsers.map(memberFromUser), [rawUsers]);
 
@@ -303,6 +405,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         entityType: "project",
         entityId: id,
         entityName: input.name,
+        projectId: id,
       });
       const now = new Date().toISOString();
       return {
@@ -347,6 +450,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         entityType: "project",
         entityId: id,
         entityName: input.name,
+        projectId: id,
       });
     },
     [uid, organizationId, actorName]
@@ -364,6 +468,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         entityType: "project",
         entityId: id,
         entityName: projects.find((p) => p.id === id)?.name ?? "",
+        projectId: id,
       });
     },
     [uid, organizationId, actorName, projects]
@@ -405,6 +510,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         entityType: "task",
         entityId: id,
         entityName: input.title,
+        projectId: input.projectId,
       });
       if (input.assignedTo) {
         await notificationService.notifyUsers({
@@ -471,6 +577,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         entityType: "task",
         entityId: id,
         entityName: input.title,
+        projectId: input.projectId,
       });
       const getPreferences = (memberUid: string) => getMemberById(memberUid)?.notificationPreferences;
       if (existing && existing.assignedTo !== input.assignedTo) {
@@ -522,6 +629,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           entityType: "task",
           entityId: id,
           entityName: task.title,
+          projectId: task.projectId,
         });
         const recipients = [task.assignedTo];
         if (status === "In Review" && task.reviewerId) recipients.push(task.reviewerId);

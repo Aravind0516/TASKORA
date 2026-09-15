@@ -271,7 +271,7 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
           </div>
         </form>
 
-        {task && <SubtaskChecklist taskId={task.id} organizationId={task.organizationId} members={users} />}
+        {task && <SubtaskChecklist taskId={task.id} organizationId={task.organizationId} projectId={task.projectId} members={users} />}
 
         {task && user && (
           <AttachmentSection

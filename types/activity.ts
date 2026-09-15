@@ -45,6 +45,26 @@ export interface ActivityLogEntry {
   entityId: string;
   /** Human-readable label for the affected entity (project name, task title, ...) — kept denormalized so the activity feed never needs N+1 lookups. */
   entityName: string;
+  /**
+   * The project this event belongs to, or null for an event with no single
+   * project (team/user/organization lifecycle). Lets firestore.rules and the
+   * client query enforce project-level authorization — a plain member's
+   * activity feed is scoped per-project (or to project-less events), never
+   * organization-wide, so a private project's activity never appears to
+   * someone unauthorized for it.
+   */
+  projectId: string | null;
   metadata?: Record<string, string | number | boolean | null>;
   createdAt: string;
+  /**
+   * True for routine, non-sensitive CRUD events (project/task/team) that any
+   * org member may read; false for sensitive platform events (org/admin/
+   * invitation lifecycle). Firestore query rules can only be statically
+   * verified against fields the query itself filters on — a plain-member
+   * activity query filters on this field so the rule doesn't have to inspect
+   * `action` per document (which Firestore can't prove from an
+   * organizationId-only query and would deny outright). Kept in sync with
+   * `action` by firestore.rules' `isSensitiveActivityAction()` on create.
+   */
+  visibleToMembers: boolean;
 }

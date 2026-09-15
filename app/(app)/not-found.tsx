@@ -12,7 +12,7 @@ export default function NotFound() {
       <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
         The page you&apos;re looking for doesn&apos;t exist or may have been moved.
       </p>
-      <Button render={<Link href="/overview" />} size="sm" className="mt-5">
+      <Button render={<Link href="/overview" />} nativeButton={false} size="sm" className="mt-5">
         Back to Overview
       </Button>
     </div>
