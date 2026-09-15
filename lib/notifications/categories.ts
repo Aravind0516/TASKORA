@@ -29,12 +29,16 @@ export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   { id: "project-updates", title: "Project updates", description: "Get notified when a project you're on changes status." },
   { id: "meetings", title: "Meeting invites & changes", description: "Get notified when you're added to a meeting or its time changes." },
   { id: "weekly-summary", title: "Weekly summary", description: "A weekly digest of activity across your projects." },
+  { id: "work-verification", title: "Work Verification", description: "Daily update submissions and review results for projects you manage or work on." },
 ];
 
 /**
  * null means "not user-gateable" — always created regardless of preferences
- * (currently just invitation_accepted, an organizational/admin-facing event
- * rather than a personal opt-in/out, matching its pre-PHASE-F behavior).
+ * (invitation_accepted and the subscription_* events, all organizational/
+ * admin-facing events — a Super Admin or Org Admin's own subscription
+ * approval workflow, not a personal opt-in/out — matching invitation_accepted's
+ * pre-PHASE-F precedent rather than adding a new preference toggle for
+ * something only admins ever receive).
  */
 export function categoryForNotificationType(type: NotificationType): string | null {
   switch (type) {
@@ -54,7 +58,13 @@ export function categoryForNotificationType(type: NotificationType): string | nu
     case "meeting_created":
     case "meeting_updated":
       return "meetings";
+    case "daily_update_submitted":
+    case "daily_update_reviewed":
+      return "work-verification";
     case "invitation_accepted":
+    case "subscription_requested":
+    case "subscription_approved":
+    case "subscription_rejected":
       return null;
   }
 }

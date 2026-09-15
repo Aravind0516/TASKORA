@@ -57,6 +57,8 @@ const defaultValues: PlatformProjectFormValues = {
   priority: "Medium",
   startDate: "",
   dueDate: "",
+  repositoryUrl: "",
+  workVerificationEnabled: false,
 };
 
 function projectToFormValues(project: PlatformProject): PlatformProjectFormValues {
@@ -70,6 +72,8 @@ function projectToFormValues(project: PlatformProject): PlatformProjectFormValue
     priority: project.priority,
     startDate: project.startDate,
     dueDate: project.dueDate,
+    repositoryUrl: project.repositoryUrl ?? "",
+    workVerificationEnabled: project.workVerificationEnabled,
   };
 }
 
@@ -296,6 +300,28 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
               <Label htmlFor="pp-due">Due date</Label>
               <Input id="pp-due" type="date" {...register("dueDate")} />
               {errors.dueDate && <p className="text-xs text-destructive">{errors.dueDate.message}</p>}
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-border p-3.5">
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <Controller
+                control={control}
+                name="workVerificationEnabled"
+                render={({ field }) => <Checkbox checked={field.value ?? false} onCheckedChange={(next) => field.onChange(Boolean(next))} className="mt-0.5" />}
+              />
+              <span>
+                <span className="block text-sm font-medium text-foreground">Enable Work Verification</span>
+                <span className="block text-xs text-muted-foreground">
+                  Members submit a daily work update with optional evidence; you or the project manager review it. Off by
+                  default — existing project behavior is unaffected.
+                </span>
+              </span>
+            </label>
+            <div className="space-y-1.5">
+              <Label htmlFor="pp-repo">Repository URL (optional)</Label>
+              <Input id="pp-repo" placeholder="https://github.com/org/repo" {...register("repositoryUrl")} />
+              <p className="text-xs text-muted-foreground">Shown as context next to submitted evidence — never fetched or verified automatically.</p>
             </div>
           </div>
         </form>

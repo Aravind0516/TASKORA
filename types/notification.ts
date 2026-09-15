@@ -8,7 +8,12 @@ export type NotificationType =
   | "project_updated"
   | "meeting_created"
   | "meeting_updated"
-  | "invitation_accepted";
+  | "invitation_accepted"
+  | "subscription_requested"
+  | "subscription_approved"
+  | "subscription_rejected"
+  | "daily_update_submitted"
+  | "daily_update_reviewed";
 
 export interface AppNotification {
   id: string;

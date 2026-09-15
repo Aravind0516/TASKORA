@@ -66,6 +66,16 @@ service cloud.firestore {
     function isValidHours(value) {
       return value == null || ((value is int || value is float) && value >= 0);
     }
+    // Work Verification review outcomes — VERIFIED needs no explanation, but
+    // PARTIALLY_VERIFIED/NEEDS_CLARIFICATION must carry an actual, non-empty
+    // comment (server-side backstop for the client's Zod validation — same
+    // "never trust the form already checked this" principle as isValidHours()
+    // above), matching the business requirement that a manager always
+    // explains a less-than-fully-verified outcome.
+    function isValidReviewStatus(status, comment) {
+      return status == "VERIFIED"
+        || ((status == "PARTIALLY_VERIFIED" || status == "NEEDS_CLARIFICATION") && comment is string && comment.size() > 0);
+    }
     // Two-hop lookup used by subtasks: a subtask has no managerId of its
     // own, only a parent taskId — so "is this caller the manager of the
     // task's project" requires reading the task, then that task's project.
@@ -313,6 +323,66 @@ service cloud.firestore {
         || isManagerOfProject(resource.data.projectId);
     }
 
+    // ── dailyWorkUpdates/{updateId} ─────────────────────────────────────
+    // TASKORA Work Verification (Phase 1) — "Claimed work -> Evidence ->
+    // Review," never surveillance: no screen/keystroke capture exists
+    // anywhere in this app, this is a self-reported structured check-in the
+    // author writes about their own work. organizationId/taskId are always
+    // re-derived from the REAL project/task (never trusted from the client
+    // alone), exactly like comments'/subtasks' create rules above. Read
+    // access matches the business requirement precisely: the org's Admin
+    // sees every update org-wide, a project's assigned manager sees that
+    // project's updates (not other projects'), and any member always sees
+    // their own regardless of project.
+    match /dailyWorkUpdates/{updateId} {
+      allow read: if isSuperAdmin()
+        || isAdminOfOrg(resource.data.organizationId)
+        || isManagerOfProject(resource.data.projectId)
+        || isSelf(resource.data.userId);
+
+      // Create: only for yourself, only "SUBMITTED" with no review fields
+      // pre-filled — a client can never create an update that's already
+      // "reviewed" or attributes review fields to someone else.
+      allow create: if isMemberOfOrg(request.resource.data.organizationId)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.organizationId == projectOrgId(request.resource.data.projectId)
+        && (request.resource.data.taskId == null
+            || (taskOrgId(request.resource.data.taskId) == request.resource.data.organizationId
+                && get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.projectId == request.resource.data.projectId))
+        && request.resource.data.status == "SUBMITTED"
+        && request.resource.data.reviewedBy == null
+        && request.resource.data.reviewedAt == null
+        && request.resource.data.reviewerComment == null;
+
+      // Update: three disjoint capabilities, matching the business
+      // requirement exactly — the author may edit their own CONTENT only
+      // while it's still awaiting review (never after, so a verified/
+      // clarification-requested record can't be quietly changed after the
+      // fact); the org's Admin or the project's assigned manager may set
+      // ONLY the review fields, always attributing the review to their own
+      // uid (never impersonating another reviewer) and always satisfying
+      // isValidReviewStatus(); neither role can ever touch the other's
+      // fields — there is no path that lets a self-review happen, because
+      // the isSelf() branch's own allow-list never includes "status".
+      allow update: if isSuperAdmin()
+        || (isAdminOfOrg(resource.data.organizationId)
+            && onlyChangingFields(["status", "reviewedAt", "reviewedBy", "reviewerComment", "updatedAt"])
+            && request.resource.data.reviewedBy == request.auth.uid
+            && isValidReviewStatus(request.resource.data.status, request.resource.data.get("reviewerComment", null)))
+        || (isManagerOfProject(resource.data.projectId)
+            && onlyChangingFields(["status", "reviewedAt", "reviewedBy", "reviewerComment", "updatedAt"])
+            && request.resource.data.reviewedBy == request.auth.uid
+            && isValidReviewStatus(request.resource.data.status, request.resource.data.get("reviewerComment", null)))
+        || (isSelf(resource.data.userId)
+            && resource.data.status == "SUBMITTED"
+            && onlyChangingFields(["taskId", "workSummary", "completedWork", "blockers", "tomorrowPlan", "evidence", "updatedAt"]));
+
+      // Delete: Admin/Super Admin only — an intern can never erase their own
+      // submitted record; this is meant to build an accountable history, not
+      // something either side can quietly clear.
+      allow delete: if isSuperAdmin() || isAdminOfOrg(resource.data.organizationId);
+    }
+
     // ── meetings/{meetingId} ────────────────────────────────────────────
     // Internal meeting coordination — deliberately NOT org-wide readable
     // like projects/tasks: a regular member only ever sees a meeting they
@@ -342,6 +412,22 @@ service cloud.firestore {
         )
         && onlyChangingFields(["title", "description", "participantIds", "startAt", "endAt", "status", "notes", "meetingLink", "updatedAt"]);
       allow delete: if isSelf(resource.data.organizerId) || isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();
+    }
+
+    // ── subscriptionRequests/{requestId} ────────────────────────────────
+    // TASKORA's manual Super Admin approval subscription model — no payment
+    // gateway yet. Read-only for that organization's Admin (to see their own
+    // request's status) and Super Admin (to see every organization's
+    // requests) via a live listener, exactly like invitations below. Every
+    // write (create, approve, reject) happens exclusively through
+    // app/api/subscription-requests/* via the Admin SDK (lib/server/
+    // subscriptions.ts), which bypasses these rules — never a direct client
+    // write, so a client can never forge requestedPlan/status/reviewedBy or
+    // approve its own request. This is the same trust shape as invitations:
+    // "allow write: if false" here is not a placeholder, it's the point.
+    match /subscriptionRequests/{requestId} {
+      allow read: if isSuperAdmin() || isAdminOfOrg(resource.data.organizationId);
+      allow write: if false;
     }
 
     // ── invitations/{invitationId} ──────────────────────────────────────

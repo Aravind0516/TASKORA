@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { NotificationsMenu } from "@/components/layout/notifications-menu";
+import { AboutTaskoraMenuItem } from "@/components/shared/product-branding";
 import { DemoRoleMenu } from "@/components/platform/demo-role-menu";
 import { usePlatformRole } from "@/components/platform/use-platform-role";
 import { useDemoRole } from "@/components/platform/demo-role-provider";
@@ -97,6 +98,8 @@ export function Topbar() {
               <Settings />
               Settings
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <AboutTaskoraMenuItem />
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={handleLogout}>
               <LogOut />

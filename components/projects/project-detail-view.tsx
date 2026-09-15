@@ -33,17 +33,21 @@ import { TaskTable } from "@/components/tasks/task-table";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { CommentSection } from "@/components/comments/comment-section";
 import { AttachmentSection } from "@/components/attachments/attachment-section";
+import { DailyUpdatePanel } from "@/components/work-verification/daily-update-panel";
+import { ProjectVerificationDashboard } from "@/components/work-verification/project-verification-dashboard";
 import { ProjectHealthExplanation } from "@/components/shared/project-health-badge";
 import { calculateProjectHealth } from "@/lib/project-health";
 import { formatDate } from "@/lib/format";
 import { getDeliverablesByProjectId } from "@/lib/mock-data/deliverables";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
+import * as dailyUpdateService from "@/lib/services/daily-work-update.service";
 import type { ProjectStatus } from "@/types/project";
+import type { DailyWorkUpdate } from "@/types/daily-work-update";
 
 export function ProjectDetailView({ projectId }: { projectId: string }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const {
     uid,
     organizationId,
@@ -74,6 +78,32 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     const timeout = setTimeout(() => setSuccessMessage(null), 3500);
     return () => clearTimeout(timeout);
   }, [successMessage]);
+
+  // Work Verification — one shared listener for the whole project (used by
+  // both the member's own DailyUpdatePanel and, for an authorized reviewer,
+  // the ProjectVerificationDashboard below), only ever subscribed when this
+  // project actually has the feature turned on.
+  const [dailyUpdates, setDailyUpdates] = useState<DailyWorkUpdate[]>([]);
+  useEffect(() => {
+    if (!project?.workVerificationEnabled) {
+      // Deferred so this never calls setState synchronously inside the
+      // effect body — same async pattern used elsewhere in this app for
+      // clearing state when a dependency goes away.
+      let cancelled = false;
+      Promise.resolve().then(() => {
+        if (!cancelled) setDailyUpdates([]);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    const unsubscribe = dailyUpdateService.subscribeToProjectDailyUpdates(
+      projectId,
+      setDailyUpdates,
+      () => setDailyUpdates([])
+    );
+    return unsubscribe;
+  }, [project?.workVerificationEnabled, projectId]);
 
   if (loading) {
     return (
@@ -196,6 +226,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           <TabsTrigger value="deliverables">Deliverables ({deliverables.length})</TabsTrigger>
           <TabsTrigger value="files">Files</TabsTrigger>
           <TabsTrigger value="discussion">Discussion</TabsTrigger>
+          {project.workVerificationEnabled && <TabsTrigger value="work-verification">Work Verification</TabsTrigger>}
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
 
@@ -317,6 +348,50 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {project.workVerificationEnabled && uid && organizationId && (
+          <TabsContent value="work-verification" className="mt-4 space-y-8">
+            {(() => {
+              const today = dailyUpdateService.todayDateKey();
+              const myUpdates = dailyUpdates.filter((u) => u.userId === uid);
+              const todayUpdate = myUpdates.find((u) => u.date === today) ?? null;
+              const recentUpdates = myUpdates.filter((u) => u.date !== today);
+              const canReview = role === "admin" || role === "super_admin" || project.managerId === uid;
+              const projectMembers = project.memberIds
+                .map((id) => getMemberById(id))
+                .filter((m): m is NonNullable<typeof m> => Boolean(m));
+              const reviewRecipientIds = [project.managerId, ...projectMembers.filter((m) => m.role === "Admin").map((m) => m.id)];
+              return (
+                <>
+                  <DailyUpdatePanel
+                    organizationId={organizationId}
+                    projectId={project.id}
+                    projectName={project.name}
+                    uid={uid}
+                    userName={getMemberById(uid)?.name ?? user?.displayName ?? user?.email ?? "You"}
+                    tasks={tasks}
+                    todayUpdate={todayUpdate}
+                    recentUpdates={recentUpdates}
+                    notifyRecipientIds={reviewRecipientIds}
+                    getRecipientPreferences={(memberUid) => getMemberById(memberUid)?.notificationPreferences}
+                  />
+                  {canReview && (
+                    <ProjectVerificationDashboard
+                      organizationId={organizationId}
+                      projectId={project.id}
+                      projectName={project.name}
+                      reviewerUid={uid}
+                      members={projectMembers}
+                      tasks={tasks}
+                      updates={dailyUpdates}
+                      getRecipientPreferences={(memberUid) => getMemberById(memberUid)?.notificationPreferences}
+                    />
+                  )}
+                </>
+              );
+            })()}
+          </TabsContent>
+        )}
 
         <TabsContent value="activity" className="mt-4">
           <Card>

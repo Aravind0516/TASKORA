@@ -91,17 +91,19 @@ export function AdminProjectsView() {
     if (!currentOrganizationId || !user) return;
     const memberIds = values.memberIds ?? [];
     const managerId = values.managerId ?? null;
+    const repositoryUrl = values.repositoryUrl || null;
+    const workVerificationEnabled = Boolean(values.workVerificationEnabled);
     if (editingProject) {
       // Owner is intentionally excluded from this patch — it's read-only
       // once a project exists (see PROJECT OWNER fix).
-      updateProject(editingProject.id, { ...values, memberIds, managerId, organizationId: currentOrganizationId });
+      updateProject(editingProject.id, { ...values, memberIds, managerId, repositoryUrl, workVerificationEnabled, organizationId: currentOrganizationId });
       setSuccessMessage(`"${values.name}" was updated.`);
     } else {
       // ownerId is NEVER taken from the form — it's always the authenticated
       // Admin creating the project, derived from the verified Firebase
       // session (also enforced server-side by firestore.rules: a project's
       // ownerId must equal request.auth.uid on create).
-      createProject({ organizationId: currentOrganizationId, ...values, memberIds, managerId, ownerId: user.uid });
+      createProject({ organizationId: currentOrganizationId, ...values, memberIds, managerId, repositoryUrl, workVerificationEnabled, ownerId: user.uid });
       setSuccessMessage(`"${values.name}" was created.`);
     }
   }

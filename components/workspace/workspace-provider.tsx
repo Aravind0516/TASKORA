@@ -320,6 +320,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         managerId: input.managerId ?? null,
         archived: false,
         progress: input.status === "Completed" ? 100 : 0,
+        // This shell's create-project dialog doesn't expose Work
+        // Verification settings (Admin-only, see components/admin/
+        // project-form-dialog.tsx) — every project it creates starts with
+        // the feature off, same as the real Firestore write already defaults to.
+        repositoryUrl: null,
+        repositoryProvider: "NONE",
+        workVerificationEnabled: false,
+        verificationFrequency: "DAILY",
         createdAt: now,
         updatedAt: now,
       } satisfies Project;

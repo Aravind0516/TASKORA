@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PersonStatusBadge } from "@/components/platform/person-status-badge";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { initials, formatDate, timeAgo } from "@/lib/format";
+import { SubscriptionStatusBadge } from "@/components/shared/subscription-status-badge";
+import { initials, formatDate, timeAgo, daysUntil } from "@/lib/format";
+import { getEffectiveSubscriptionStatus } from "@/lib/access-control";
 import { usePlatform } from "@/components/platform/platform-provider";
 import type { Organization } from "@/types/platform";
 
@@ -28,6 +30,8 @@ export function OrganizationDetailSheet({ organization, open, onOpenChange }: Or
   const teams = teamsInOrg(organization.id);
   const projects = projectsInOrg(organization.id);
   const activity = activityInOrg(organization.id).slice(0, 5);
+  const effectiveStatus = getEffectiveSubscriptionStatus(organization);
+  const trialDaysLeft = daysUntil(organization.trialEndsAt);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -38,12 +42,24 @@ export function OrganizationDetailSheet({ organization, open, onOpenChange }: Or
         </SheetHeader>
 
         <div className="space-y-6 px-4 pb-6">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <PersonStatusBadge status={organization.status} />
             <Badge variant="outline">{organization.plan}</Badge>
+            <SubscriptionStatusBadge status={effectiveStatus} />
           </div>
 
           <p className="text-sm text-muted-foreground">{organization.description}</p>
+
+          {effectiveStatus === "TRIAL" && (
+            <p className="text-xs text-muted-foreground">
+              {trialDaysLeft > 0 ? `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left in trial` : "Trial ends today"}
+            </p>
+          )}
+          {organization.subscriptionStatus === "ACTIVE" && organization.subscriptionStartedAt && (
+            <p className="text-xs text-muted-foreground">
+              {organization.plan} plan active since {formatDate(organization.subscriptionStartedAt)}
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>

@@ -19,8 +19,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { PersonStatusBadge } from "@/components/platform/person-status-badge";
-import { formatDate } from "@/lib/format";
+import { SubscriptionStatusBadge } from "@/components/shared/subscription-status-badge";
+import { formatDate, daysUntil } from "@/lib/format";
+import { getEffectiveSubscriptionStatus } from "@/lib/access-control";
 import { usePlatform } from "@/components/platform/platform-provider";
+import Link from "next/link";
 
 interface OrgFormValues {
   name: string;
@@ -114,7 +117,10 @@ export function AdminOrganizationView() {
             </div>
             <div>
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Plan</p>
-              <p className="mt-1 text-sm text-foreground">{org.plan}</p>
+              <div className="mt-1 flex items-center gap-2">
+                <p className="text-sm text-foreground">{org.plan}</p>
+                <SubscriptionStatusBadge status={getEffectiveSubscriptionStatus(org)} />
+              </div>
             </div>
             <div>
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Status</p>
@@ -126,12 +132,27 @@ export function AdminOrganizationView() {
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Created</p>
               <p className="mt-1 text-sm text-foreground">{formatDate(org.createdAt)}</p>
             </div>
+            <div>
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {getEffectiveSubscriptionStatus(org) === "TRIAL" ? "Trial ends" : "Subscription"}
+              </p>
+              <p className="mt-1 text-sm text-foreground">
+                {getEffectiveSubscriptionStatus(org) === "TRIAL"
+                  ? `${Math.max(daysUntil(org.trialEndsAt), 0)} day${daysUntil(org.trialEndsAt) === 1 ? "" : "s"} remaining`
+                  : org.subscriptionStartedAt
+                    ? `Active since ${formatDate(org.subscriptionStartedAt)}`
+                    : "—"}
+              </p>
+            </div>
           </div>
         </CardContent>
-        <CardFooter className="justify-end">
+        <CardFooter className="items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            Platform-level controls (suspension, billing plan changes) are managed by TASKORA Super Admins.
+            Plan and billing changes are managed on the Billing page and reviewed by NxtWise Platform Administration.
           </p>
+          <Button size="sm" variant="outline" render={<Link href="/admin/billing" />}>
+            Go to Billing
+          </Button>
         </CardFooter>
       </Card>
 

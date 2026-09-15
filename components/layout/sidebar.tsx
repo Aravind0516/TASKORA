@@ -5,6 +5,7 @@ import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
+import { SidebarProductFooter } from "@/components/shared/product-branding";
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
@@ -19,6 +20,7 @@ export function Sidebar() {
       <div className="flex-1 overflow-y-auto">
         <SidebarNav collapsed={collapsed} />
       </div>
+      <SidebarProductFooter collapsed={collapsed} />
       <div className="border-t border-sidebar-border p-2">
         <Button
           variant="ghost"

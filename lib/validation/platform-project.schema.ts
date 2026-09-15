@@ -16,6 +16,10 @@ export const platformProjectFormSchema = z
     priority: z.enum(["Low", "Medium", "High", "Critical"]),
     startDate: z.string().min(1, "Start date is required"),
     dueDate: z.string().min(1, "Due date is required"),
+    // Work Verification (Phase 1) — see types/daily-work-update.ts. Both
+    // optional/off by default so existing projects are entirely unaffected.
+    repositoryUrl: z.string().trim().max(300).optional().or(z.literal("")),
+    workVerificationEnabled: z.boolean().optional(),
   })
   .refine((data) => new Date(data.dueDate) >= new Date(data.startDate), {
     message: "Due date must be on or after the start date",

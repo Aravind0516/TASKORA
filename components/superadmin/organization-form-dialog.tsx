@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
@@ -14,13 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   platformOrganizationFormSchema,
   type PlatformOrganizationFormValues,
@@ -37,14 +30,12 @@ const defaultValues: PlatformOrganizationFormValues = {
   description: "",
   industry: "",
   contactEmail: "",
-  plan: "Free",
 };
 
 export function OrganizationFormDialog({ open, onOpenChange, onSubmitOrg }: OrganizationFormDialogProps) {
   const {
     register,
     handleSubmit,
-    control,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<PlatformOrganizationFormValues>({
@@ -68,7 +59,7 @@ export function OrganizationFormDialog({ open, onOpenChange, onSubmitOrg }: Orga
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Add Organization</DialogTitle>
-          <DialogDescription>Onboard a new organization to the TASKORA platform.</DialogDescription>
+          <DialogDescription>Onboard a new organization to the TASKORA platform. It starts on a 15-day free trial.</DialogDescription>
         </DialogHeader>
 
         <form id="org-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -82,31 +73,10 @@ export function OrganizationFormDialog({ open, onOpenChange, onSubmitOrg }: Orga
             <Textarea id="new-org-description" rows={3} placeholder="What does this organization do?" {...register("description")} />
             {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="new-org-industry">Industry</Label>
-              <Input id="new-org-industry" placeholder="e.g. Fintech" {...register("industry")} />
-              {errors.industry && <p className="text-xs text-destructive">{errors.industry.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-org-plan">Plan</Label>
-              <Controller
-                control={control}
-                name="plan"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "Free")}>
-                    <SelectTrigger id="new-org-plan" className="w-full">
-                      <SelectValue placeholder="Plan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Free">Free</SelectItem>
-                      <SelectItem value="Pro">Pro</SelectItem>
-                      <SelectItem value="Business">Business</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="new-org-industry">Industry</Label>
+            <Input id="new-org-industry" placeholder="e.g. Fintech" {...register("industry")} />
+            {errors.industry && <p className="text-xs text-destructive">{errors.industry.message}</p>}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="new-org-email">Contact email</Label>

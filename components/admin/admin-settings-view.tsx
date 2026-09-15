@@ -6,6 +6,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { usePlatform } from "@/components/platform/platform-provider";
+import { SubscriptionStatusBadge } from "@/components/shared/subscription-status-badge";
+import { getEffectiveSubscriptionStatus } from "@/lib/access-control";
 
 const NOTIFICATION_ITEMS = [
   { id: "new-user", title: "New member joins", description: "Get notified when someone joins your organization." },
@@ -43,9 +45,10 @@ export function AdminSettingsView() {
             <CardTitle>Organization</CardTitle>
             <CardDescription>Manage your organization&apos;s profile from the Organization page</CardDescription>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
+          <CardContent className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             Currently managing <span className="font-medium text-foreground">{org?.name}</span> on the{" "}
             <span className="font-medium text-foreground">{org?.plan}</span> plan.
+            {org && <SubscriptionStatusBadge status={getEffectiveSubscriptionStatus(org)} />}
           </CardContent>
         </Card>
       </TabsContent>

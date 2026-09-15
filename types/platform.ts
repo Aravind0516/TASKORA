@@ -10,7 +10,12 @@ import type { FunctionalRole } from "./user";
 export type PlatformRole = "super_admin" | "admin" | "user";
 
 export type OrgStatus = "Active" | "Suspended";
-export type OrgPlan = "Free" | "Pro" | "Business";
+// Manual-approval subscription model — mirrors types/organization.ts's
+// OrganizationPlan/SubscriptionStatus exactly (same spelling, no Title-Case
+// translation like OrgStatus gets), since these values are shown verbatim in
+// the Super Admin/Admin UI rather than needing a display-friendly remap.
+export type OrgPlan = "TRIAL" | "PREMIUM" | "CRAZY";
+export type SubscriptionStatus = "TRIAL" | "PENDING" | "ACTIVE" | "REJECTED" | "EXPIRED";
 export type PersonStatus = "Active" | "Invited" | "Suspended";
 
 export interface Organization {
@@ -20,6 +25,11 @@ export interface Organization {
   industry: string;
   contactEmail: string;
   plan: OrgPlan;
+  subscriptionStatus: SubscriptionStatus;
+  trialStartedAt: string;
+  trialEndsAt: string;
+  subscriptionStartedAt: string | null;
+  subscriptionEndsAt: string | null;
   status: OrgStatus;
   adminId: string;
   createdAt: string;
@@ -83,6 +93,10 @@ export interface PlatformProject {
   startDate: string;
   dueDate: string;
   archived: boolean;
+  repositoryUrl: string | null;
+  repositoryProvider: "NONE" | "GITHUB";
+  workVerificationEnabled: boolean;
+  verificationFrequency: "DAILY";
   createdAt: string;
   updatedAt: string;
 }

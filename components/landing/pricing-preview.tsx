@@ -10,26 +10,26 @@ import { cn } from "@/lib/utils";
 const PLANS = [
   {
     name: "Free",
-    price: "$0",
-    period: "forever",
+    price: "₹0",
+    period: "15-day trial",
     description: "For individuals getting organized.",
     features: ["Up to 3 projects", "Unlimited tasks", "Kanban board", "Basic analytics"],
     recommended: false,
   },
   {
-    name: "Pro",
-    price: "$12",
-    period: "per member / month",
+    name: "Premium",
+    price: "₹699",
+    period: "per month",
     description: "For teams that need to move fast.",
     features: ["Unlimited projects", "Advanced analytics", "Team roles & permissions", "Priority support"],
     recommended: true,
   },
   {
-    name: "Business",
-    price: "Custom",
-    period: "talk to us",
+    name: "Crazy",
+    price: "₹1,499",
+    period: "per month",
     description: "For organizations with complex workflows.",
-    features: ["Everything in Pro", "SSO & advanced security", "Dedicated onboarding", "Custom integrations"],
+    features: ["Everything in Premium", "SSO & advanced security", "Dedicated onboarding", "Custom integrations"],
     recommended: false,
   },
 ];
@@ -41,7 +41,7 @@ export function PricingPreview() {
         <SectionHeading
           eyebrow="Pricing"
           title="Simple pricing that scales with your team."
-          description="Illustrative starting prices — final plans and billing will be confirmed before launch."
+          description="Start on a 15-day free trial. Premium and Crazy plans are activated after a quick NxtWise Platform Administration review."
         />
 
         <div className="mt-16 grid grid-cols-1 gap-5 lg:grid-cols-3">

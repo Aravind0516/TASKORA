@@ -10,6 +10,8 @@ import {
   ServerCog,
   Settings,
   ListChecks,
+  CreditCard,
+  Receipt,
 } from "lucide-react";
 import type { NavItem } from "@/components/layout/nav-config";
 
@@ -20,6 +22,7 @@ export const ADMIN_NAV: NavItem[] = [
   { label: "Teams", href: "/admin/teams", icon: UsersRound },
   { label: "Projects", href: "/admin/projects", icon: FolderKanban },
   { label: "Tasks", href: "/admin/tasks", icon: ListChecks },
+  { label: "Billing", href: "/admin/billing", icon: CreditCard },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { label: "Activity", href: "/admin/activity", icon: Activity },
   { label: "Settings", href: "/admin/settings", icon: Settings },
@@ -32,6 +35,7 @@ export const SUPER_ADMIN_NAV: NavItem[] = [
   { label: "Users", href: "/superadmin/users", icon: Users },
   { label: "Projects", href: "/superadmin/projects", icon: FolderKanban },
   { label: "Teams", href: "/superadmin/teams", icon: UsersRound },
+  { label: "Subscriptions", href: "/superadmin/subscriptions", icon: Receipt },
   { label: "Activity", href: "/superadmin/activity", icon: Activity },
   { label: "Analytics", href: "/superadmin/analytics", icon: BarChart3 },
   { label: "System", href: "/superadmin/system", icon: ServerCog },

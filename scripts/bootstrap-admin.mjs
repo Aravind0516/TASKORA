@@ -63,12 +63,18 @@ if (!existing.empty) {
   const ref = db.collection("organizations").doc();
   orgId = ref.id;
   const now = new Date().toISOString();
+  const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
   await ref.set({
     id: ref.id,
     name: orgName,
     slug: slugify(orgName),
     description: "",
-    plan: "Free",
+    plan: "TRIAL",
+    subscriptionStatus: "TRIAL",
+    trialStartedAt: now,
+    trialEndsAt,
+    subscriptionStartedAt: null,
+    subscriptionEndsAt: null,
     ownerId: user.uid,
     adminIds: [],
     memberIds: [],

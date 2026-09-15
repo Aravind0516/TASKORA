@@ -3,7 +3,8 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
 import { ApiError } from "@/lib/server/api-response";
 import { logActivity } from "@/lib/server/activity";
-import type { OrganizationDoc, OrganizationPlan } from "@/types/organization";
+import { computeTrialEndsAt } from "@/lib/access-control";
+import type { OrganizationDoc } from "@/types/organization";
 
 function slugify(name: string): string {
   return name
@@ -18,7 +19,6 @@ export interface CreateOrganizationInput {
   description: string;
   industry?: string;
   contactEmail?: string;
-  plan: OrganizationPlan;
   createdBy: string;
 }
 
@@ -28,6 +28,11 @@ export interface CreateOrganizationInput {
  * "Add Organization" then, separately, "Add Administrator"). The org exists
  * with no owner until its first admin invitation is accepted — see
  * lib/server/invitations.ts's acceptInvitation, which sets ownerId then.
+ *
+ * Every organization — however it's created (this path, or the self-serve
+ * flow below) — starts on a 15-day free trial. There is no "choose a plan at
+ * creation" step anymore: a paid plan only ever comes from a Super-Admin-
+ * approved subscriptionRequests/{id} (see lib/server/subscriptions.ts).
  */
 export async function createOrganization(input: CreateOrganizationInput): Promise<OrganizationDoc> {
   const db = getAdminDb();
@@ -50,7 +55,12 @@ export async function createOrganization(input: CreateOrganizationInput): Promis
     description: input.description,
     industry: input.industry,
     contactEmail: input.contactEmail,
-    plan: input.plan,
+    plan: "TRIAL",
+    subscriptionStatus: "TRIAL",
+    trialStartedAt: now,
+    trialEndsAt: computeTrialEndsAt(now),
+    subscriptionStartedAt: null,
+    subscriptionEndsAt: null,
     ownerId: "",
     adminIds: [],
     memberIds: [],
@@ -95,7 +105,6 @@ export async function claimNewOrganizationForSelf(input: ClaimOrganizationInput)
   const organization = await createOrganization({
     name: input.name,
     description: input.description ?? "",
-    plan: "Free",
     createdBy: input.uid,
   });
 

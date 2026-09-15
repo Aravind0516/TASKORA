@@ -44,7 +44,7 @@ export function SuperAdminAnalyticsView() {
   const projectGrowth = buildMonthlyGrowth(projects.map((p) => p.createdAt));
   const taskCompletionTrend = buildPlatformCompletionTrend(tasks);
 
-  const orgsByPlan = (["Free", "Pro", "Business"] as const).map((plan, i) => ({
+  const orgsByPlan = (["TRIAL", "PREMIUM", "CRAZY"] as const).map((plan, i) => ({
     label: plan,
     value: organizations.filter((o) => o.plan === plan).length,
     color: CATEGORICAL[i],

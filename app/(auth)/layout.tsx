@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { LayoutGrid, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { resolvePostAuthPath } from "@/lib/auth-redirect";
+import { AuthProductFooter } from "@/components/shared/product-branding";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -93,7 +94,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <div className="w-full max-w-[400px] rounded-2xl border border-border bg-card px-7 py-8 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_24px_48px_-24px_rgba(0,0,0,0.16)] sm:px-9 sm:py-9">
           {children}
         </div>
-        <p className="mt-8 text-xs text-muted-foreground">© TASKORA. All rights reserved.</p>
+        <AuthProductFooter />
       </div>
     );
   }
@@ -110,6 +111,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </div>
       </Link>
       <div className="w-full max-w-sm">{children}</div>
+      <AuthProductFooter />
     </div>
   );
 }

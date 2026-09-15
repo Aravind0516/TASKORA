@@ -49,6 +49,11 @@ function toDisplayOrg(doc: OrganizationDoc): Organization {
     industry: doc.industry ?? "",
     contactEmail: doc.contactEmail ?? "",
     plan: doc.plan,
+    subscriptionStatus: doc.subscriptionStatus,
+    trialStartedAt: doc.trialStartedAt,
+    trialEndsAt: doc.trialEndsAt,
+    subscriptionStartedAt: doc.subscriptionStartedAt,
+    subscriptionEndsAt: doc.subscriptionEndsAt,
     status: doc.status === "suspended" ? "Suspended" : "Active",
     adminId: doc.adminIds[0] ?? "",
     createdAt: doc.createdAt,
@@ -167,7 +172,7 @@ interface PlatformContextValue {
   activityInOrg: (orgId: string | null) => PlatformActivityEntry[];
   invitationsInOrg: (orgId: string | null) => PlatformInvitation[];
 
-  createOrganization: (input: Pick<Organization, "name" | "description" | "industry" | "contactEmail" | "plan">) => Promise<Organization>;
+  createOrganization: (input: Pick<Organization, "name" | "description" | "industry" | "contactEmail">) => Promise<Organization>;
   updateOrganization: (id: string | null, patch: Partial<Pick<Organization, "name" | "description" | "industry" | "contactEmail" | "status">>) => Promise<void>;
   /** Invites a new administrator (via the invitation system) rather than creating an account instantly. */
   createAdmin: (input: { organizationId: string; name: string; email: string }) => Promise<{ emailSent: boolean; emailError: string | null }>;
@@ -179,7 +184,9 @@ interface PlatformContextValue {
   updateTeam: (id: string, patch: Partial<{ name: string; description: string; leadId: string; memberIds: string[] }>) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
   createProject: (
-    input: Omit<PlatformProject, "id" | "createdAt" | "updatedAt" | "progress" | "archived"> & { progress?: number }
+    input: Omit<PlatformProject, "id" | "createdAt" | "updatedAt" | "progress" | "archived" | "repositoryProvider" | "verificationFrequency"> & {
+      progress?: number;
+    }
   ) => Promise<PlatformProject>;
   updateProject: (id: string, patch: Partial<PlatformProject>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
@@ -460,7 +467,16 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         entityId: id,
         entityName: input.name,
       });
-      return { ...input, id, progress: input.status === "Completed" ? 100 : (input.progress ?? 0), archived: false, createdAt: nowIso(), updatedAt: nowIso() };
+      return {
+        ...input,
+        id,
+        progress: input.status === "Completed" ? 100 : (input.progress ?? 0),
+        archived: false,
+        repositoryProvider: input.repositoryUrl && /(^|\/\/)(www\.)?github\.com\//i.test(input.repositoryUrl) ? "GITHUB" : "NONE",
+        verificationFrequency: "DAILY",
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
     },
     [uid, actorName]
   );

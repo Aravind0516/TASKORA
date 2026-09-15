@@ -7,7 +7,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
   return (
     <SuperAdminRoute>
       <PlatformProvider>
-        <PlatformShell navKey="superadmin" brandLabel="Super Admin" roleBadge="Platform Owner">
+        <PlatformShell navKey="superadmin" brandLabel="NxtWise Platform Administration" roleBadge="Platform Owner">
           {children}
         </PlatformShell>
       </PlatformProvider>

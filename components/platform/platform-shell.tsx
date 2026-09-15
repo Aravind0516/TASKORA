@@ -16,6 +16,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PlatformSidebarNav } from "@/components/platform/platform-sidebar-nav";
+import { AboutTaskoraMenuItem, SidebarProductFooter } from "@/components/shared/product-branding";
+import { AccessGate } from "@/components/shared/access-gate";
 import { DemoRoleMenu } from "@/components/platform/demo-role-menu";
 import { CreateOrganizationDialog } from "@/components/platform/create-organization-dialog";
 import { usePlatformRole } from "@/components/platform/use-platform-role";
@@ -82,6 +84,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
         <div className="flex-1 overflow-y-auto">
           <PlatformSidebarNav navItems={navItems} brandLabel={brandLabel} collapsed={collapsed} />
         </div>
+        <SidebarProductFooter collapsed={collapsed} />
         <div className="border-t border-sidebar-border p-2">
           <Button
             variant="ghost"
@@ -144,6 +147,8 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
                   Account settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <AboutTaskoraMenuItem />
+                <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                   <LogOut />
                   Sign out
@@ -198,7 +203,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
                 <p>{dataError}</p>
               </div>
             )}
-            {children}
+            {navKey === "admin" ? <AccessGate>{children}</AccessGate> : children}
           </div>
         </main>
       </div>

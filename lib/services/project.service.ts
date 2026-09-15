@@ -14,7 +14,7 @@ import {
 import { db } from "@/lib/firebase/firestore";
 import { getFirestoreErrorMessage } from "@/lib/firebase/firestore-errors";
 import { toIso } from "@/lib/firebase/timestamp";
-import type { Project, ProjectPriority, ProjectStatus } from "@/types/project";
+import type { Project, ProjectPriority, ProjectStatus, RepositoryProvider } from "@/types/project";
 
 function projectFromDoc(docSnap: QueryDocumentSnapshot): Project {
   const data = docSnap.data();
@@ -33,6 +33,13 @@ function projectFromDoc(docSnap: QueryDocumentSnapshot): Project {
     managerId: data.managerId ?? null,
     memberIds: data.memberIds ?? [],
     archived: Boolean(data.archived),
+    // Absent on every project created before Work Verification existed —
+    // default to "off"/"none" so an existing project's behavior is
+    // completely unchanged until an Admin deliberately opts it in.
+    repositoryUrl: data.repositoryUrl ?? null,
+    repositoryProvider: data.repositoryProvider ?? "NONE",
+    workVerificationEnabled: Boolean(data.workVerificationEnabled),
+    verificationFrequency: data.verificationFrequency ?? "DAILY",
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
@@ -91,6 +98,13 @@ export interface ProjectInput {
   ownerId: string;
   managerId: string | null;
   memberIds: string[];
+  repositoryUrl?: string | null;
+  workVerificationEnabled?: boolean;
+}
+
+/** github.com/... vs. anything else — evidence-context labeling only, never used to decide what TASKORA trusts. */
+function inferRepositoryProvider(repositoryUrl: string | null | undefined): RepositoryProvider {
+  return repositoryUrl && /(^|\/\/)(www\.)?github\.com\//i.test(repositoryUrl) ? "GITHUB" : "NONE";
 }
 
 export async function createProject(input: ProjectInput): Promise<string> {
@@ -101,6 +115,10 @@ export async function createProject(input: ProjectInput): Promise<string> {
       ...input,
       progress: input.status === "Completed" ? 100 : 0,
       archived: false,
+      repositoryUrl: input.repositoryUrl?.trim() || null,
+      repositoryProvider: inferRepositoryProvider(input.repositoryUrl),
+      workVerificationEnabled: Boolean(input.workVerificationEnabled),
+      verificationFrequency: "DAILY",
       createdAt: now,
       updatedAt: now,
     });
@@ -115,7 +133,14 @@ export async function updateProject(
   patch: Partial<ProjectInput> & { progress?: number; archived?: boolean }
 ): Promise<void> {
   try {
-    await updateDoc(doc(db, "projects", projectId), { ...patch, updatedAt: serverTimestamp() });
+    const { repositoryUrl, ...rest } = patch;
+    await updateDoc(doc(db, "projects", projectId), {
+      ...rest,
+      ...(repositoryUrl !== undefined
+        ? { repositoryUrl: repositoryUrl?.trim() || null, repositoryProvider: inferRepositoryProvider(repositoryUrl) }
+        : {}),
+      updatedAt: serverTimestamp(),
+    });
   } catch (error) {
     throw new Error(getFirestoreErrorMessage(error, "projects:update"));
   }
