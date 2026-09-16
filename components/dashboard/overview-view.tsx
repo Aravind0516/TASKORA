@@ -27,7 +27,7 @@ import { isOverdue, daysUntil } from "@/lib/format";
 
 export function OverviewView() {
   const { user } = useAuth();
-  const { uid, projects, tasks, activity, loaded, errors, retry } = useWorkspace();
+  const { uid, organizationId, projects, tasks, activity, loaded, errors, retry } = useWorkspace();
 
   const initialLoading = !loaded.projects || !loaded.tasks || !loaded.activity;
   const firstName = (user?.displayName || user?.email || "there").split(" ")[0];
@@ -148,9 +148,9 @@ export function OverviewView() {
         {uid && <MyWorkVerificationCard uid={uid} workVerificationProjects={myWorkVerificationProjects} />}
       </div>
 
-      {myManagedProjects.length > 0 && (
+      {myManagedProjects.length > 0 && organizationId && (
         <div className="mb-6">
-          <ManagerPendingReviewsCard managedProjects={myManagedProjects} />
+          <ManagerPendingReviewsCard organizationId={organizationId} managedProjects={myManagedProjects} />
         </div>
       )}
 

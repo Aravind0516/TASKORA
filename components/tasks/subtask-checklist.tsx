@@ -54,6 +54,7 @@ export function SubtaskChecklist({ taskId, organizationId, projectId, members }:
     // dialogs), so this subscription effect only ever runs once per mount.
     const unsubscribe = subtaskService.subscribeToSubtasks(
       organizationId,
+      projectId,
       taskId,
       (data) => {
         setSubtasks(data);
@@ -65,7 +66,7 @@ export function SubtaskChecklist({ taskId, organizationId, projectId, members }:
       }
     );
     return unsubscribe;
-  }, [organizationId, taskId]);
+  }, [organizationId, projectId, taskId]);
 
   const completedCount = subtasks.filter((s) => s.completed).length;
   const progressPct = subtasks.length > 0 ? Math.round((completedCount / subtasks.length) * 100) : 0;

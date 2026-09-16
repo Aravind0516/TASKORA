@@ -98,13 +98,23 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     return () => clearTimeout(timeout);
   }, [successMessage]);
 
-  // Work Verification — one shared listener for the whole project (used by
-  // both the member's own DailyUpdatePanel and, for an authorized reviewer,
-  // the ProjectVerificationDashboard below), only ever subscribed when this
-  // project actually has the feature turned on.
+  // Work Verification. A reviewer (this project's manager, that org's
+  // Admin, or Super Admin) gets every member's updates on this project — for
+  // the ProjectVerificationDashboard below, and their own today/recent
+  // updates are a subset of that same array. Anyone else can only ever
+  // prove firestore.rules' isSelf(resource.data.userId) branch, which
+  // requires a query scoped to their OWN uid (subscribeToMyProjectDailyUpdates)
+  // — the broader, all-members query is correctly denied for them, not
+  // silently filtered, so it must never be the one used here. Only ever
+  // subscribed when this project actually has the feature turned on.
+  // Same condition as canManageProject below, duplicated here because React's
+  // rules of hooks require this effect to be declared before the loading/
+  // notFound() early returns, while canManageProject is only computed after
+  // them (once `project` is guaranteed non-null).
+  const canReviewWorkVerification = role === "admin" || role === "super_admin" || project?.managerId === uid;
   const [dailyUpdates, setDailyUpdates] = useState<DailyWorkUpdate[]>([]);
   useEffect(() => {
-    if (!project?.workVerificationEnabled) {
+    if (!project?.workVerificationEnabled || !organizationId || !uid) {
       // Deferred so this never calls setState synchronously inside the
       // effect body — same async pattern used elsewhere in this app for
       // clearing state when a dependency goes away.
@@ -116,13 +126,11 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         cancelled = true;
       };
     }
-    const unsubscribe = dailyUpdateService.subscribeToProjectDailyUpdates(
-      projectId,
-      setDailyUpdates,
-      () => setDailyUpdates([])
-    );
+    const unsubscribe = canReviewWorkVerification
+      ? dailyUpdateService.subscribeToProjectDailyUpdates(organizationId, projectId, setDailyUpdates, () => setDailyUpdates([]))
+      : dailyUpdateService.subscribeToMyProjectDailyUpdates(organizationId, projectId, uid, setDailyUpdates, () => setDailyUpdates([]));
     return unsubscribe;
-  }, [project?.workVerificationEnabled, projectId]);
+  }, [project?.workVerificationEnabled, organizationId, uid, projectId, canReviewWorkVerification]);
 
   if (loading) {
     return (
@@ -465,7 +473,6 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
               const myUpdates = dailyUpdates.filter((u) => u.userId === uid);
               const todayUpdate = myUpdates.find((u) => u.date === today) ?? null;
               const recentUpdates = myUpdates.filter((u) => u.date !== today);
-              const canReview = role === "admin" || role === "super_admin" || project.managerId === uid;
               const projectMembers = project.memberIds
                 .map((id) => getMemberById(id))
                 .filter((m): m is NonNullable<typeof m> => Boolean(m));
@@ -485,7 +492,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                     getRecipientPreferences={(memberUid) => getMemberById(memberUid)?.notificationPreferences}
                     initialTaskId={preselectTaskId}
                   />
-                  {canReview && (
+                  {canManageProject && (
                     <ProjectVerificationDashboard
                       organizationId={organizationId}
                       projectId={project.id}

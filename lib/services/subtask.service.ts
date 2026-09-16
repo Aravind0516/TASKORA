@@ -39,16 +39,19 @@ function subtaskFromDoc(docSnap: QueryDocumentSnapshot): Subtask {
  * components/tasks/subtask-checklist.tsx). Avoids an unnecessary realtime
  * listener per this repo's performance principles.
  *
- * organizationId is an explicit query filter (not just taskId) for the same
+ * organizationId AND projectId are both explicit query filters for the same
  * reason comment.service.ts/attachment.service.ts already document:
- * firestore.rules' read rule depends on resource.data.organizationId (or,
- * now, resource.data.projectId), and Firestore can only verify a list
- * query's rule from the query's OWN filters — a taskId-only query left this
- * genuinely broken for any non-admin caller (verified live; there was
- * simply no real subtask data yet to ever surface it).
+ * firestore.rules' read rule depends on resource.data.organizationId (admin
+ * branch) or resource.data.projectId (isAuthorizedForProject — the plain-
+ * member AND project-manager branch), and Firestore can only verify a list
+ * query's rule from the query's OWN filters. A query missing either field
+ * left this genuinely broken in production for EVERY caller, including a
+ * project's own manager and Org Admin, not just a plain employee — verified
+ * live against the deployed rules before this fix.
  */
 export function subscribeToSubtasks(
   organizationId: string,
+  projectId: string,
   taskId: string,
   onData: (subtasks: Subtask[]) => void,
   onError: (message: string) => void
@@ -56,6 +59,7 @@ export function subscribeToSubtasks(
   const q = query(
     collection(db, "subtasks"),
     where("organizationId", "==", organizationId),
+    where("projectId", "==", projectId),
     where("taskId", "==", taskId),
     orderBy("order", "asc")
   );

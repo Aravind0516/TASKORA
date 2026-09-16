@@ -10,23 +10,30 @@ import type { DailyWorkUpdate } from "@/types/daily-work-update";
 import type { Project } from "@/types/project";
 
 interface ManagerPendingReviewsCardProps {
+  organizationId: string;
   /** Projects this signed-in member is the assigned manager of (project.managerId === their own uid) — Work Verification review is project-scoped, not an account-wide "Manager" role, so this is the exact set they're authorized to review. */
   managedProjects: Project[];
 }
 
-function ProjectPendingCount({ project }: { project: Project }) {
+function ProjectPendingCount({ organizationId, project }: { organizationId: string; project: Project }) {
   const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   useEffect(() => {
     // Only ever rendered for a project that already has the feature on (see
-    // the `reviewable` filter below) — no "off" branch needed here.
+    // the `reviewable` filter below) — no "off" branch needed here. This
+    // caller is always that project's manager (see managedProjects' own
+    // doc comment), so the reviewer-only subscribeToProjectDailyUpdates is
+    // the correct one — organizationId is required alongside projectId so
+    // firestore.rules' isAdminOfOrg()/isManagerOfProject() branches are
+    // provable from this query at all (see the service function's comment).
     const unsubscribe = dailyUpdateService.subscribeToProjectDailyUpdates(
+      organizationId,
       project.id,
       (updates: DailyWorkUpdate[]) => setPendingCount(updates.filter((u) => u.status === "SUBMITTED").length),
       () => setPendingCount(0)
     );
     return unsubscribe;
-  }, [project.id]);
+  }, [organizationId, project.id]);
 
   return (
     <li className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
@@ -51,7 +58,7 @@ function ProjectPendingCount({ project }: { project: Project }) {
  * live pending-review count, so a manager doesn't have to remember which of
  * their projects to check.
  */
-export function ManagerPendingReviewsCard({ managedProjects }: ManagerPendingReviewsCardProps) {
+export function ManagerPendingReviewsCard({ organizationId, managedProjects }: ManagerPendingReviewsCardProps) {
   const reviewable = managedProjects.filter((p) => p.workVerificationEnabled);
   if (reviewable.length === 0) return null;
 
@@ -64,7 +71,7 @@ export function ManagerPendingReviewsCard({ managedProjects }: ManagerPendingRev
       <CardContent>
         <ul className="divide-y divide-border">
           {reviewable.map((project) => (
-            <ProjectPendingCount key={project.id} project={project} />
+            <ProjectPendingCount key={project.id} organizationId={organizationId} project={project} />
           ))}
         </ul>
       </CardContent>

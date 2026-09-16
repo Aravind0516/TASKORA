@@ -72,17 +72,67 @@ export function subscribeToMyDailyUpdates(
   );
 }
 
-/** Every update submitted for one project, across every member — powers the manager's Work Verification dashboard (firestore.rules scopes actual read access to that project's Admin/manager, or the update's own author). */
+/**
+ * Every update submitted for one project, across every member — powers the
+ * manager's Work Verification dashboard. Reviewer-only (that project's
+ * assigned manager, that org's Admin, or Super Admin): firestore.rules'
+ * read rule for a non-reviewer only ever provides isSelf(resource.data.userId),
+ * which a query with no userId filter can never let Firestore prove — so a
+ * plain member calling this exact query is correctly denied outright, not
+ * silently filtered. organizationId is an explicit filter (alongside
+ * projectId) specifically so the isAdminOfOrg() branch is provable too, not
+ * just isManagerOfProject() — verified live: before this fix, an Org Admin
+ * was ALSO denied by this query, only the project's own manager happened to
+ * pass (isManagerOfProject(resource.data.projectId) doesn't need
+ * organizationId pinned at all). A plain member must use
+ * subscribeToMyProjectDailyUpdates instead.
+ */
 export function subscribeToProjectDailyUpdates(
+  organizationId: string,
   projectId: string,
   onData: (updates: DailyWorkUpdate[]) => void,
   onError: (message: string) => void
 ): () => void {
-  const q = query(collection(db, "dailyWorkUpdates"), where("projectId", "==", projectId), orderBy("date", "desc"));
+  const q = query(
+    collection(db, "dailyWorkUpdates"),
+    where("organizationId", "==", organizationId),
+    where("projectId", "==", projectId),
+    orderBy("date", "desc")
+  );
   return onSnapshot(
     q,
     (snapshot) => onData(snapshot.docs.map(updateFromDoc)),
     (error) => onError(getFirestoreErrorMessage(error, "dailyWorkUpdates:project"))
+  );
+}
+
+/**
+ * A plain member's OWN updates on one project — what DailyUpdatePanel
+ * actually needs (today's update + recent history), scoped so
+ * firestore.rules' isSelf(resource.data.userId) branch is provable: userId
+ * is pinned to the caller's own uid, exactly like organizationId/projectId
+ * are pinned above. Used by anyone (including a reviewer, who ALSO has
+ * their own daily updates to see on the same panel) — reviewers
+ * additionally get subscribeToProjectDailyUpdates for the review dashboard.
+ */
+export function subscribeToMyProjectDailyUpdates(
+  organizationId: string,
+  projectId: string,
+  userId: string,
+  onData: (updates: DailyWorkUpdate[]) => void,
+  onError: (message: string) => void
+): () => void {
+  const q = query(
+    collection(db, "dailyWorkUpdates"),
+    where("organizationId", "==", organizationId),
+    where("projectId", "==", projectId),
+    where("userId", "==", userId),
+    orderBy("date", "desc")
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => onData(snapshot.docs.map(updateFromDoc)),
+    (error) => onError(getFirestoreErrorMessage(error, "dailyWorkUpdates:myProject"))
   );
 }
 
