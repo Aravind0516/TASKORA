@@ -1,5 +1,24 @@
 export type ProjectStatus = "Planning" | "Active" | "On Hold" | "Completed";
 
+/**
+ * A project's own single official requirement document (PDF/DOC/DOCX) —
+ * one slot per project, replace-only, never a list. Embedded directly on
+ * the project document (never a separate Firestore collection) so its read
+ * authorization is exactly the project's own existing privacy boundary
+ * (isAuthorizedForProject) with no new Firestore rule needed. `version`
+ * increments on every replace and is the storage path's own version
+ * segment — see lib/services/project-requirement.service.ts.
+ */
+export interface ProjectRequirementDocument {
+  fileName: string;
+  storagePath: string;
+  contentType: string;
+  size: number;
+  uploadedBy: string;
+  uploadedAt: string;
+  version: number;
+}
+
 export type ProjectPriority = "Low" | "Medium" | "High" | "Critical";
 
 /** Phase 1 of Work Verification: a repository URL is evidence context only — TASKORA never calls the GitHub API or trusts commit counts. See lib/services/daily-work-update.service.ts. */
@@ -48,6 +67,8 @@ export interface Project {
   submissionStatus: "NONE" | "SUBMITTED";
   /** Server timestamp (never the browser clock) set exactly once, at submission — see lib/server/project-submission.ts. null until submitted. */
   submittedAt: string | null;
+  /** null until an Admin/authorized manager uploads one — every project continues working normally without it. */
+  requirementDocument: ProjectRequirementDocument | null;
   createdAt: string;
   updatedAt: string;
 }

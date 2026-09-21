@@ -433,6 +433,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         verificationFrequency: "DAILY",
         submissionStatus: "NONE",
         submittedAt: null,
+        requirementDocument: null,
         createdAt: now,
         updatedAt: now,
       } satisfies Project;

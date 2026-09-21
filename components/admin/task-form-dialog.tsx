@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
@@ -84,6 +84,7 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
     handleSubmit,
     control,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<PlatformTaskFormValues>({
     resolver: zodResolver(platformTaskFormSchema),
@@ -94,6 +95,29 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
     if (!open) return;
     reset(task ? taskToFormValues(task) : defaultValues);
   }, [open, task, reset]);
+
+  // The assignee list is scoped to the SELECTED project's own memberIds/
+  // manager — never every org member. Firestore's task read rule authorizes
+  // by project membership, not by assigneeId alone, so assigning to someone
+  // outside the project silently produces a task its own assignee can never
+  // read (confirmed against real production data: two existing tasks
+  // assigned to a team member who was never added to that project's
+  // memberIds — being on the same TEAM is not the same as being a PROJECT
+  // member in this app's data model).
+  const selectedProjectId = useWatch({ control, name: "projectId" });
+  const selectedAssignee = useWatch({ control, name: "assigneeId" });
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const assignableUsers = selectedProject
+    ? users.filter((u) => u.id === selectedProject.managerId || selectedProject.memberIds.includes(u.id))
+    : [];
+
+  useEffect(() => {
+    if (!selectedAssignee) return;
+    if (!assignableUsers.some((u) => u.id === selectedAssignee)) {
+      setValue("assigneeId", undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProjectId]);
 
   function handleOpenChange(next: boolean) {
     if (!next) reset(defaultValues);
@@ -199,12 +223,12 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
                 control={control}
                 name="assigneeId"
                 render={({ field }) => (
-                  <Select value={field.value ?? ""} onValueChange={(value) => field.onChange(value || undefined)}>
+                  <Select value={field.value ?? ""} onValueChange={(value) => field.onChange(value || undefined)} disabled={!selectedProject}>
                     <SelectTrigger id="pt-assignee" className="w-full">
-                      <SelectValue placeholder="Unassigned" />
+                      <SelectValue placeholder={selectedProject ? "Unassigned" : "Select a project first"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {users.map((user) => (
+                      {assignableUsers.map((user) => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.name}
                         </SelectItem>
@@ -213,6 +237,9 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
                   </Select>
                 )}
               />
+              {selectedProject && assignableUsers.length === 0 && (
+                <p className="text-xs text-muted-foreground">This project has no members yet — add members before assigning a task.</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pt-due">Due date</Label>

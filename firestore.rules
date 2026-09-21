@@ -74,6 +74,19 @@ service cloud.firestore {
       return reviewerId == null
         || get(/databases/$(database)/documents/users/$(reviewerId)).data.organizationId == orgId;
     }
+    // Unlike the reviewer above, assignedTo DOES gate authorization — a
+    // task's read rule is isAuthorizedForProject() (project membership),
+    // never assignedTo alone, so assigning to someone outside the project's
+    // memberIds/managerId silently creates a task its own assignee can
+    // never read. Confirmed against real production data. Applied only at
+    // CREATE (see the tasks match block below) — never at update, so an
+    // already-existing task (including any that predates this check) can
+    // still have its other fields edited without being newly blocked by a
+    // stale assignedTo value. Empty string means "unassigned," always valid.
+    function isValidAssignee(assignedTo, projectId) {
+      let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
+      return assignedTo == "" || assignedTo == project.managerId || assignedTo in project.memberIds;
+    }
     // Server-side backstop for the client's Zod validation — never trust
     // "the form already checked this." null/absent (an old task predating
     // this field, or simply not set) is always valid; a present value must
@@ -229,7 +242,7 @@ service cloud.firestore {
             && request.resource.data.organizationId == resource.data.organizationId
             && request.resource.data.ownerId == resource.data.ownerId)
         || (isMemberOfOrg(resource.data.organizationId) && resource.data.managerId == request.auth.uid
-            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "updatedAt"]));
+            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "requirementDocument", "updatedAt"]));
       allow delete: if isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();
     }
 
@@ -251,6 +264,7 @@ service cloud.firestore {
         || isAuthorizedForProject(resource.data.projectId);
       allow create: if (isAdminOfOrg(request.resource.data.organizationId)
           || (isMemberOfOrg(request.resource.data.organizationId) && isManagerOfProject(request.resource.data.projectId)))
+        && isValidAssignee(request.resource.data.get("assignedTo", ""), request.resource.data.projectId)
         && isValidReviewer(request.resource.data.get("reviewerId", null), request.resource.data.organizationId)
         && isValidHours(request.resource.data.get("estimatedHours", null))
         && isValidHours(request.resource.data.get("actualHours", null));

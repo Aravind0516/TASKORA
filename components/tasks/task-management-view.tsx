@@ -115,7 +115,6 @@ export function TaskManagementView() {
         onOpenChange={setFormOpen}
         onSaved={handleSaved}
         task={editingTask}
-        defaultAssigneeId={uid ?? undefined}
       />
     </div>
   );

@@ -43,6 +43,7 @@ function projectFromDoc(docSnap: QueryDocumentSnapshot): Project {
     verificationFrequency: data.verificationFrequency ?? "DAILY",
     submissionStatus: data.submissionStatus === "SUBMITTED" ? "SUBMITTED" : "NONE",
     submittedAt: data.submittedAt ? toIso(data.submittedAt) : null,
+    requirementDocument: data.requirementDocument ?? null,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };

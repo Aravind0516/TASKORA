@@ -37,6 +37,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { CommentSection } from "@/components/comments/comment-section";
 import { AttachmentSection } from "@/components/attachments/attachment-section";
+import { ProjectRequirementSection } from "@/components/projects/project-requirement-section";
 import { DailyUpdatePanel } from "@/components/work-verification/daily-update-panel";
 import { ProjectVerificationDashboard } from "@/components/work-verification/project-verification-dashboard";
 import { ProjectHealthExplanation } from "@/components/shared/project-health-badge";
@@ -514,6 +515,15 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
               <CardDescription>Project requirement documents and other files — upload the requirement doc here so every assigned member can find it</CardDescription>
             </CardHeader>
             <CardContent>
+              {uid && organizationId && (
+                <ProjectRequirementSection
+                  project={project}
+                  organizationId={organizationId}
+                  currentUserId={uid}
+                  canManage={canManageProject}
+                  getUploaderName={(uploaderUid) => getMemberById(uploaderUid)?.name}
+                />
+              )}
               {uid && organizationId && (
                 <AttachmentSection
                   organizationId={organizationId}

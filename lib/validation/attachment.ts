@@ -55,6 +55,19 @@ export const DOCUMENT_ATTACHMENT_TYPES: Record<string, string[]> = {
 export const IMAGE_ATTACHMENT_INPUT_ACCEPT = Object.keys(IMAGE_ATTACHMENT_TYPES).join(",");
 export const DOCUMENT_ATTACHMENT_INPUT_ACCEPT = Object.keys(DOCUMENT_ATTACHMENT_TYPES).join(",");
 
+/**
+ * A project's official requirement document — deliberately narrower than
+ * DOCUMENT_ATTACHMENT_TYPES (PDF/DOC/DOCX only, per the requirement-document
+ * spec), mirrored in storage.rules' isAllowedRequirementContentType() so
+ * server-side enforcement never drifts from this client-side list.
+ */
+export const REQUIREMENT_DOCUMENT_TYPES: Record<string, string[]> = {
+  "application/pdf": ["pdf"],
+  "application/msword": ["doc"],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ["docx"],
+};
+export const REQUIREMENT_DOCUMENT_INPUT_ACCEPT = Object.keys(REQUIREMENT_DOCUMENT_TYPES).join(",");
+
 function extensionOf(fileName: string): string {
   const idx = fileName.lastIndexOf(".");
   return idx === -1 || idx === fileName.length - 1 ? "" : fileName.slice(idx + 1).toLowerCase();

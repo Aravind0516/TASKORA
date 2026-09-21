@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, ClipboardList } from "lucide-react";
 import {
@@ -129,11 +129,43 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
     handleSubmit,
     control,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: task ? taskToFormValues(task) : buildDefaultValues(defaultAssigneeId),
   });
+
+  // The assignee list is scoped to the SELECTED project's own memberIds/
+  // manager — never every org member. Firestore's task read rule authorizes
+  // by project membership (isAuthorizedForProject), not by assignedTo alone,
+  // so assigning to someone outside the project silently produces a task
+  // its own assignee can never read (confirmed against real production
+  // data: two existing tasks assigned to a team member who was never added
+  // to that project's memberIds). Being on the same TEAM is not the same as
+  // being a PROJECT member in this app's data model — this is exactly the
+  // distinction that was easy to miss with an unfiltered picker.
+  const selectedProjectId = useWatch({ control, name: "projectId" });
+  const selectedAssignee = useWatch({ control, name: "assignedTo" });
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const assignableMembers = selectedProject
+    ? members.filter((m) => m.id === selectedProject.managerId || selectedProject.memberIds.includes(m.id))
+    : [];
+
+  // If the project changes to one the current assignee isn't part of,
+  // clear the selection rather than silently keep an invalid combination —
+  // matches the Zod schema's existing "Select an assignee" requirement, so
+  // submission is blocked until a valid assignee is explicitly chosen again.
+  useEffect(() => {
+    if (!selectedAssignee) return;
+    if (!assignableMembers.some((m) => m.id === selectedAssignee)) {
+      setValue("assignedTo", "");
+    }
+    // Only re-run when the project (and therefore assignableMembers) changes
+    // — re-running on every keystroke of selectedAssignee itself would fight
+    // the user's own in-progress selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProjectId]);
 
   function handleOpenChange(next: boolean) {
     if (!next) {
@@ -346,12 +378,12 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
                   control={control}
                   name="assignedTo"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
+                    <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")} disabled={!selectedProject}>
                       <SelectTrigger id="task-assignee" className="w-full">
-                        <SelectValue placeholder="Assign to" />
+                        <SelectValue placeholder={selectedProject ? "Assign to" : "Select a project first"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {members.map((member) => (
+                        {assignableMembers.map((member) => (
                           <SelectItem key={member.id} value={member.id}>
                             {member.name}
                           </SelectItem>
@@ -360,6 +392,9 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
                     </Select>
                   )}
                 />
+                {selectedProject && assignableMembers.length === 0 && (
+                  <p className="text-xs text-muted-foreground">This project has no members yet — add members before assigning a task.</p>
+                )}
                 {errors.assignedTo && <p className="text-xs text-destructive">{errors.assignedTo.message}</p>}
               </div>
             )}

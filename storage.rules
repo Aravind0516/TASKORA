@@ -92,6 +92,17 @@ service firebase.storage {
     function isWithinSizeLimit() {
       return request.resource.size <= 10 * 1024 * 1024; // 10 MB
     }
+    // Kept in sync with lib/validation/attachment.ts's REQUIREMENT_DOCUMENT_TYPES —
+    // deliberately narrower than isAllowedContentType() above (PDF/DOC/DOCX
+    // only), since a project's official requirement document is a distinct,
+    // organization-controlled concept from a general attachment.
+    function isAllowedRequirementContentType() {
+      return request.resource.contentType in [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+    }
 
     // orgId/projectId/taskId here are the literal path segments the request
     // was made against — verified against the attachment's REAL recorded
@@ -146,6 +157,32 @@ service firebase.storage {
         && isWithinSizeLimit();
 
       allow delete: if canDeleteAttachment(orgId, projectId, taskId, attachmentId);
+
+      allow update: if false;
+    }
+
+    // ── Project requirement document ───────────────────────────────────
+    // A project's own official requirement document (PDF/DOC/DOCX) — one
+    // slot per project, replace-only (never a list), embedded directly on
+    // the projects/{projectId} document as `requirementDocument` (never a
+    // separate Firestore collection) — see types/project.ts and
+    // lib/services/project-requirement.service.ts. {version} is a plain
+    // incrementing integer segment ("v1", "v2", ...), never the original
+    // filename. Upload/replace is Admin-or-project-manager only — unlike
+    // general attachments (any project member), a requirement document is
+    // organization-controlled content, not member-contributed.
+    match /organizations/{orgId}/projects/{projectId}/requirement/{version} {
+      allow read: if isSuperAdmin() || isAdminOfOrg(orgId) || isAuthorizedForProject(projectId);
+
+      allow create: if projectDoc(projectId).organizationId == orgId
+        && (isAdminOfOrg(orgId) || isManagerOfProject(projectId))
+        && isAllowedRequirementContentType()
+        && isWithinSizeLimit();
+
+      // Lets a replace's cleanup step (delete the OLD version, after the
+      // new one is already live in Firestore) succeed for the same
+      // authorized set that can upload.
+      allow delete: if isSuperAdmin() || isAdminOfOrg(orgId) || isManagerOfProject(projectId);
 
       allow update: if false;
     }
