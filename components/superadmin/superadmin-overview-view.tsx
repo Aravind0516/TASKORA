@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Building2,
   ShieldCheck,
@@ -10,9 +11,11 @@ import {
   CheckCircle2,
   Activity,
   Radio,
+  ClipboardCheck,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import * as orgRegistrationService from "@/lib/services/organization-registration.service";
 import {
   Card,
   CardHeader,
@@ -30,11 +33,19 @@ import { buildMonthlyGrowth } from "@/lib/platform/analytics";
 
 export function SuperAdminOverviewView() {
   const [loading, setLoading] = useState(true);
+  const [pendingRegistrations, setPendingRegistrations] = useState(0);
   const { organizations, admins, users, projects, tasks, activity, systemServices } = usePlatform();
 
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 450);
     return () => clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    return orgRegistrationService.subscribeToOrganizationRegistrations(
+      (requests) => setPendingRegistrations(requests.filter((r) => r.status === "PENDING").length),
+      () => setPendingRegistrations(0)
+    );
   }, []);
 
   if (loading) {
@@ -69,6 +80,14 @@ export function SuperAdminOverviewView() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Total Organizations" value={String(organizations.length)} icon={Building2} />
         <KpiCard label="Active Organizations" value={String(activeOrgs.length)} icon={Building2} />
+        <Link href="/superadmin/organization-requests" className="block">
+          <KpiCard
+            label="Organization Requests"
+            value={`Pending: ${pendingRegistrations}`}
+            icon={ClipboardCheck}
+            accent={pendingRegistrations > 0 ? "critical" : "default"}
+          />
+        </Link>
         <KpiCard label="Total Administrators" value={String(admins.length)} icon={ShieldCheck} />
         <KpiCard label="Total Users" value={String(users.length)} icon={Users} />
         <KpiCard label="Total Projects" value={String(projects.length)} icon={FolderKanban} />

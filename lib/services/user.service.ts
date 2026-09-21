@@ -69,8 +69,16 @@ export interface MyProfilePatch {
 }
 
 export async function updateMyProfile(uid: string, patch: MyProfilePatch): Promise<void> {
+  // updateDoc() throws synchronously (invalid-argument, "Unsupported field
+  // value: undefined") on ANY key whose value is undefined — an omitted
+  // optional field (e.g. "Passed out year" left blank) arrives here as
+  // { passedOutYear: undefined, ... } from the edit form, which must never be
+  // passed through as-is. Stripping those keys entirely (rather than, say,
+  // coercing to null) leaves the existing stored value untouched, matching
+  // "clearing a field" not being a feature this form offers.
+  const cleanPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
   try {
-    await updateDoc(doc(db, "users", uid), { ...patch, updatedAt: serverTimestamp() });
+    await updateDoc(doc(db, "users", uid), { ...cleanPatch, updatedAt: serverTimestamp() });
   } catch (error) {
     throw new Error(getFirestoreErrorMessage(error, "users:updateMyProfile"));
   }

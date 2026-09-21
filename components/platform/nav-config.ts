@@ -18,6 +18,7 @@ import {
   CalendarDays,
   Trophy,
   IdCard,
+  ClipboardCheck,
 } from "lucide-react";
 import type { NavItem } from "@/components/layout/nav-config";
 
@@ -44,6 +45,7 @@ export const SUPER_ADMIN_NAV: NavItem[] = [
   { label: "Command Center", href: "/superadmin", icon: LayoutDashboard },
   { label: "Organizations", href: "/superadmin/organizations", icon: Building2 },
   { label: "Administrators", href: "/superadmin/admins", icon: ShieldCheck },
+  { label: "Organization Requests", href: "/superadmin/organization-requests", icon: ClipboardCheck },
   { label: "Users", href: "/superadmin/users", icon: Users },
   { label: "Projects", href: "/superadmin/projects", icon: FolderKanban },
   { label: "Teams", href: "/superadmin/teams", icon: UsersRound },

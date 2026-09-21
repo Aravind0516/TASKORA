@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { AccessGate } from "@/components/shared/access-gate";
+import { OrganizationRegistrationGate } from "@/components/auth/organization-registration-gate";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -11,7 +12,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Topbar />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <AccessGate>{children}</AccessGate>
+            <AccessGate>
+              <OrganizationRegistrationGate>{children}</OrganizationRegistrationGate>
+            </AccessGate>
           </div>
         </main>
       </div>

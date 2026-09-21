@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LandingPage } from "@/components/landing/landing-page";
+import { RootPageGate } from "@/components/auth/root-page-gate";
 
 export const metadata: Metadata = {
   title: { absolute: "TASKORA — Modern Work Management Platform" },
@@ -21,5 +22,9 @@ export const metadata: Metadata = {
 };
 
 export default function RootPage() {
-  return <LandingPage />;
+  return (
+    <RootPageGate>
+      <LandingPage />
+    </RootPageGate>
+  );
 }

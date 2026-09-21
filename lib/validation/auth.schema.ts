@@ -29,3 +29,20 @@ export const forgotPasswordSchema = z.object({
 });
 
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+
+// Step 2 of "Register a new organization" — full name/email already exist
+// from the just-created Firebase account, so only phone + organization
+// details are collected here. Every field but organizationName is optional:
+// a Super Admin reviewing the request can always follow up for more detail.
+export const registerOrganizationSchema = z.object({
+  phone: z.string().trim().max(20).optional(),
+  organizationName: z.string().trim().min(2, "Organization name must be at least 2 characters").max(120),
+  organizationType: z.string().trim().max(60).optional(),
+  industry: z.string().trim().max(80).optional(),
+  website: z.string().trim().max(200).refine((v) => v === "" || z.string().url().safeParse(v).success, "Enter a valid URL").optional(),
+  location: z.string().trim().max(120).optional(),
+  organizationSize: z.string().trim().max(40).optional(),
+  description: z.string().trim().max(500).optional(),
+});
+
+export type RegisterOrganizationFormValues = z.infer<typeof registerOrganizationSchema>;

@@ -94,8 +94,6 @@ export function getAdminAuth(): Auth {
   return getAuth(getAdminApp());
 }
 
-let firestoreConfigured = false;
-
 /**
  * Server-side documents (organizations, invitations, etc.) are built from
  * TypeScript interfaces with optional fields — e.g. `industry?`,
@@ -105,14 +103,29 @@ let firestoreConfigured = false;
  * (unlike the client SDK, which silently drops them), so every write with
  * an omitted optional field would otherwise throw and surface as a bare
  * HTTP 500. `ignoreUndefinedProperties` makes the Admin SDK behave like the
- * client SDK here: drop `undefined` fields instead of throwing. `settings()`
- * may only be called once per Firestore instance, hence the guard.
+ * client SDK here: drop `undefined` fields instead of throwing.
+ *
+ * `settings()` may only be called once per underlying Firestore instance —
+ * a plain module-scoped boolean guard is NOT enough to enforce that: Next.js
+ * (Turbopack, in dev especially) bundles each Route Handler as its own
+ * module graph, so two different routes can each get a FRESH copy of this
+ * file's module state (their own `let` would each start unset) while still
+ * sharing the SAME underlying Firebase App/Firestore singleton via
+ * getApps()/getApp() (which Firebase Admin keeps on a process-wide
+ * registry). The result: route A's copy calls settings() successfully,
+ * then route B's separate copy — believing it's the first caller — calls
+ * settings() again on the SAME already-configured Firestore instance, which
+ * throws "Firestore has already been initialized." Catching exactly that
+ * error (never any other) treats it as the benign, idempotent no-op it
+ * actually is: another module copy already applied the identical settings.
  */
 export function getAdminDb(): Firestore {
   const db = getFirestore(getAdminApp());
-  if (!firestoreConfigured) {
+  try {
     db.settings({ ignoreUndefinedProperties: true });
-    firestoreConfigured = true;
+  } catch (error) {
+    const alreadyInitialized = error instanceof Error && error.message.includes("already been initialized");
+    if (!alreadyInitialized) throw error;
   }
   return db;
 }

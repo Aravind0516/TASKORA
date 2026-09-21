@@ -66,6 +66,9 @@ export function categoryForNotificationType(type: NotificationType): string | nu
     case "subscription_requested":
     case "subscription_approved":
     case "subscription_rejected":
+    case "organization_registration_submitted":
+    case "organization_registration_approved":
+    case "organization_registration_rejected":
       return null;
     case "credit_awarded":
     case "credit_deducted":

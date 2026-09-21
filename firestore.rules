@@ -557,6 +557,25 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── organizationRegistrationRequests/{requestId} ─────────────────────
+    // A prospective organization owner's request to bring their own
+    // organization onto TASKORA — reviewed manually by Super Admin. Same
+    // trust shape as subscriptionRequests/invitations above: EVERY write
+    // (submit, approve, reject) happens exclusively through
+    // app/api/organization-registration and
+    // app/api/superadmin/organization-registrations/* via the Admin SDK
+    // (lib/server/organization-registrations.ts), which bypasses these
+    // rules — never a direct client write, so a client can never forge
+    // status/reviewedBy/reviewedAt/approvedOrganizationId, approve its own
+    // request, or grant itself organizationId/admin access this way. Read is
+    // scoped to the requester's own request (createdUserId) — backs the
+    // "Registration Pending"/"Registration Not Approved" login states — or
+    // Super Admin (the review queue).
+    match /organizationRegistrationRequests/{requestId} {
+      allow read: if isSuperAdmin() || (isSignedIn() && resource.data.createdUserId == request.auth.uid);
+      allow write: if false;
+    }
+
     // ── invitations/{invitationId} ──────────────────────────────────────
     // Read-only for the inviting organization's admin (and Super Admin) so
     // the Pending Invitations table can use a live listener. tokenHash is a

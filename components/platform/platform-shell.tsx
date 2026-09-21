@@ -178,13 +178,13 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
                     actually assigned to an organization yet — the data below is empty because it&apos;s real, not because
                     anything is broken.
                     {navKey === "admin"
-                      ? " Create a real organization below to unlock real Admin access on this account, or turn off the demo role to go back to your real access."
+                      ? " Register a real organization below (subject to Super Admin approval) to unlock real Admin access on this account, or turn off the demo role to go back to your real access."
                       : " Turn off the demo role to see your account's real access."}
                   </p>
                 </div>
                 {navKey === "admin" && (
                   <Button size="sm" variant="outline" className="shrink-0 border-amber-500/40" onClick={() => setCreateOrgOpen(true)}>
-                    Create Organization
+                    Register Organization
                   </Button>
                 )}
               </div>
@@ -201,7 +201,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
                 </div>
                 {navKey === "admin" && (
                   <Button size="sm" variant="outline" className="shrink-0 border-amber-500/40" onClick={() => setCreateOrgOpen(true)}>
-                    Create Organization
+                    Register Organization
                   </Button>
                 )}
               </div>
