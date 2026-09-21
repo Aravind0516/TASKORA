@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Users, UsersRound, FolderKanban, ListChecks, TrendingUp, AlertTriangle, CheckCircle2, Circle, ArrowRight } from "lucide-react";
+import { Users, UsersRound, FolderKanban, ListChecks, TrendingUp, AlertTriangle, CheckCircle2, Circle, ArrowRight, UserPlus, FolderPlus } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -13,12 +13,14 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { initials, isOverdue, timeAgo, formatDate } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
+import { cn } from "@/lib/utils";
 
 interface SetupStep {
   label: string;
@@ -113,10 +115,44 @@ export function AdminOverviewView() {
 
   return (
     <div>
-      <PageHeader
-        title="Organization Command Center"
-        description={`What's happening inside ${org?.name ?? "your organization"}.`}
-      />
+      <div className="taskora-glow-brand relative mb-6 overflow-hidden rounded-2xl bg-sidebar px-6 py-7 sm:px-8">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage:
+              "radial-gradient(ellipse 60% 90% at 0% 0%, color-mix(in oklch, var(--sidebar-primary) 28%, transparent), transparent 65%), radial-gradient(ellipse 55% 80% at 100% 100%, color-mix(in oklch, var(--brand-secondary) 22%, transparent), transparent 65%)",
+          }}
+        />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold tracking-wide text-sidebar-muted-foreground uppercase">
+              Organization Administrator
+            </p>
+            <h1 className="mt-1.5 truncate text-2xl font-semibold tracking-tight text-sidebar-foreground sm:text-3xl">
+              {org?.name ?? "Your organization"}
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-sidebar-foreground/70">
+              {members.length} member{members.length === 1 ? "" : "s"} · {activeProjects.length} active project
+              {activeProjects.length === 1 ? "" : "s"} · {completionRate}% task completion
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Link href="/admin/users" className={cn(buttonVariants({ variant: "default" }), "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/85")}>
+              <UserPlus />
+              Add User
+            </Link>
+            <Link href="/admin/projects" className={cn(buttonVariants({ variant: "outline" }), "border-sidebar-border bg-white/5 text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground")}>
+              <FolderPlus />
+              Create Project
+            </Link>
+            <Link href="/admin/teams" className={cn(buttonVariants({ variant: "outline" }), "border-sidebar-border bg-white/5 text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground")}>
+              <UsersRound />
+              Create Team
+            </Link>
+          </div>
+        </div>
+      </div>
 
       <SetupProgress
         steps={[

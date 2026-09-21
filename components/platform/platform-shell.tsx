@@ -91,7 +91,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
           <Button
             variant="ghost"
             size="icon"
-            className="w-full text-muted-foreground hover:text-foreground"
+            className="w-full text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={() => setCollapsed((prev) => !prev)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
@@ -101,7 +101,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
       </aside>
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background px-4 sm:px-6">
+        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/85 sm:px-6">
           <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
             <Button
               variant="ghost"
@@ -163,8 +163,8 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+        <main className="taskora-ambient-surface flex-1 overflow-y-auto">
+          <div className="relative z-10 mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
             {isPreviewMismatch && (
               <div className="mb-5 flex flex-col items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3.5 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between dark:text-amber-300">
                 <div className="flex items-start gap-2.5">

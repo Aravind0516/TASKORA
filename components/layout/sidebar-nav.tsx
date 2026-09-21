@@ -27,13 +27,13 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
           collapsed && "justify-center px-0"
         )}
       >
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div className="taskora-glow-brand flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
           <LayoutGrid className="size-4.5" />
         </div>
         {!collapsed && (
           <div className="min-w-0 leading-tight">
-            <p className="truncate text-sm font-semibold tracking-tight">TASKORA</p>
-            <p className="truncate text-[11px] text-muted-foreground">Workflow Platform</p>
+            <p className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">TASKORA</p>
+            <p className="truncate text-[11px] text-sidebar-muted-foreground">Workflow Platform</p>
           </div>
         )}
       </div>
@@ -47,8 +47,8 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
             "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
             collapsed && "justify-center px-0",
             isActive
-              ? "bg-sidebar-accent text-sidebar-accent-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
-              : "text-sidebar-foreground/65 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+              ? "taskora-sidebar-active text-white"
+              : "text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-foreground"
           );
 
           if (!collapsed) {

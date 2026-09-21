@@ -61,6 +61,17 @@
   --color-surface: var(--surface);
   --color-surface-elevated: var(--surface-elevated);
   --color-surface-muted: var(--surface-muted);
+  /* Brand secondary (violet) — the landing page's actual accent-2 color
+     (Hero's gradient text, AmbientBackground's glow orbs), promoted to a
+     real token so dashboard call sites that deliberately want the
+     secondary brand color (not a status color) don't hand-roll
+     violet-500/violet-300 per file. */
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-secondary-foreground: var(--brand-secondary-foreground);
+  /* Sidebar family — see the :root/.dark blocks below: these are
+     deliberately IDENTICAL across light/dark app theme (a permanently
+     dark, branded sidebar surface, independent of the content theme). */
+  --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -80,20 +91,26 @@
    one brand instead of "an indigo accent on top of a stock gray UI."
    ================================================================ */
 :root {
-  --background: oklch(0.995 0.002 258);
+  /* BACKGROUND -> SURFACE -> ELEVATED depth: the page background now
+     carries a genuinely visible cool indigo/slate tint (not near-white),
+     cards sit one step lighter, and popovers/dialogs are the lightest
+     (near-pure-white) tier — see Part 8/36 of the dashboard color-grading
+     request. Previously background/card/muted were all within 0.03L of
+     each other (effectively "everything is white"). */
+  --background: oklch(0.965 0.012 258);
   --foreground: oklch(0.17 0.015 258);
-  --card: oklch(1 0 0);
+  --card: oklch(0.995 0.003 258);
   --card-foreground: oklch(0.17 0.015 258);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.17 0.015 258);
   --primary: oklch(0.42 0.16 259);
   --primary-hover: oklch(0.36 0.16 259);
   --primary-foreground: oklch(0.99 0.002 258);
-  --secondary: oklch(0.965 0.004 258);
+  --secondary: oklch(0.93 0.012 258);
   --secondary-foreground: oklch(0.27 0.02 258);
-  --muted: oklch(0.965 0.004 258);
+  --muted: oklch(0.93 0.012 258);
   --muted-foreground: oklch(0.5 0.014 258);
-  --accent: oklch(0.955 0.024 259);
+  --accent: oklch(0.92 0.03 259);
   --accent-foreground: oklch(0.42 0.16 259);
   --destructive: oklch(0.55 0.19 23);
   --destructive-foreground: oklch(0.99 0.002 258);
@@ -105,9 +122,15 @@
   --warning-foreground: oklch(0.32 0.07 60);
   --info: oklch(0.56 0.15 240);
   --info-foreground: oklch(0.99 0.002 258);
-  --border: oklch(0.9 0.006 258);
-  --border-subtle: oklch(0.95 0.004 258);
-  --input: oklch(0.9 0.006 258);
+  /* Brand secondary — landing's violet accent (Hero gradient text,
+     AmbientBackground orbs), promoted to a real token. Matches Tailwind's
+     violet-500 so it stays visually identical to the violet already used
+     deliberately in status badges (see components/shared/status-badge.tsx). */
+  --brand-secondary: oklch(0.606 0.25 292.7);
+  --brand-secondary-foreground: oklch(0.99 0.002 258);
+  --border: oklch(0.87 0.012 258);
+  --border-subtle: oklch(0.92 0.008 258);
+  --input: oklch(0.87 0.012 258);
   --ring: oklch(0.42 0.16 259 / 0.4);
   --surface: var(--card);
   --surface-elevated: oklch(1 0 0);
@@ -118,29 +141,43 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.5rem;
-  --sidebar: oklch(0.985 0.003 258);
-  --sidebar-foreground: oklch(0.22 0.015 258);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.94 0.022 259);
-  --sidebar-accent-foreground: var(--primary);
-  --sidebar-border: oklch(0.92 0.006 258);
-  --sidebar-ring: var(--ring);
+  /* Sidebar — deliberately a FIXED dark, branded midnight-indigo surface,
+     not a "light sidebar in light mode / dark sidebar in dark mode" pair.
+     Same values are repeated verbatim in .dark below (rather than omitted)
+     so the sidebar's identity never depends on the app's light/dark
+     toggle — the "dark branded sidebar + light tinted content" hybrid
+     explicitly requested for the dashboard visual system. */
+  --sidebar: oklch(0.205 0.045 264);
+  --sidebar-foreground: oklch(0.92 0.01 258);
+  --sidebar-muted-foreground: oklch(0.62 0.025 258);
+  --sidebar-primary: oklch(0.74 0.15 259);
+  --sidebar-primary-foreground: oklch(0.14 0.02 258);
+  --sidebar-accent: oklch(1 0 0 / 7%);
+  --sidebar-accent-foreground: oklch(0.97 0.006 258);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.74 0.15 259 / 0.5);
+  /* Sidebar active-nav-item treatment: a real indigo -> violet brand
+     gradient plus a soft glow, used via .taskora-sidebar-active below
+     instead of a flat bg-sidebar-accent fill. */
+  --sidebar-active-gradient: linear-gradient(135deg, oklch(0.5 0.18 262), oklch(0.53 0.2 296));
+  --shadow-brand-glow:
+    0 0 0 1px color-mix(in oklch, var(--primary) 35%, transparent),
+    0 10px 28px -10px color-mix(in oklch, var(--primary) 50%, transparent);
 }
 
 .dark {
-  --background: oklch(0.16 0.012 258);
+  --background: oklch(0.16 0.016 258);
   --foreground: oklch(0.96 0.004 258);
-  --card: oklch(0.205 0.014 258);
+  --card: oklch(0.205 0.018 258);
   --card-foreground: oklch(0.96 0.004 258);
-  --popover: oklch(0.22 0.015 258);
+  --popover: oklch(0.22 0.02 258);
   --popover-foreground: oklch(0.96 0.004 258);
   --primary: oklch(0.72 0.15 259);
   --primary-hover: oklch(0.78 0.13 259);
   --primary-foreground: oklch(0.16 0.012 258);
-  --secondary: oklch(0.26 0.016 258);
+  --secondary: oklch(0.26 0.02 258);
   --secondary-foreground: oklch(0.96 0.004 258);
-  --muted: oklch(0.24 0.014 258);
+  --muted: oklch(0.24 0.018 258);
   --muted-foreground: oklch(0.68 0.012 258);
   --accent: oklch(0.28 0.05 259);
   --accent-foreground: oklch(0.86 0.08 259);
@@ -154,6 +191,8 @@
   --warning-foreground: oklch(0.2 0.04 70);
   --info: oklch(0.72 0.13 231);
   --info-foreground: oklch(0.14 0.02 231);
+  --brand-secondary: oklch(0.702 0.183 293);
+  --brand-secondary-foreground: oklch(0.99 0.002 258);
   --border: oklch(1 0 0 / 12%);
   --border-subtle: oklch(1 0 0 / 7%);
   --input: oklch(1 0 0 / 16%);
@@ -166,14 +205,21 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.13 0.014 258);
-  --sidebar-foreground: oklch(0.9 0.006 258);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.27 0.05 259);
-  --sidebar-accent-foreground: oklch(0.85 0.1 259);
+  /* Same fixed sidebar identity as :root — intentionally NOT redefined
+     per-theme. See the :root block's comment above. */
+  --sidebar: oklch(0.205 0.045 264);
+  --sidebar-foreground: oklch(0.92 0.01 258);
+  --sidebar-muted-foreground: oklch(0.62 0.025 258);
+  --sidebar-primary: oklch(0.74 0.15 259);
+  --sidebar-primary-foreground: oklch(0.14 0.02 258);
+  --sidebar-accent: oklch(1 0 0 / 7%);
+  --sidebar-accent-foreground: oklch(0.97 0.006 258);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: var(--ring);
+  --sidebar-ring: oklch(0.74 0.15 259 / 0.5);
+  --sidebar-active-gradient: linear-gradient(135deg, oklch(0.5 0.18 262), oklch(0.53 0.2 296));
+  --shadow-brand-glow:
+    0 0 0 1px color-mix(in oklch, var(--primary) 35%, transparent),
+    0 10px 28px -10px color-mix(in oklch, var(--primary) 50%, transparent);
 }
 
 @layer base {
@@ -203,6 +249,42 @@
   box-shadow:
     0 1px 2px 0 color-mix(in oklch, var(--foreground) 4%, transparent),
     0 12px 32px -16px color-mix(in oklch, var(--foreground) 14%, transparent);
+}
+
+/* Sidebar active-nav-item — a real indigo->violet brand gradient + glow,
+   deliberately used ONLY for the active state (not hover, not every item)
+   so the brand reads as a highlight, not decoration. */
+.taskora-sidebar-active {
+  background-image: var(--sidebar-active-gradient);
+  box-shadow:
+    0 6px 16px -6px oklch(0.5 0.2 270 / 0.55),
+    inset 0 0 0 1px oklch(1 0 0 / 0.08);
+}
+
+/* Selective brand glow — primary CTAs, the admin welcome hero, a
+   highlighted KPI. Not applied broadly; see Part 34 of the color-grading
+   request ("keep the glow subtle, do not create neon overload"). */
+.taskora-glow-brand {
+  box-shadow: var(--shadow-brand-glow);
+}
+
+/* Very subtle ambient wash for dashboard main-content areas — a faint
+   echo of the landing page's glow orbs, at a fraction of the opacity,
+   so content stays fully readable. Applied via a positioned ::before on
+   the element carrying this class (the element itself needs `relative`
+   and `overflow-hidden` from its own layout classes). */
+.taskora-ambient-surface {
+  position: relative;
+}
+.taskora-ambient-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 40% at 15% 0%, color-mix(in oklch, var(--primary) 7%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 35% at 100% 0%, color-mix(in oklch, var(--brand-secondary) 6%, transparent), transparent 70%);
 }
 
 /* Consistent, restrained motion timing (150-250ms) for the handful of

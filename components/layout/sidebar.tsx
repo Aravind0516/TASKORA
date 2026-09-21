@@ -25,7 +25,7 @@ export function Sidebar() {
         <Button
           variant="ghost"
           size="icon"
-          className="w-full text-muted-foreground hover:text-foreground"
+          className="w-full text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
           onClick={() => setCollapsed((prev) => !prev)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
