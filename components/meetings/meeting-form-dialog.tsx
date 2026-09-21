@@ -196,34 +196,47 @@ export function MeetingFormDialog({ open, onOpenChange, onSaved, meeting }: Meet
             )}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="meeting-date">Date</Label>
-              <Input id="meeting-date" type="date" {...register("date")} />
-              {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="meeting-start">Start time</Label>
-              <Controller
-                control={control}
-                name="startTime"
-                render={({ field }) => (
-                  <TimeInput12h id="meeting-start" value={field.value} onChange={field.onChange} aria-label="Start time" />
-                )}
-              />
-              {errors.startTime && <p className="text-xs text-destructive">{errors.startTime.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="meeting-end">End time</Label>
-              <Controller
-                control={control}
-                name="endTime"
-                render={({ field }) => (
-                  <TimeInput12h id="meeting-end" value={field.value} onChange={field.onChange} aria-label="End time" />
-                )}
-              />
-              {errors.endTime && <p className="text-xs text-destructive">{errors.endTime.message}</p>}
-            </div>
+          {/*
+            Date, Start time, and End time each get their OWN full-width row
+            — never crammed side-by-side. A 3-column grid here previously
+            gave each Time cell only ~144px inside this max-w-lg dialog,
+            while TimeInput12h's Hour+Minute+AM/PM row needs ~230-280px to
+            render without overflowing — on any desktop-width screen the
+            Minute input and AM/PM selector were pushed past the dialog's
+            right edge (grid tracks use Tailwind's minmax(0, 1fr), which
+            shrinks the track but NOT the non-wrapping flex row inside it,
+            so the overflow was real, not just visually tight). Stacking
+            guarantees the full dialog width for the row regardless of
+            viewport, which is the only genuinely responsive fix — shrinking
+            TimeInput12h's own controls further would just reproduce the
+            same problem on a narrower dialog.
+          */}
+          <div className="space-y-1.5">
+            <Label htmlFor="meeting-date">Date</Label>
+            <Input id="meeting-date" type="date" className="max-w-[220px]" {...register("date")} />
+            {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="meeting-start">Start time</Label>
+            <Controller
+              control={control}
+              name="startTime"
+              render={({ field }) => (
+                <TimeInput12h id="meeting-start" value={field.value} onChange={field.onChange} aria-label="Start time" />
+              )}
+            />
+            {errors.startTime && <p className="text-xs text-destructive">{errors.startTime.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="meeting-end">End time</Label>
+            <Controller
+              control={control}
+              name="endTime"
+              render={({ field }) => (
+                <TimeInput12h id="meeting-end" value={field.value} onChange={field.onChange} aria-label="End time" />
+              )}
+            />
+            {errors.endTime && <p className="text-xs text-destructive">{errors.endTime.message}</p>}
           </div>
 
           <div className="space-y-1.5">
