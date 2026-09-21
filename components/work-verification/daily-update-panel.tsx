@@ -128,6 +128,19 @@ export function DailyUpdatePanel({
     }
   }, [initialTaskId, todayUpdate, setValue]);
 
+  // Without this, an invalid submission (most commonly: an evidence row
+  // whose file upload never succeeded, so it has no attachmentId) simply
+  // does nothing visible beyond a small per-row message under that one
+  // evidence entry — indistinguishable, from the user's perspective, from
+  // "the Submit button is broken." This makes the failure impossible to miss.
+  function onInvalid(formErrors: typeof errors) {
+    if (formErrors.evidence) {
+      setError("One or more evidence items are incomplete — upload the missing file (or remove that evidence entry) before submitting.");
+      return;
+    }
+    setError("Please fix the highlighted fields before submitting.");
+  }
+
   async function onSubmit(values: DailyWorkUpdateFormValues) {
     setSubmitting(true);
     setError(null);
@@ -198,7 +211,7 @@ export function DailyUpdatePanel({
             {isReviewed && <ReviewFeedback update={todayUpdate} />}
           </CardContent>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmit, onInvalid)}>
             <CardContent className="space-y-4">
               {error && (
                 <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">

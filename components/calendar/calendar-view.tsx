@@ -79,8 +79,10 @@ export function CalendarView() {
     }
     for (const meeting of meetings) {
       if (meeting.status === "Cancelled") continue;
-      const key = dateKey(new Date(meeting.startAt));
-      add(key, { key: `meeting-${meeting.id}`, kind: "meeting", label: meeting.title, href: "/meetings", overdue: false });
+      const start = new Date(meeting.startAt);
+      const key = dateKey(start);
+      const timeLabel = start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+      add(key, { key: `meeting-${meeting.id}`, kind: "meeting", label: `${timeLabel} ${meeting.title}`, href: "/meetings", overdue: false });
     }
     return map;
   }, [tasks, projects, meetings, todayKey]);

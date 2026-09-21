@@ -467,10 +467,17 @@ service cloud.firestore {
 
       // Create: only for yourself, only "SUBMITTED" with no review fields
       // pre-filled — a client can never create an update that's already
-      // "reviewed" or attributes review fields to someone else.
+      // "reviewed" or attributes review fields to someone else. Also only
+      // for a project you're actually authorized for (isAuthorizedForProject
+      // — that project's assigned manager or a member of its memberIds) —
+      // isMemberOfOrg() alone previously let any org member submit a daily
+      // update against ANY project in the organization, including ones they
+      // were never assigned to, which is exactly the project-privacy
+      // regression the daily-update feature must never introduce.
       allow create: if isMemberOfOrg(request.resource.data.organizationId)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.organizationId == projectOrgId(request.resource.data.projectId)
+        && isAuthorizedForProject(request.resource.data.projectId)
         && (request.resource.data.taskId == null
             || (taskOrgId(request.resource.data.taskId) == request.resource.data.organizationId
                 && get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.projectId == request.resource.data.projectId))

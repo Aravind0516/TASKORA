@@ -126,14 +126,23 @@ service firebase.storage {
     match /organizations/{orgId}/projects/{projectId}/attachments/{attachmentId} {
       allow read: if isSuperAdmin() || isAdminOfOrg(orgId) || isAuthorizedForProject(projectId);
 
-      // Any member of the project's own organization may upload — same
-      // authorization level as posting a comment (firestore.rules'
-      // comments create rule), not restricted to the project's manager.
-      // projectDoc(projectId).organizationId == orgId is the path-integrity
-      // check: a real project belonging to a DIFFERENT org can never be
-      // targeted just by writing that org's id into the path.
+      // Any AUTHORIZED member of the project (its assigned manager, or in
+      // its memberIds) may upload — not restricted to the manager alone,
+      // but also never any org member regardless of project assignment.
+      // Matches firestore.rules' comments create rule exactly (isAdminOfOrg
+      // || isAuthorizedForProject) — a previous version of this rule only
+      // checked isMemberOfOrg(), which let any organization member upload a
+      // file into a project they were never assigned to (the file could
+      // never be READ back by them afterward, since the read rule above
+      // already required isAuthorizedForProject, but the write itself
+      // should never have been allowed either — Daily Work Update evidence
+      // and general attachments must stay exactly as project-private as
+      // everything else). projectDoc(projectId).organizationId == orgId is
+      // the path-integrity check: a real project belonging to a DIFFERENT
+      // org can never be targeted just by writing that org's id into the path.
       allow create: if isMemberOfOrg(orgId)
         && projectDoc(projectId).organizationId == orgId
+        && (isAdminOfOrg(orgId) || isAuthorizedForProject(projectId))
         && isAllowedContentType()
         && isWithinSizeLimit();
 
@@ -149,10 +158,13 @@ service firebase.storage {
       // The task's real organizationId AND its real projectId must both
       // match the path — prevents uploading under a task that actually
       // belongs to a different org or a different project than the path
-      // claims.
+      // claims. Same project-authorization requirement as the project-level
+      // block above — see that rule's comment for why isMemberOfOrg() alone
+      // was insufficient.
       allow create: if isMemberOfOrg(orgId)
         && taskDoc(taskId).organizationId == orgId
         && taskDoc(taskId).projectId == projectId
+        && (isAdminOfOrg(orgId) || isAuthorizedForProject(projectId))
         && isAllowedContentType()
         && isWithinSizeLimit();
 
