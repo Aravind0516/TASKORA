@@ -4,16 +4,28 @@ import type { TaskStatus } from "@/types/task";
 
 type Status = ProjectStatus | TaskStatus;
 
+// Migrated to TASKORA's centralized semantic tokens (bg-success/10
+// text-success, etc. — see app/globals.css) wherever an accessible token
+// pairing exists. Warning/amber is the one deliberate exception: the
+// semantic --warning-foreground value is tuned for text ON TOP of a solid
+// --warning fill, not for a tinted bg-warning/10 chip — using it there reads
+// fine in light mode but fails contrast in dark mode (dark brown text on a
+// still-dark tinted background). Amber therefore keeps its existing,
+// already-accessible Tailwind light/dark pair rather than adopting a token
+// combination that would look broken. "In Review" keeps violet deliberately
+// too — violet is the landing page's own secondary brand accent (see
+// components/landing/shared/ambient-background.tsx's glow), not a stray
+// color.
 const STATUS_STYLES: Record<Status, string> = {
-  Planning: "bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300",
-  Backlog: "bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300",
-  "To Do": "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
-  Active: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
-  "In Progress": "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+  Planning: "bg-muted text-muted-foreground",
+  Backlog: "bg-muted text-muted-foreground",
+  "To Do": "bg-info/10 text-info",
+  Active: "bg-info/10 text-info",
+  "In Progress": "bg-info/10 text-info",
   "In Review": "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
   "On Hold": "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  Blocked: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-  Completed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  Blocked: "bg-danger/10 text-danger",
+  Completed: "bg-success/10 text-success",
 };
 
 export function StatusBadge({ status, className }: { status: Status; className?: string }) {

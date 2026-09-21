@@ -2,9 +2,9 @@ import { cn } from "@/lib/utils";
 import type { OrgStatus, PersonStatus } from "@/types/platform";
 
 const STYLES: Record<PersonStatus | OrgStatus, string> = {
-  Active: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  Invited: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
-  Suspended: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+  Active: "bg-success/10 text-success",
+  Invited: "bg-info/10 text-info",
+  Suspended: "bg-danger/10 text-danger",
 };
 
 export function PersonStatusBadge({ status, className }: { status: PersonStatus | OrgStatus; className?: string }) {

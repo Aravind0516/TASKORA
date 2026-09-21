@@ -8,11 +8,11 @@ import type { SubscriptionStatus } from "@/types/organization";
 // "EXPIRED" to Firestore).
 
 const STYLES: Record<SubscriptionStatus, string> = {
-  TRIAL: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+  TRIAL: "bg-info/10 text-info",
   PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  ACTIVE: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  REJECTED: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-  EXPIRED: "bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300",
+  ACTIVE: "bg-success/10 text-success",
+  REJECTED: "bg-danger/10 text-danger",
+  EXPIRED: "bg-muted text-muted-foreground",
 };
 
 const LABELS: Record<SubscriptionStatus, string> = {

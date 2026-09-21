@@ -91,7 +91,7 @@ export function MeetingsView() {
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-semibold text-foreground">{meeting.title}</h3>
               {meeting.status === "Cancelled" && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+                <span className="inline-flex items-center gap-1 rounded-full bg-danger/10 px-2 py-0.5 text-[11px] font-medium text-danger">
                   <XCircle className="size-3" /> Cancelled
                 </span>
               )}

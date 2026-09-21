@@ -309,7 +309,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
               </Button>
             )}
             {project.submissionStatus === "SUBMITTED" && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+              <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
                 <CheckCircle2 className="size-3.5" /> Submitted
               </span>
             )}

@@ -57,7 +57,7 @@ export function ProjectMyTasksPanel({ organizationId, projectId, myTasks, onOpen
         const completedSubtasks = taskSubtasks.filter((s) => s.completed).length;
         const overdue = isOverdue(task.dueDate, task.status === "Completed");
         return (
-          <Card key={task.id} className={task.status === "Blocked" ? "border-rose-200 dark:border-rose-500/30" : undefined}>
+          <Card key={task.id} className={task.status === "Blocked" ? "border-danger/30" : undefined}>
             <CardContent className="space-y-3 px-4 py-4">
               <button
                 type="button"
@@ -71,7 +71,7 @@ export function ProjectMyTasksPanel({ organizationId, projectId, myTasks, onOpen
                 <StatusBadge status={task.status} />
                 <PriorityBadge priority={task.priority} />
                 {task.status === "Blocked" && (
-                  <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600 dark:text-rose-400">
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-danger">
                     <AlertTriangle className="size-3.5" />
                     Blocked
                   </span>

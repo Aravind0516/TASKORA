@@ -2,10 +2,10 @@ import { cn } from "@/lib/utils";
 import type { InvitationStatus } from "@/types/invitation";
 
 const STYLES: Record<InvitationStatus, string> = {
-  pending: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
-  accepted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  pending: "bg-info/10 text-info",
+  accepted: "bg-success/10 text-success",
   expired: "bg-muted text-muted-foreground",
-  cancelled: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+  cancelled: "bg-danger/10 text-danger",
 };
 
 const LABELS: Record<InvitationStatus, string> = {

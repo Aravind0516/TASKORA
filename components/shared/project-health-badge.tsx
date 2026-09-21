@@ -2,9 +2,12 @@ import { cn } from "@/lib/utils";
 import type { ProjectHealth } from "@/lib/project-health";
 
 const HEALTH_STYLES: Record<ProjectHealth["status"], string> = {
-  HEALTHY: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  HEALTHY: "bg-success/10 text-success",
+  // Amber keeps its existing Tailwind pair rather than a semantic token — see
+  // status-badge.tsx's comment on why bg-warning/10 + text-warning-foreground
+  // fails contrast in dark mode.
   AT_RISK: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  CRITICAL: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+  CRITICAL: "bg-danger/10 text-danger",
 };
 
 const HEALTH_LABEL: Record<ProjectHealth["status"], string> = {

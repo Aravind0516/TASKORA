@@ -240,12 +240,12 @@ function RequestTable({ title, requests, orgFor, onApprove, onReject }: RequestT
                   <TableCell>
                     {request.status === "pending" && <Badge variant="outline">Pending</Badge>}
                     {request.status === "approved" && (
-                      <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                      <span className="inline-flex items-center gap-1 text-success">
                         <CheckCircle2 className="size-3.5" /> Approved
                       </span>
                     )}
                     {request.status === "rejected" && (
-                      <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+                      <span className="inline-flex items-center gap-1 text-danger">
                         <XCircle className="size-3.5" /> Rejected
                       </span>
                     )}

@@ -36,8 +36,11 @@ const STATUS_LABELS: Record<DailyUpdateStatus, string> = {
   NEEDS_CLARIFICATION: "Needs Clarification",
 };
 const STATUS_TONE: Record<DailyUpdateStatus, string> = {
-  SUBMITTED: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  VERIFIED: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  SUBMITTED: "bg-info/10 text-info",
+  VERIFIED: "bg-success/10 text-success",
+  // Amber/orange keep their existing Tailwind pairs rather than semantic
+  // tokens — see components/shared/status-badge.tsx's comment on why
+  // bg-warning/10 + text-warning-foreground fails contrast in dark mode.
   PARTIALLY_VERIFIED: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   NEEDS_CLARIFICATION: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
 };

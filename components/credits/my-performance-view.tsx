@@ -220,7 +220,7 @@ export function MyPerformanceView() {
                     {submissionHistory.map((t) => (
                       <li key={t.id} className="flex items-center justify-between border-b border-border pb-2 last:border-0">
                         <span className="text-foreground">{t.action}</span>
-                        <span className="text-emerald-600">+{t.credits}</span>
+                        <span className="text-success">+{t.credits}</span>
                       </li>
                     ))}
                   </ul>

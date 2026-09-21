@@ -130,10 +130,10 @@ export function SuperAdminOverviewView() {
                   <Radio
                     className={
                       service.status === "Healthy"
-                        ? "size-3.5 shrink-0 text-emerald-500"
+                        ? "size-3.5 shrink-0 text-success"
                         : service.status === "Warning"
                           ? "size-3.5 shrink-0 text-amber-500"
-                          : "size-3.5 shrink-0 text-rose-500"
+                          : "size-3.5 shrink-0 text-danger"
                     }
                   />
                   <span className="truncate text-sm text-foreground">{service.name}</span>

@@ -9,9 +9,9 @@ import type { Deliverable, DeliverableStatus } from "@/types/deliverable";
 import type { TeamMember } from "@/types/team";
 
 const STATUS_STYLES: Record<DeliverableStatus, string> = {
-  Pending: "bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300",
-  Ready: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
-  Delivered: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  Pending: "bg-muted text-muted-foreground",
+  Ready: "bg-info/10 text-info",
+  Delivered: "bg-success/10 text-success",
 };
 
 interface DeliverablesListProps {

@@ -5,17 +5,18 @@ import type { TaskPriority } from "@/types/task";
 type Priority = ProjectPriority | TaskPriority;
 
 const PRIORITY_DOT: Record<Priority, string> = {
-  Low: "bg-slate-400",
-  Medium: "bg-sky-500",
+  Low: "bg-muted-foreground/50",
+  Medium: "bg-info",
   High: "bg-amber-500",
-  Critical: "bg-rose-500",
+  Critical: "bg-danger",
 };
 
 const PRIORITY_TEXT: Record<Priority, string> = {
-  Low: "text-slate-600 dark:text-slate-400",
-  Medium: "text-sky-700 dark:text-sky-400",
+  Low: "text-muted-foreground",
+  Medium: "text-info",
+  // Amber keeps its existing Tailwind pair — see status-badge.tsx's comment.
   High: "text-amber-700 dark:text-amber-400",
-  Critical: "text-rose-700 dark:text-rose-400",
+  Critical: "text-danger",
 };
 
 export function PriorityBadge({ priority, className }: { priority: Priority; className?: string }) {

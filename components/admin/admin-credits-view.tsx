@@ -211,7 +211,7 @@ export function AdminCreditsView() {
                               className={
                                 t.sourceType === "MANUAL"
                                   ? "inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400"
-                                  : "inline-flex rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400"
+                                  : "inline-flex rounded-full bg-info/10 px-2 py-0.5 text-xs font-medium text-info"
                               }
                             >
                               {t.sourceType === "MANUAL" ? "Manual" : "Automated"}

@@ -143,7 +143,7 @@ export function InviteLandingView({ token }: { token: string }) {
       <Shell>
         <Card>
           <CardHeader className="items-center text-center">
-            <CheckCircle2 className="mb-2 size-10 text-emerald-500" />
+            <CheckCircle2 className="mb-2 size-10 text-success" />
             <CardTitle>Account already activated</CardTitle>
             <CardDescription>This invitation has already been accepted. Log in with your email and password.</CardDescription>
           </CardHeader>
@@ -162,7 +162,7 @@ export function InviteLandingView({ token }: { token: string }) {
       <Shell>
         <Card>
           <CardHeader className="items-center text-center">
-            <CheckCircle2 className="mb-2 size-10 text-emerald-500" />
+            <CheckCircle2 className="mb-2 size-10 text-success" />
             <CardTitle>Welcome to TASKORA</CardTitle>
             <CardDescription>Your account is active and you&apos;re signed in.</CardDescription>
           </CardHeader>

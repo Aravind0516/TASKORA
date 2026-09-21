@@ -208,12 +208,12 @@ export function CalendarView() {
                     className={cn(
                       "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[11px] hover:opacity-80",
                       entry.overdue
-                        ? "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
+                        ? "bg-danger/10 text-danger"
                         : entry.kind === "task"
-                          ? "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300"
+                          ? "bg-info/10 text-info"
                           : entry.kind === "project"
                             ? "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
-                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                            : "bg-success/10 text-success"
                     )}
                   >
                     {entry.kind === "task" ? (
