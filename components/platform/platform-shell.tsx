@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ChevronsLeft, ChevronsRight, IdCard, LogOut, Menu, Settings, User } from "lucide-react";
+import { AlertTriangle, ChevronsLeft, ChevronsRight, IdCard, LogOut, Menu, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -143,10 +143,6 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
                   <p className="text-xs text-muted-foreground">{email}</p>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push("/overview")}>
-                  <User />
-                  User dashboard
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/profile")}>
                   <IdCard />
                   Profile

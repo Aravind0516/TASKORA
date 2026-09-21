@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CalendarClock, FolderKanban, ListChecks, Search, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
+import { useAuth } from "@/components/auth/auth-provider";
 
 const MAX_RESULTS_PER_GROUP = 4;
 
@@ -24,6 +25,17 @@ const MAX_RESULTS_PER_GROUP = 4;
  */
 export function GlobalSearch() {
   const { projects, tasks, members: teamMembers, meetings } = useWorkspace();
+  const { role } = useAuth();
+  // GlobalSearch is mounted in both the individual-contributor shell and the
+  // Admin/Super Admin console (see components/platform/platform-shell.tsx) —
+  // Task/Team results must never route a privileged viewer into the
+  // employee-shaped /tasks or /team pages (the exact "shifted into the User
+  // Dashboard" issue this search bar would otherwise cause). Projects and
+  // Meetings already point at routes both shells legitimately share
+  // (/projects/{id}, /meetings), so those two are unaffected.
+  const isPrivilegedRole = role === "admin" || role === "super_admin";
+  const taskResultHref = isPrivilegedRole ? "/admin/tasks" : "/tasks";
+  const teamResultHref = isPrivilegedRole ? "/admin/teams" : "/team";
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -122,7 +134,7 @@ export function GlobalSearch() {
               {results.matchedTasks.map((task) => (
                 <Link
                   key={task.id}
-                  href="/tasks"
+                  href={taskResultHref}
                   onClick={closeAndReset}
                   className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm hover:bg-muted"
                 >
@@ -139,7 +151,7 @@ export function GlobalSearch() {
               {results.matchedMembers.map((member) => (
                 <Link
                   key={member.id}
-                  href="/team"
+                  href={teamResultHref}
                   onClick={closeAndReset}
                   className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm hover:bg-muted"
                 >
