@@ -106,6 +106,8 @@ export interface PlatformProject {
   repositoryProvider: "NONE" | "GITHUB";
   workVerificationEnabled: boolean;
   verificationFrequency: "DAILY";
+  /** Plain-text project requirements — see types/project.ts's `requirements` for the full explanation; same field, admin display shape. */
+  requirements: string;
   createdAt: string;
   updatedAt: string;
 }

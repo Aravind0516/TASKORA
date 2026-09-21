@@ -44,6 +44,10 @@ function projectFromDoc(docSnap: QueryDocumentSnapshot): Project {
     submissionStatus: data.submissionStatus === "SUBMITTED" ? "SUBMITTED" : "NONE",
     submittedAt: data.submittedAt ? toIso(data.submittedAt) : null,
     requirementDocument: data.requirementDocument ?? null,
+    // Absent on every project created before this field existed — default
+    // to "" (never null/undefined) so callers can always treat it as a
+    // plain string, matching `description`.
+    requirements: typeof data.requirements === "string" ? data.requirements : "",
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
@@ -153,6 +157,8 @@ export interface ProjectInput {
   memberIds: string[];
   repositoryUrl?: string | null;
   workVerificationEnabled?: boolean;
+  /** Plain-text project requirements — see types/project.ts's `requirements`. */
+  requirements?: string;
 }
 
 /** github.com/... vs. anything else — evidence-context labeling only, never used to decide what TASKORA trusts. */
@@ -172,6 +178,7 @@ export async function createProject(input: ProjectInput): Promise<string> {
       repositoryProvider: inferRepositoryProvider(input.repositoryUrl),
       workVerificationEnabled: Boolean(input.workVerificationEnabled),
       verificationFrequency: "DAILY",
+      requirements: input.requirements ?? "",
       createdAt: now,
       updatedAt: now,
     });

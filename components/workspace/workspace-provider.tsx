@@ -56,6 +56,7 @@ interface CreateProjectInput {
   teamId: string;
   memberIds: string[];
   managerId?: string | null;
+  requirements?: string;
 }
 
 interface CreateTaskInput {
@@ -396,6 +397,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         ownerId: uid,
         managerId: input.managerId ?? null,
         memberIds: input.memberIds.includes(uid) ? input.memberIds : [uid, ...input.memberIds],
+        requirements: input.requirements ?? "",
       });
       await activityService.logActivity({
         organizationId,
@@ -434,6 +436,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         submissionStatus: "NONE",
         submittedAt: null,
         requirementDocument: null,
+        requirements: input.requirements ?? "",
         createdAt: now,
         updatedAt: now,
       } satisfies Project;

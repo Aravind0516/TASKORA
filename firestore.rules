@@ -94,6 +94,14 @@ service cloud.firestore {
     function isValidHours(value) {
       return value == null || ((value is int || value is float) && value >= 0);
     }
+    // Server-side backstop for the client's Zod validation on the plain-text
+    // project requirements field — rejects an object/array/number injected
+    // by a client bypassing the form, and caps size independently of the
+    // client-side max (matches lib/validation/project.schema.ts's limit).
+    // null/absent is always valid (no requirements written yet).
+    function isValidRequirements(value) {
+      return value == null || (value is string && value.size() <= 20000);
+    }
     // Work Verification review outcomes — VERIFIED needs no explanation, but
     // PARTIALLY_VERIFIED/NEEDS_CLARIFICATION must carry an actual, non-empty
     // comment (server-side backstop for the client's Zod validation — same
@@ -236,13 +244,16 @@ service cloud.firestore {
         || (isMemberOfOrg(resource.data.organizationId)
             && (resource.data.managerId == request.auth.uid || request.auth.uid in resource.data.memberIds));
       allow create: if isAdminOfOrg(request.resource.data.organizationId)
-        && request.resource.data.ownerId == request.auth.uid;
+        && request.resource.data.ownerId == request.auth.uid
+        && isValidRequirements(request.resource.data.get("requirements", null));
       allow update: if isSuperAdmin()
         || (isAdminOfOrg(resource.data.organizationId)
             && request.resource.data.organizationId == resource.data.organizationId
-            && request.resource.data.ownerId == resource.data.ownerId)
+            && request.resource.data.ownerId == resource.data.ownerId
+            && isValidRequirements(request.resource.data.get("requirements", null)))
         || (isMemberOfOrg(resource.data.organizationId) && resource.data.managerId == request.auth.uid
-            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "requirementDocument", "updatedAt"]));
+            && isValidRequirements(request.resource.data.get("requirements", null))
+            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "requirementDocument", "requirements", "updatedAt"]));
       allow delete: if isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();
     }
 

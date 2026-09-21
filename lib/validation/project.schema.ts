@@ -20,6 +20,11 @@ export const projectFormSchema = z
     // firestore.rules onlyChangingFields allow-list doesn't include it, so a
     // manager submitting a value here would just get permission-denied.
     workVerificationEnabled: z.boolean().optional(),
+    // Plain-text project requirements — never mandatory, no Firebase Storage
+    // involved. Large but bounded (matches firestore.rules' isValidRequirements
+    // server-side backstop) so this stays a "sensible large text field," not
+    // an unbounded one.
+    requirements: z.string().max(20000, "Requirements text is too long (max 20,000 characters).").optional(),
   })
   .refine((data) => new Date(data.dueDate) >= new Date(data.startDate), {
     message: "Due date must be on or after the start date",

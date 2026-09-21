@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Select,
@@ -57,6 +58,7 @@ const defaultValues: ProjectFormValues = {
   memberIds: [],
   managerId: undefined,
   workVerificationEnabled: false,
+  requirements: "",
 };
 
 function projectToFormValues(project: Project): ProjectFormValues {
@@ -71,6 +73,7 @@ function projectToFormValues(project: Project): ProjectFormValues {
     memberIds: project.memberIds,
     managerId: project.managerId ?? undefined,
     workVerificationEnabled: project.workVerificationEnabled,
+    requirements: project.requirements ?? "",
   };
 }
 
@@ -309,6 +312,23 @@ export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: Proj
                 );
               })}
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="project-requirements">Project Requirements</Label>
+              <Badge variant="secondary">Optional</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Add the scope, technical requirements, deliverables, instructions, and expectations for this project.
+            </p>
+            <Textarea
+              id="project-requirements"
+              placeholder="Enter the project requirements, scope, deliverables, technologies, instructions, deadlines, and expectations..."
+              className="min-h-[200px]"
+              {...register("requirements")}
+            />
+            {errors.requirements && <p className="text-xs text-destructive">{errors.requirements.message}</p>}
           </div>
 
           {canConfigureWorkVerification && (

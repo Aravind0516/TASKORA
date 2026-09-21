@@ -69,6 +69,16 @@ export interface Project {
   submittedAt: string | null;
   /** null until an Admin/authorized manager uploads one — every project continues working normally without it. */
   requirementDocument: ProjectRequirementDocument | null;
+  /**
+   * Plain-text project requirements — an Admin/authorized manager writes
+   * scope, deliverables, technologies, and instructions directly, no
+   * Firebase Storage involved. Deliberately a separate field from
+   * `requirementDocument` (the PDF/DOC upload) rather than a replacement
+   * for it — a project can have either, both, or neither. Empty string
+   * (never null/undefined) means "no requirements written yet," matching
+   * every other plain-text project field (e.g. `description`).
+   */
+  requirements: string;
   createdAt: string;
   updatedAt: string;
 }

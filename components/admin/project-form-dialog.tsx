@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Select,
@@ -59,6 +60,7 @@ const defaultValues: PlatformProjectFormValues = {
   dueDate: "",
   repositoryUrl: "",
   workVerificationEnabled: false,
+  requirements: "",
 };
 
 function projectToFormValues(project: PlatformProject): PlatformProjectFormValues {
@@ -74,6 +76,7 @@ function projectToFormValues(project: PlatformProject): PlatformProjectFormValue
     dueDate: project.dueDate,
     repositoryUrl: project.repositoryUrl ?? "",
     workVerificationEnabled: project.workVerificationEnabled,
+    requirements: project.requirements ?? "",
   };
 }
 
@@ -244,6 +247,24 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
               </div>
             </>
           )}
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="pp-requirements">Project Requirements</Label>
+              <Badge variant="secondary">Optional</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Define the project scope, requirements, deliverables, technologies, instructions, expectations, and other
+              important information for the assigned team.
+            </p>
+            <Textarea
+              id="pp-requirements"
+              placeholder="Enter the project requirements, scope, deliverables, technologies, instructions, deadlines, and expectations..."
+              className="min-h-[200px]"
+              {...register("requirements")}
+            />
+            {errors.requirements && <p className="text-xs text-destructive">{errors.requirements.message}</p>}
+          </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">

@@ -20,6 +20,10 @@ export const platformProjectFormSchema = z
     // optional/off by default so existing projects are entirely unaffected.
     repositoryUrl: z.string().trim().max(300).optional().or(z.literal("")),
     workVerificationEnabled: z.boolean().optional(),
+    // Plain-text project requirements — never mandatory, no Firebase Storage
+    // involved. Large but bounded (matches firestore.rules' isValidRequirements
+    // server-side backstop).
+    requirements: z.string().max(20000, "Requirements text is too long (max 20,000 characters).").optional(),
   })
   .refine((data) => new Date(data.dueDate) >= new Date(data.startDate), {
     message: "Due date must be on or after the start date",
