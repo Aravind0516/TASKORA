@@ -41,7 +41,7 @@ export function PlatformSidebarNav({ navItems, brandLabel, collapsed = false, on
       </div>
 
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {navItems.map((item) => {
+        {navItems.map((item, index) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
           const linkClassName = cn(
@@ -51,23 +51,35 @@ export function PlatformSidebarNav({ navItems, brandLabel, collapsed = false, on
               ? "bg-sidebar-accent text-sidebar-accent-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
               : "text-sidebar-foreground/65 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
           );
+          // A group label renders once, right before the first item of a new
+          // group — collapsed mode skips the text (no room) but keeps a
+          // small top margin so groups still read as visually separated.
+          const isNewGroup = item.group !== undefined && item.group !== navItems[index - 1]?.group;
 
-          if (!collapsed) {
-            return (
-              <Link key={item.href} href={item.href} onClick={onNavigate} className={linkClassName}>
-                <Icon className="size-4.5 shrink-0" />
-                <span className="truncate">{item.label}</span>
-              </Link>
-            );
-          }
-
-          return (
+          const link = !collapsed ? (
+            <Link key={item.href} href={item.href} onClick={onNavigate} className={linkClassName}>
+              <Icon className="size-4.5 shrink-0" />
+              <span className="truncate">{item.label}</span>
+            </Link>
+          ) : (
             <Tooltip key={item.href}>
               <TooltipTrigger render={<Link href={item.href} onClick={onNavigate} className={linkClassName} />}>
                 <Icon className="size-4.5 shrink-0" />
               </TooltipTrigger>
               <TooltipContent side="right">{item.label}</TooltipContent>
             </Tooltip>
+          );
+
+          if (!isNewGroup) return link;
+          return (
+            <div key={item.href} className={index > 0 ? "mt-4" : undefined}>
+              {!collapsed && (
+                <p className="mb-1.5 px-3 text-[11px] font-semibold tracking-wide text-sidebar-foreground/40 uppercase">
+                  {item.group}
+                </p>
+              )}
+              {link}
+            </div>
           );
         })}
       </nav>

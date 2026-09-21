@@ -11,15 +11,20 @@ import { ROLE_HOME_PATH } from "@/lib/platform/constants";
 // directly today (see components/platform/nav-config.ts's ADMIN_NAV/
 // SUPER_ADMIN_NAV, which deliberately link straight at these bare routes
 // rather than duplicating them under /admin — Meetings/Calendar/Leaderboard
-// have no admin-specific equivalent, and Profile/Settings are per-account).
-// Everything else under (app) — /overview, /tasks, /kanban, /team,
-// /projects (the bare list), /credits, /performance, /analytics — is the
-// individual-contributor "workspace" experience: exactly the "User
-// Dashboard" an ORG_ADMIN/SUPER_ADMIN must never be left resting in, even
-// by direct URL entry. /projects/{id} is its own exception (see below): the
-// shared project detail page, reached e.g. from the admin Work Verification
-// list (components/admin/admin-work-verification-view.tsx).
-const SHARED_WORKSPACE_ROUTES = new Set(["/profile", "/settings", "/meetings", "/calendar", "/leaderboard"]);
+// have no admin-specific equivalent). Profile and Settings are DELIBERATELY
+// absent here: an administrator's own identity lives at /admin/account or
+// /superadmin/account (components/admin/admin-account-view.tsx), and their
+// settings at /admin/settings or /superadmin/settings — both already exist,
+// so a privileged role visiting the candidate-shaped /profile or the
+// generic /settings must be redirected away, not shown it. Everything else
+// under (app) — /overview, /tasks, /kanban, /team, /projects (the bare
+// list), /credits, /performance, /analytics — is the individual-contributor
+// "workspace" experience: exactly the "User Dashboard" an ORG_ADMIN/
+// SUPER_ADMIN must never be left resting in, even by direct URL entry.
+// /projects/{id} is its own exception (see below): the shared project
+// detail page, reached e.g. from the admin Work Verification list
+// (components/admin/admin-work-verification-view.tsx).
+const SHARED_WORKSPACE_ROUTES = new Set(["/meetings", "/calendar", "/leaderboard"]);
 
 function isAllowedForPrivilegedRole(pathname: string): boolean {
   if (SHARED_WORKSPACE_ROUTES.has(pathname)) return true;

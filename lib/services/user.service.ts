@@ -55,6 +55,8 @@ export async function updateUserProfile(uid: string, patch: { name: string; titl
  */
 export interface MyProfilePatch {
   name?: string;
+  /** Job title / designation — already in firestore.rules' self-edit allow-list alongside name; used by the Admin Account page as well as the candidate/employee profile. */
+  title?: string;
   phone?: string;
   address?: string;
   collegeName?: string;

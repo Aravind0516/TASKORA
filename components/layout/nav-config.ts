@@ -19,6 +19,8 @@ export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
+  /** Optional section label rendered above this item when it differs from the previous item's group — used by the Admin/Super Admin console nav (see components/platform/nav-config.ts) to organize a long flat list into labeled sections. Unused by the regular workspace sidebar, which stays a single flat list. */
+  group?: string;
 }
 
 export const navItems: NavItem[] = [

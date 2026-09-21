@@ -143,13 +143,13 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
                   <p className="text-xs text-muted-foreground">{email}</p>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push("/profile")}>
+                <DropdownMenuItem onClick={() => router.push(navKey === "admin" ? "/admin/account" : "/superadmin/account")}>
                   <IdCard />
-                  Profile
+                  {navKey === "admin" ? "Admin Account" : "Account"}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/settings")}>
+                <DropdownMenuItem onClick={() => router.push(navKey === "admin" ? "/admin/settings" : "/superadmin/settings")}>
                   <Settings />
-                  Account settings
+                  {navKey === "admin" ? "Organization Settings" : "Settings"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <AboutTaskoraMenuItem />
