@@ -56,6 +56,8 @@ export function AdminUsersView() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<PersonStatus | "all">("all");
+  const [teamFilter, setTeamFilter] = useState<string>("all");
+  const [employmentFilter, setEmploymentFilter] = useState<string>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<PlatformUser | null>(null);
@@ -90,10 +92,12 @@ export function AdminUsersView() {
     const q = search.trim().toLowerCase();
     return users.filter((u) => {
       if (statusFilter !== "all" && u.status !== statusFilter) return false;
-      if (q && !`${u.name} ${u.email} ${u.title}`.toLowerCase().includes(q)) return false;
+      if (teamFilter !== "all" && !u.teamIds.includes(teamFilter)) return false;
+      if (employmentFilter !== "all" && (u.employmentType ?? "EMPLOYEE") !== employmentFilter) return false;
+      if (q && !`${u.name} ${u.email} ${u.title} ${u.userId ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [users, search, statusFilter]);
+  }, [users, search, statusFilter, teamFilter, employmentFilter]);
 
   function openEdit(user: PlatformUser) {
     setEditingUser(user);
@@ -160,8 +164,31 @@ export function AdminUsersView() {
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative w-full sm:max-w-xs">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search users..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input placeholder="Search by name, email, or Candidate ID..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
+        <Select value={employmentFilter} onValueChange={(v) => setEmploymentFilter(v ?? "all")}>
+          <SelectTrigger className="w-full sm:w-36">
+            <SelectValue placeholder="Role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All roles</SelectItem>
+            <SelectItem value="EMPLOYEE">Employee</SelectItem>
+            <SelectItem value="INTERN">Intern</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v ?? "all")}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Team" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All teams</SelectItem>
+            {teams.map((t) => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as PersonStatus | "all")}>
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="Status" />
@@ -193,7 +220,7 @@ export function AdminUsersView() {
       ) : users.length === 0 ? (
         <EmptyState icon={Users} title="No users yet" description="Add your first member to get started." actionLabel="Add User" onAction={() => setInviteOpen(true)} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={Search} title="No users found" description="Try a different search or filter." actionLabel="Clear filters" onAction={() => { setSearch(""); setStatusFilter("all"); }} />
+        <EmptyState icon={Search} title="No users found" description="Try a different search or filter." actionLabel="Clear filters" onAction={() => { setSearch(""); setStatusFilter("all"); setTeamFilter("all"); setEmploymentFilter("all"); }} />
       ) : (
         <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
           <Table>

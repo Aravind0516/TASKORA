@@ -90,7 +90,7 @@ export function Topbar() {
               <p className="text-xs text-muted-foreground">{email}</p>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem render={<Link href="/settings" />}>
+            <DropdownMenuItem render={<Link href="/profile" />}>
               <User />
               Profile
             </DropdownMenuItem>

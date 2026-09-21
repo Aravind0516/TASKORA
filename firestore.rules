@@ -146,18 +146,32 @@ service cloud.firestore {
         && request.resource.data.role == "user"
         && request.resource.data.organizationId == null;
 
-      // The intern/candidate identity fields (userId, employmentType,
-      // collegeName, branch, passedOutYear, academicYear, domain,
-      // secondaryDomain, linkedinUrl, githubUrl, phone) are set exclusively
-      // by the Admin SDK at invitation acceptance (see lib/server/
-      // invitations.ts) — they are intentionally ABSENT from both
-      // allow-lists below. userId in particular must never become
+      // userId (Candidate ID) and employmentType are set exclusively by the
+      // Admin SDK at invitation acceptance (see lib/server/invitations.ts)
+      // and are intentionally ABSENT from every allow-list below, including
+      // the self-edit branch — userId in particular must never become
       // client-editable: its global uniqueness is enforced by a Firestore
       // transaction against userIdReservations/{userId} (Admin-SDK-only),
-      // which a plain field-level rule here could never re-verify.
-      allow update: if (isSelf(uid) && onlyChangingFields(["name", "title", "notificationPreferences", "updatedAt"]))
+      // which a plain field-level rule here could never re-verify. The
+      // personal/academic/link fields below (collegeName through
+      // portfolioUrl) WERE previously admin-only too, but the profile-
+      // editing feature deliberately opens exactly these to self-edit —
+      // role/organizationId/teamIds/functionalRole/status/userId/
+      // employmentType remain admin-or-Super-Admin-only, never touched by
+      // this branch.
+      allow update: if (isSelf(uid) && onlyChangingFields([
+            "name", "title", "notificationPreferences",
+            "phone", "address", "collegeName", "branch", "passedOutYear", "academicYear",
+            "domain", "secondaryDomain", "linkedinUrl", "githubUrl", "portfolioUrl",
+            "updatedAt",
+          ]))
         || (isAdmin() && resource.data.organizationId == myOrgId()
-            && onlyChangingFields(["status", "name", "title", "teamIds", "functionalRole", "updatedAt"]))
+            && onlyChangingFields([
+                "status", "name", "title", "teamIds", "functionalRole",
+                "phone", "address", "collegeName", "branch", "passedOutYear", "academicYear",
+                "domain", "secondaryDomain", "linkedinUrl", "githubUrl", "portfolioUrl",
+                "updatedAt",
+              ]))
         || isSuperAdmin();
 
       allow delete: if isSuperAdmin();

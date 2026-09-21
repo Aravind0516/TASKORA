@@ -41,6 +41,41 @@ export async function updateUserProfile(uid: string, patch: { name: string; titl
   }
 }
 
+/**
+ * The one path a signed-in account can edit its OWN profile's personal/
+ * academic/link fields — see firestore.rules' users/{uid} update rule
+ * (isSelf branch), which is the actual enforcement boundary: this allow-list
+ * exists here purely so no caller can accidentally wire an admin-only field
+ * (userId, role, organizationId, teamIds, functionalRole, status) through
+ * this function by construction. Deliberately separate from
+ * updateUserProfile()/updateUserTeams()/updateUserStatus() (the admin-facing
+ * paths on the Users page) even though all four ultimately call the same
+ * users/{uid} document — keeping the self-edit surface's field set explicit
+ * and easy to audit rather than one large "patch anything" function.
+ */
+export interface MyProfilePatch {
+  name?: string;
+  phone?: string;
+  address?: string;
+  collegeName?: string;
+  branch?: string;
+  passedOutYear?: number;
+  academicYear?: string;
+  domain?: string;
+  secondaryDomain?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
+}
+
+export async function updateMyProfile(uid: string, patch: MyProfilePatch): Promise<void> {
+  try {
+    await updateDoc(doc(db, "users", uid), { ...patch, updatedAt: serverTimestamp() });
+  } catch (error) {
+    throw new Error(getFirestoreErrorMessage(error, "users:updateMyProfile"));
+  }
+}
+
 /** Self-editable only — see firestore.rules' users/{uid} update rule (isSelf branch). */
 export async function updateNotificationPreferences(uid: string, notificationPreferences: Record<string, boolean>): Promise<void> {
   try {
@@ -106,7 +141,9 @@ function userFromDoc(docSnap: QueryDocumentSnapshot | DocumentSnapshot): UserRec
     secondaryDomain: data.secondaryDomain ?? undefined,
     linkedinUrl: data.linkedinUrl ?? undefined,
     githubUrl: data.githubUrl ?? undefined,
+    portfolioUrl: data.portfolioUrl ?? undefined,
     phone: data.phone ?? undefined,
+    address: data.address ?? undefined,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };

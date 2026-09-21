@@ -17,6 +17,7 @@ import {
   CalendarClock,
   CalendarDays,
   Trophy,
+  IdCard,
 } from "lucide-react";
 import type { NavItem } from "@/components/layout/nav-config";
 
@@ -35,6 +36,7 @@ export const ADMIN_NAV: NavItem[] = [
   { label: "Billing", href: "/admin/billing", icon: CreditCard },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { label: "Activity", href: "/admin/activity", icon: Activity },
+  { label: "Profile", href: "/profile", icon: IdCard },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
@@ -49,5 +51,6 @@ export const SUPER_ADMIN_NAV: NavItem[] = [
   { label: "Activity", href: "/superadmin/activity", icon: Activity },
   { label: "Analytics", href: "/superadmin/analytics", icon: BarChart3 },
   { label: "System", href: "/superadmin/system", icon: ServerCog },
+  { label: "Profile", href: "/profile", icon: IdCard },
   { label: "Settings", href: "/superadmin/settings", icon: Settings },
 ];

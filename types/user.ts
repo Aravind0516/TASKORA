@@ -69,7 +69,10 @@ export interface UserProfile {
   secondaryDomain?: string;
   linkedinUrl?: string;
   githubUrl?: string;
+  portfolioUrl?: string;
   phone?: string;
+  /** Self-editable, free text. Never used for authorization or org-scoping — that's always organizationId. */
+  address?: string;
 
   createdAt: Timestamp | FieldValue;
   updatedAt: Timestamp | FieldValue;
