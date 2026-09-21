@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, MoreHorizontal, Pencil, Plus, Search, ShieldOff, ShieldCheck, Users } from "lucide-react";
+import { AlertCircle, Award, CheckCircle2, Eye, MoreHorizontal, Pencil, Plus, Search, ShieldOff, ShieldCheck, Users } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Input } from "@/components/ui/input";
@@ -31,14 +31,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PersonStatusBadge } from "@/components/platform/person-status-badge";
 import { UserFormDialog } from "@/components/admin/user-form-dialog";
+import { UserDetailSheet } from "@/components/admin/user-detail-sheet";
+import { AwardCreditDialog } from "@/components/admin/award-credit-dialog";
+import { CreditRulesCard } from "@/components/admin/credit-rules-card";
 import { InviteUserDialog } from "@/components/invitations/invite-user-dialog";
 import { PendingInvitationsSection } from "@/components/invitations/pending-invitations-section";
 import { initials, timeAgo } from "@/lib/format";
+import { calculateProfileCompletion, domainLabel } from "@/types/candidate";
 import { usePlatform } from "@/components/platform/platform-provider";
 import * as invitationService from "@/lib/services/invitation.service";
+import * as creditService from "@/lib/services/credit.service";
 import type { PersonStatus, PlatformUser } from "@/types/platform";
 import type { PlatformUserFormValues } from "@/lib/validation/platform-user.schema";
 import type { PlatformInvitation } from "@/types/invitation";
+import type { LeaderboardEntry } from "@/types/credit";
 
 const EMAIL_SENT_MESSAGE = "Invitation email sent successfully.";
 const EMAIL_UNAVAILABLE_MESSAGE = "Invitation could not be sent. Please try again.";
@@ -53,13 +59,21 @@ export function AdminUsersView() {
   const [formOpen, setFormOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<PlatformUser | null>(null);
+  const [viewingUser, setViewingUser] = useState<PlatformUser | null>(null);
+  const [awardingUser, setAwardingUser] = useState<PlatformUser | null>(null);
   const [banner, setBanner] = useState<{ text: string; tone: "success" | "error" } | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
 
   const users = usersInOrg(orgId);
   const teams = teamsInOrg(orgId);
   const projects = projectsInOrg(orgId);
   const tasks = tasksInOrg(orgId);
   const invitations = invitationsInOrg(orgId);
+
+  useEffect(() => {
+    if (!orgId) return;
+    return creditService.subscribeToLeaderboard(orgId, setLeaderboard, () => setLeaderboard([]));
+  }, [orgId]);
 
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 450);
@@ -139,6 +153,8 @@ export function AdminUsersView() {
         }
       />
 
+      {currentOrganizationId && <CreditRulesCard organizationId={currentOrganizationId} />}
+
       <h2 className="mb-3 text-sm font-semibold tracking-tight text-foreground">Active Users</h2>
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -163,7 +179,7 @@ export function AdminUsersView() {
         <div
           className={
             banner.tone === "success"
-              ? "mb-5 flex items-center gap-2 rounded-lg bg-[#0ca30c]/10 px-4 py-2.5 text-sm text-[#0ca30c]"
+              ? "mb-5 flex items-center gap-2 rounded-lg bg-success/10 px-4 py-2.5 text-sm text-success"
               : "mb-5 flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive"
           }
         >
@@ -184,10 +200,12 @@ export function AdminUsersView() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead>User</TableHead>
-                <TableHead>Functional Role</TableHead>
+                <TableHead>Candidate ID</TableHead>
+                <TableHead>Domain</TableHead>
                 <TableHead>Team</TableHead>
                 <TableHead>Projects</TableHead>
-                <TableHead>Tasks</TableHead>
+                <TableHead>Profile</TableHead>
+                <TableHead>Credits</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last Active</TableHead>
                 <TableHead className="w-10" />
@@ -197,7 +215,8 @@ export function AdminUsersView() {
               {filtered.map((user) => {
                 const userTeams = teams.filter((t) => user.teamIds.includes(t.id));
                 const userProjects = projects.filter((p) => user.projectIds.includes(p.id));
-                const userTasks = tasks.filter((t) => t.assigneeId === user.id);
+                const completion = calculateProfileCompletion(user);
+                const credits = leaderboard.find((e) => e.uid === user.id)?.lifetimeCredits ?? 0;
                 return (
                   <TableRow key={user.id}>
                     <TableCell>
@@ -211,12 +230,14 @@ export function AdminUsersView() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{user.functionalRole ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{user.userId ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{domainLabel(user.domain) || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {userTeams.map((t) => t.name).join(", ") || "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{userProjects.length}</TableCell>
-                    <TableCell className="text-muted-foreground">{userTasks.length}</TableCell>
+                    <TableCell className="text-muted-foreground">{completion.percent}%</TableCell>
+                    <TableCell className="font-medium text-foreground">{credits}</TableCell>
                     <TableCell>
                       <PersonStatusBadge status={user.status} />
                     </TableCell>
@@ -227,10 +248,20 @@ export function AdminUsersView() {
                           <MoreHorizontal />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setViewingUser(user)}>
+                            <Eye />
+                            View
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEdit(user)}>
                             <Pencil />
                             Edit
                           </DropdownMenuItem>
+                          {user.status === "Active" && (
+                            <DropdownMenuItem onClick={() => setAwardingUser(user)}>
+                              <Award />
+                              Manage Credits
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => toggleStatus(user)}>
                             {user.status === "Suspended" ? <ShieldCheck /> : <ShieldOff />}
                             {user.status === "Suspended" ? "Activate" : "Deactivate"}
@@ -255,7 +286,24 @@ export function AdminUsersView() {
 
       <UserFormDialog key={editingUser?.id ?? "new"} open={formOpen} onOpenChange={setFormOpen} onSubmitUser={handleSubmit} teams={teams} user={editingUser} />
       {currentOrganizationId && (
-        <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} organizationId={currentOrganizationId} teams={teams} />
+        <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} organizationId={currentOrganizationId} teams={teams} projects={projects} />
+      )}
+      <UserDetailSheet
+        open={Boolean(viewingUser)}
+        onOpenChange={(open) => !open && setViewingUser(null)}
+        user={viewingUser}
+        projects={projects}
+        tasks={tasks}
+        teams={teams}
+        invitation={viewingUser ? invitations.find((i) => i.email === viewingUser.email) : undefined}
+      />
+      {awardingUser && (
+        <AwardCreditDialog
+          organizationId={orgId}
+          candidate={{ uid: awardingUser.id, name: awardingUser.name, email: awardingUser.email, userId: awardingUser.userId }}
+          open={Boolean(awardingUser)}
+          onOpenChange={(open) => !open && setAwardingUser(null)}
+        />
       )}
     </div>
   );

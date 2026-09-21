@@ -22,7 +22,7 @@ interface WriteNotificationInput {
  * `notifications` collection and document shape rather than inventing a
  * parallel one, per "integrate into the existing notification system."
  */
-async function writeNotification(input: WriteNotificationInput): Promise<void> {
+export async function writeNotification(input: WriteNotificationInput): Promise<void> {
   try {
     await getAdminDb().collection("notifications").add({
       userId: input.userId,

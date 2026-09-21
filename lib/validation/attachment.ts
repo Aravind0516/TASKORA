@@ -30,6 +30,31 @@ export const ALLOWED_ATTACHMENT_TYPES: Record<string, string[]> = {
 /** Accepted by <input accept=...> — kept in sync with ALLOWED_ATTACHMENT_TYPES automatically rather than hand-duplicated. */
 export const ATTACHMENT_INPUT_ACCEPT = Object.keys(ALLOWED_ATTACHMENT_TYPES).join(",");
 
+/**
+ * Narrower subsets for Daily Work Update evidence, which asks specifically
+ * for "a screenshot" or "a document" rather than any attachment — storage.rules'
+ * isAllowedContentType() already permits this full superset, so restricting
+ * further here is a UX choice (guiding the right file for the right
+ * evidence type), not an additional security boundary.
+ */
+export const IMAGE_ATTACHMENT_TYPES: Record<string, string[]> = {
+  "image/png": ["png"],
+  "image/jpeg": ["jpg", "jpeg"],
+  "image/webp": ["webp"],
+};
+export const DOCUMENT_ATTACHMENT_TYPES: Record<string, string[]> = {
+  "application/pdf": ["pdf"],
+  "application/msword": ["doc"],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ["docx"],
+  "application/vnd.ms-excel": ["xls"],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ["xlsx"],
+  "application/vnd.ms-powerpoint": ["ppt"],
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": ["pptx"],
+  "text/plain": ["txt"],
+};
+export const IMAGE_ATTACHMENT_INPUT_ACCEPT = Object.keys(IMAGE_ATTACHMENT_TYPES).join(",");
+export const DOCUMENT_ATTACHMENT_INPUT_ACCEPT = Object.keys(DOCUMENT_ATTACHMENT_TYPES).join(",");
+
 function extensionOf(fileName: string): string {
   const idx = fileName.lastIndexOf(".");
   return idx === -1 || idx === fileName.length - 1 ? "" : fileName.slice(idx + 1).toLowerCase();
@@ -45,9 +70,11 @@ export interface AttachmentValidationResult {
  * storage.rules, enforced server-side regardless of what this function
  * decides). Exists to give the user a fast, friendly rejection before a
  * doomed upload attempt, and to reject the obviously-wrong extension/MIME
- * mismatch case a renamed-.exe-to-.pdf trick would produce.
+ * mismatch case a renamed-.exe-to-.pdf trick would produce. `allowedTypes`
+ * defaults to the full attachment allow-list; pass IMAGE_ATTACHMENT_TYPES or
+ * DOCUMENT_ATTACHMENT_TYPES for a narrower, evidence-type-specific check.
  */
-export function validateAttachmentFile(file: File): AttachmentValidationResult {
+export function validateAttachmentFile(file: File, allowedTypes: Record<string, string[]> = ALLOWED_ATTACHMENT_TYPES): AttachmentValidationResult {
   if (file.size <= 0) {
     return { ok: false, error: "That file is empty." };
   }
@@ -57,9 +84,9 @@ export function validateAttachmentFile(file: File): AttachmentValidationResult {
   if (file.name.length > MAX_ATTACHMENT_FILENAME_LENGTH) {
     return { ok: false, error: "Filename is too long." };
   }
-  const allowedExtensions = ALLOWED_ATTACHMENT_TYPES[file.type];
+  const allowedExtensions = allowedTypes[file.type];
   if (!allowedExtensions) {
-    return { ok: false, error: "That file type isn't allowed. Allowed: PDF, Word, Excel, PowerPoint, CSV, TXT, or common image formats." };
+    return { ok: false, error: "That file type isn't allowed here." };
   }
   const extension = extensionOf(file.name);
   if (!allowedExtensions.includes(extension)) {

@@ -25,7 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { meetingFormSchema, type MeetingFormValues } from "@/lib/validation/meeting.schema";
+import { TimeInput12h } from "@/components/meetings/time-input-12h";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
+import { useAuth } from "@/components/auth/auth-provider";
 import type { Meeting } from "@/types/meeting";
 
 const NO_PROJECT = "none";
@@ -73,9 +75,17 @@ function buildDefaultValues(meeting?: Meeting | null): MeetingFormValues {
 }
 
 export function MeetingFormDialog({ open, onOpenChange, onSaved, meeting }: MeetingFormDialogProps) {
+  const { role } = useAuth();
   const { uid, members, projects, createMeeting, updateMeeting } = useWorkspace();
   const isEditing = Boolean(meeting);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const isPrivileged = role === "admin" || role === "super_admin";
+  // firestore.rules only lets a non-admin creator schedule a meeting tied to
+  // a project they actually manage — never a project-less (organization-
+  // wide) one. Restricting the picker to exactly that set (and dropping the
+  // "No related project" option) means a manager can never even select a
+  // combination the rule would go on to deny.
+  const selectableProjects = isPrivileged ? projects : projects.filter((p) => p.managerId === uid);
 
   const {
     register,
@@ -158,18 +168,21 @@ export function MeetingFormDialog({ open, onOpenChange, onSaved, meeting }: Meet
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="meeting-project">Related project</Label>
+            <Label htmlFor="meeting-project">Related project{isPrivileged ? "" : " (required)"}</Label>
             <Controller
               control={control}
               name="projectId"
               render={({ field }) => (
-                <Select value={field.value || NO_PROJECT} onValueChange={(value) => field.onChange(value === NO_PROJECT ? undefined : value)}>
+                <Select
+                  value={field.value || (isPrivileged ? NO_PROJECT : selectableProjects[0]?.id)}
+                  onValueChange={(value) => field.onChange(value === NO_PROJECT ? undefined : value)}
+                >
                   <SelectTrigger id="meeting-project" className="w-full">
-                    <SelectValue placeholder="No related project" />
+                    <SelectValue placeholder={isPrivileged ? "No related project" : "Select a project you manage"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_PROJECT}>No related project</SelectItem>
-                    {projects.map((project) => (
+                    {isPrivileged && <SelectItem value={NO_PROJECT}>No related project</SelectItem>}
+                    {selectableProjects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
                       </SelectItem>
@@ -178,6 +191,9 @@ export function MeetingFormDialog({ open, onOpenChange, onSaved, meeting }: Meet
                 </Select>
               )}
             />
+            {!isPrivileged && (
+              <p className="text-xs text-muted-foreground">You can schedule meetings for projects you manage.</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -188,12 +204,24 @@ export function MeetingFormDialog({ open, onOpenChange, onSaved, meeting }: Meet
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="meeting-start">Start time</Label>
-              <Input id="meeting-start" type="time" {...register("startTime")} />
+              <Controller
+                control={control}
+                name="startTime"
+                render={({ field }) => (
+                  <TimeInput12h id="meeting-start" value={field.value} onChange={field.onChange} aria-label="Start time" />
+                )}
+              />
               {errors.startTime && <p className="text-xs text-destructive">{errors.startTime.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="meeting-end">End time</Label>
-              <Input id="meeting-end" type="time" {...register("endTime")} />
+              <Controller
+                control={control}
+                name="endTime"
+                render={({ field }) => (
+                  <TimeInput12h id="meeting-end" value={field.value} onChange={field.onChange} aria-label="End time" />
+                )}
+              />
               {errors.endTime && <p className="text-xs text-destructive">{errors.endTime.message}</p>}
             </div>
           </div>

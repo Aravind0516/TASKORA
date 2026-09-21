@@ -10,7 +10,7 @@ import { acceptInvitation } from "@/lib/server/invitations";
 // invitation record, never from this request (PHASE 11).
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
 
     if (typeof body?.token !== "string" || !body.token) throw new ApiError(400, "Missing invitation token.");
     if (typeof body?.name !== "string" || body.name.trim().length < 2) throw new ApiError(400, "Name is required.");

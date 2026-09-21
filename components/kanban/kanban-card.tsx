@@ -75,7 +75,7 @@ export function KanbanCard({ task, onStatusChange, onOpen }: KanbanCardProps) {
             </Avatar>
           )}
         </div>
-        <p className={`mt-2 text-[11px] ${overdue ? "font-medium text-[#d03b3b]" : "text-muted-foreground"}`}>
+        <p className={`mt-2 text-[11px] ${overdue ? "font-medium text-danger" : "text-muted-foreground"}`}>
           Due {formatDate(task.dueDate)}
         </p>
       </CardContent>

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginSchema, type LoginFormValues } from "@/lib/validation/auth.schema";
-import { loginWithEmail, setRememberMe } from "@/lib/services/auth.service";
+import { loginWithEmail, loginWithUserId, setRememberMe } from "@/lib/services/auth.service";
 import { useAuth } from "@/components/auth/auth-provider";
 import { ROLE_HOME_PATH } from "@/lib/platform/constants";
 
@@ -41,7 +41,7 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { identifier: "", password: "" },
   });
 
   const busy = isSubmitting || awaitingSession;
@@ -54,7 +54,15 @@ export function LoginForm() {
       // the current design direction), but the underlying persistence
       // behavior is preserved rather than silently dropped.
       await setRememberMe(true);
-      await loginWithEmail(values.email, values.password);
+      const identifier = values.identifier.trim();
+      // A work email always contains "@"; an Admin-assigned User ID never
+      // does (see lib/server/user-ids.ts's format) — branch on that alone,
+      // never ask the person which kind of identifier they typed.
+      if (identifier.includes("@")) {
+        await loginWithEmail(identifier, values.password);
+      } else {
+        await loginWithUserId(identifier, values.password);
+      }
       // Firebase Auth succeeded — don't navigate yet. Flip to "waiting for
       // AuthProvider" mode; the effect below redirects once that context has
       // genuinely caught up and resolved the real role.
@@ -112,19 +120,19 @@ export function LoginForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="email">Work email</Label>
+          <Label htmlFor="identifier">Candidate ID / Email</Label>
           <Input
-            id="email"
-            type="email"
-            placeholder="Enter your work email"
-            autoComplete="email"
-            aria-invalid={errors.email ? "true" : undefined}
-            aria-describedby={errors.email ? "email-error" : undefined}
-            {...register("email")}
+            id="identifier"
+            type="text"
+            placeholder="NXT26-IT-0001 or you@company.com"
+            autoComplete="username"
+            aria-invalid={errors.identifier ? "true" : undefined}
+            aria-describedby={errors.identifier ? "identifier-error" : undefined}
+            {...register("identifier")}
           />
-          {errors.email && (
-            <p id="email-error" className="text-xs text-destructive">
-              {errors.email.message}
+          {errors.identifier && (
+            <p id="identifier-error" className="text-xs text-destructive">
+              {errors.identifier.message}
             </p>
           )}
         </div>

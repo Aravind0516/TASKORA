@@ -19,10 +19,26 @@ export type EvidenceType =
 
 export interface WorkEvidence {
   type: EvidenceType;
+  /** The link itself for a URL-based type (GITHUB_REPOSITORY, GITHUB_COMMIT, GITHUB_PR, DEPLOYMENT, OTHER_URL); empty for a file-based type (SCREENSHOT, DOCUMENT), which uses attachmentId/fileName below instead. */
   url: string;
   title: string;
   description: string;
   submittedAt: string;
+  /**
+   * SCREENSHOT/DOCUMENT only — references an attachments/{id} document
+   * created via the existing secure upload flow (lib/services/
+   * attachment.service.ts), never a public/persistent download URL. This is
+   * deliberate: a Storage download URL, once generated, is effectively
+   * public forever, which would bypass storage.rules/firestore.rules'
+   * per-project authorization for anyone who later saw this update. Viewing
+   * the file always re-fetches it through the authenticated SDK instead
+   * (see downloadAttachmentBlob), exactly like the Attachments feature.
+   */
+  attachmentId?: string;
+  /** Denormalized from the attachment for display without an extra read. */
+  fileName?: string;
+  /** Bytes — denormalized alongside fileName, same reason. */
+  fileSize?: number;
 }
 
 /**

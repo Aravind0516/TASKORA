@@ -11,6 +11,17 @@ export type UserRole = "super_admin" | "admin" | "user";
 export type UserStatus = "active" | "invited" | "suspended";
 
 /**
+ * Employment classification — entirely separate from UserRole (authorization)
+ * and FunctionalRole (job specialty). Determines only whether the premium
+ * intern dashboard/credits/leaderboard surfaces render for this account.
+ * Optional and unset for every account created before this field existed
+ * (all pre-existing Admin/Manager/Employee accounts) — never required, never
+ * backfilled, so nothing about an existing account changes by default.
+ */
+export const EMPLOYMENT_TYPES = ["EMPLOYEE", "INTERN"] as const;
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
+
+/**
  * What a person actually does within the organization/project — entirely
  * separate from UserRole (which governs authorization). Never grants
  * Admin/Super Admin permissions; display + selector metadata only.
@@ -43,6 +54,23 @@ export interface UserProfile {
   /** Per-user notification opt-in/out, keyed by a fixed set of preference ids (see components/settings/settings-view.tsx). Self-editable only; unset = all defaults on. */
   notificationPreferences?: Record<string, boolean>;
   status: UserStatus;
+
+  // ── Intern/candidate identity fields (all optional — see EmploymentType
+  // above) ─────────────────────────────────────────────────────────────
+  /** Admin-assigned application identifier (e.g. "NXT26-IT-0001"), globally unique via userIdReservations/{userId} — see lib/server/user-ids.ts. Immutable from the client once set; never client-editable. */
+  userId?: string;
+  employmentType?: EmploymentType;
+  collegeName?: string;
+  branch?: string;
+  passedOutYear?: number;
+  /** Free text — "Final Year", "Graduated", etc. */
+  academicYear?: string;
+  domain?: string;
+  secondaryDomain?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+  phone?: string;
+
   createdAt: Timestamp | FieldValue;
   updatedAt: Timestamp | FieldValue;
 }

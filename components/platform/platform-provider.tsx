@@ -61,7 +61,7 @@ function toDisplayOrg(doc: OrganizationDoc): Organization {
   };
 }
 
-function toDisplayUser(user: UserRecord): PlatformUser {
+function toDisplayUser(user: UserRecord, allProjects: Project[]): PlatformUser {
   return {
     id: user.id,
     organizationId: user.organizationId ?? "",
@@ -70,11 +70,23 @@ function toDisplayUser(user: UserRecord): PlatformUser {
     title: user.title ?? "Team Member",
     functionalRole: user.functionalRole,
     teamIds: user.teamIds,
-    projectIds: [],
+    // Derived from the real source of truth (projects.memberIds) — this
+    // used to be permanently hardcoded to [], which silently showed "0
+    // projects" for every user on the admin Users page regardless of actual
+    // membership.
+    projectIds: allProjects.filter((p) => p.memberIds.includes(user.id)).map((p) => p.id),
     status: user.status === "invited" ? "Invited" : user.status === "suspended" ? "Suspended" : "Active",
     joinedAt: typeof user.createdAt === "string" ? user.createdAt : nowIso(),
     lastActiveAt: typeof user.updatedAt === "string" ? user.updatedAt : nowIso(),
     notificationPreferences: user.notificationPreferences,
+    userId: user.userId,
+    employmentType: user.employmentType,
+    collegeName: user.collegeName,
+    branch: user.branch,
+    passedOutYear: user.passedOutYear,
+    domain: user.domain,
+    linkedinUrl: user.linkedinUrl,
+    githubUrl: user.githubUrl,
   };
 }
 
@@ -296,7 +308,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, [isSuper, currentOrganizationId, identityLoading]);
 
   const admins = useMemo(() => rawUsers.filter((u) => u.role === "admin").map(toDisplayAdmin), [rawUsers]);
-  const users = useMemo(() => rawUsers.filter((u) => u.role === "user").map(toDisplayUser), [rawUsers]);
+  const users = useMemo(
+    () => rawUsers.filter((u) => u.role === "user").map((u) => toDisplayUser(u, rawProjects)),
+    [rawUsers, rawProjects]
+  );
   const teams = useMemo(() => rawTeams.map(toDisplayTeam), [rawTeams]);
   const projects = useMemo(() => rawProjects.map(toDisplayProject), [rawProjects]);
   const tasks = useMemo(() => rawTasks.map(toDisplayTask), [rawTasks]);

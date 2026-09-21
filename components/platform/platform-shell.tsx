@@ -16,6 +16,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PlatformSidebarNav } from "@/components/platform/platform-sidebar-nav";
+import { GlobalSearch } from "@/components/layout/global-search";
+import { NotificationsMenu } from "@/components/layout/notifications-menu";
 import { AboutTaskoraMenuItem, SidebarProductFooter } from "@/components/shared/product-branding";
 import { AccessGate } from "@/components/shared/access-gate";
 import { DemoRoleMenu } from "@/components/platform/demo-role-menu";
@@ -116,12 +118,15 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
             </SheetContent>
           </Sheet>
 
-          <Badge variant="secondary" className="hidden sm:inline-flex">
+          <Badge variant="secondary" className="hidden shrink-0 sm:inline-flex">
             {roleBadge}
           </Badge>
 
-          <div className="ml-auto flex items-center gap-2">
+          <GlobalSearch />
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <DemoRoleMenu />
+            <NotificationsMenu />
 
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" className="gap-2 px-1.5" />}>

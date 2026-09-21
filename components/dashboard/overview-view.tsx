@@ -10,6 +10,7 @@ import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { UpcomingDeadlines } from "@/components/dashboard/upcoming-deadlines";
 import { MyWorkVerificationCard } from "@/components/dashboard/my-work-verification-card";
 import { ManagerPendingReviewsCard } from "@/components/dashboard/manager-pending-reviews-card";
+import { CandidateDashboardPanel } from "@/components/dashboard/candidate-dashboard-panel";
 import { WidgetError } from "@/components/shared/widget-error";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,8 @@ export function OverviewView() {
         description={`Welcome back, ${firstName} — here's what's happening across your projects.`}
       />
 
+      {uid && organizationId && <CandidateDashboardPanel uid={uid} organizationId={organizationId} projects={projects} tasks={tasks} />}
+
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card>
           <CardHeader>
@@ -103,7 +106,7 @@ export function OverviewView() {
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Overdue</span>
-              <span className={myOverdueTasks.length > 0 ? "font-medium text-[#d03b3b]" : "font-medium text-foreground"}>{myOverdueTasks.length}</span>
+              <span className={myOverdueTasks.length > 0 ? "font-medium text-danger" : "font-medium text-foreground"}>{myOverdueTasks.length}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Blocked</span>

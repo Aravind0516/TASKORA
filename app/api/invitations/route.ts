@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/server/auth";
 import { apiErrorResponse, ApiError } from "@/lib/server/api-response";
 import { createInvitation, attemptInvitationEmail } from "@/lib/server/invitations";
 import { getAdminDb } from "@/lib/firebase/admin";
-import { FUNCTIONAL_ROLES, type FunctionalRole } from "@/types/user";
+import { EMPLOYMENT_TYPES, FUNCTIONAL_ROLES, type EmploymentType, type FunctionalRole } from "@/types/user";
 
 // Dev/demo escape hatch — see .env.example. When true, invitation creation
 // does NOT attempt an automatic send (it would predictably fail without a
@@ -25,7 +25,7 @@ const EMAIL_DELIVERY_OPTIONAL = process.env.EMAIL_DELIVERY_OPTIONAL === "true";
 export async function POST(request: NextRequest) {
   try {
     const ctx = await requireRole(request, ["admin", "super_admin"]);
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
 
     const role = body?.role === "admin" ? "admin" : "user";
     if (role === "admin" && ctx.role !== "super_admin") {
@@ -67,6 +67,38 @@ export async function POST(request: NextRequest) {
         ? (rawFunctionalRole as FunctionalRole)
         : null;
 
+    // Project(s) — only meaningful for a "user" invite. Every id must
+    // belong to the SAME organization the invitation is for, exactly like
+    // the existing teamId check above — never trust a client-supplied
+    // projectId across organizations.
+    const rawProjectIds = role === "user" && Array.isArray(body?.projectIds) ? body.projectIds : [];
+    const projectIds: string[] = rawProjectIds.filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
+    if (projectIds.length > 0) {
+      const projectSnaps = await Promise.all(projectIds.map((id) => getAdminDb().collection("projects").doc(id).get()));
+      const invalid = projectSnaps.some((snap) => !snap.exists || snap.data()?.organizationId !== organizationId);
+      if (invalid) throw new ApiError(400, "One or more selected projects do not belong to your organization.");
+    }
+
+    const rawEmploymentType = role === "user" ? body?.employmentType : null;
+    const employmentType: EmploymentType | null =
+      typeof rawEmploymentType === "string" && (EMPLOYMENT_TYPES as readonly string[]).includes(rawEmploymentType)
+        ? (rawEmploymentType as EmploymentType)
+        : null;
+
+    // A User ID is only meaningful (and, per the Zod schema on the client,
+    // only required) for an INTERN invite — but an EMPLOYEE invite may
+    // still optionally carry one, so this stays a plain optional string
+    // here rather than gated on employmentType.
+    const rawUserId = role === "user" && typeof body?.userId === "string" ? body.userId.trim() : "";
+    const userId = rawUserId.length > 0 ? rawUserId : null;
+
+    function optionalString(value: unknown): string | null {
+      return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+    }
+    const passedOutYearRaw = body?.passedOutYear;
+    const passedOutYear =
+      typeof passedOutYearRaw === "number" && Number.isFinite(passedOutYearRaw) && passedOutYearRaw > 1900 ? passedOutYearRaw : null;
+
     const { invitation, rawToken } = await createInvitation({
       organizationId,
       invitedBy: ctx.uid,
@@ -74,7 +106,19 @@ export async function POST(request: NextRequest) {
       name: body.name,
       role,
       teamId,
+      projectIds,
       functionalRole,
+      employmentType,
+      userId,
+      collegeName: optionalString(body?.collegeName),
+      branch: optionalString(body?.branch),
+      passedOutYear,
+      academicYear: optionalString(body?.academicYear),
+      domain: optionalString(body?.domain),
+      secondaryDomain: optionalString(body?.secondaryDomain),
+      linkedinUrl: optionalString(body?.linkedinUrl),
+      githubUrl: optionalString(body?.githubUrl),
+      phone: optionalString(body?.phone),
     });
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin;

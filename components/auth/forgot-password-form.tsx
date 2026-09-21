@@ -54,7 +54,7 @@ export function ForgotPasswordForm() {
 
       {sent ? (
         <CardContent className="space-y-4">
-          <div className="flex items-start gap-2 rounded-lg bg-[#0ca30c]/10 px-3.5 py-2.5 text-sm text-[#0ca30c]">
+          <div className="flex items-start gap-2 rounded-lg bg-success/10 px-3.5 py-2.5 text-sm text-success">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
             <span>If an account exists for that email, a reset link is on its way.</span>
           </div>

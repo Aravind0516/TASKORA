@@ -95,7 +95,7 @@ export function AdminBillingView() {
       )}
 
       {effectiveStatus === "ACTIVE" && (
-        <div className="mb-6 flex max-w-3xl items-start gap-2.5 rounded-lg bg-[#0ca30c]/10 px-4 py-3 text-sm text-[#0ca30c]">
+        <div className="mb-6 flex max-w-3xl items-start gap-2.5 rounded-lg bg-success/10 px-4 py-3 text-sm text-success">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
           <p>{org.plan === "PREMIUM" ? "Premium" : "Crazy"} plan active.</p>
         </div>

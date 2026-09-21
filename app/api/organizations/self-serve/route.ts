@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       throw new ApiError(409, "Super Admin accounts don't belong to a single organization.");
     }
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     if (typeof body?.name !== "string" || body.name.trim().length < 2) {
       throw new ApiError(400, "Organization name is required.");
     }

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const ctx = await requireRole(request, ["admin"]);
     if (!ctx.organizationId) throw new ApiError(409, "Your account is not assigned to an organization yet.");
 
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     if (body?.requestedPlan !== "PREMIUM" && body?.requestedPlan !== "CRAZY") {
       throw new ApiError(400, "Invalid plan requested.");
     }

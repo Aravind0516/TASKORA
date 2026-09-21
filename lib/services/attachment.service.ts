@@ -92,7 +92,8 @@ function byCreatedAtDesc(a: Attachment, b: Attachment): number {
   return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 }
 
-function storagePathFor(organizationId: string, projectId: string, taskId: string | null, attachmentId: string): string {
+/** Exported so Daily Work Update evidence (a project-level attachment reference) can reconstruct the path from just organizationId/projectId/attachmentId without an extra Firestore read — see daily-update-panel.tsx. */
+export function storagePathFor(organizationId: string, projectId: string, taskId: string | null, attachmentId: string): string {
   return taskId
     ? `organizations/${organizationId}/projects/${projectId}/tasks/${taskId}/attachments/${attachmentId}`
     : `organizations/${organizationId}/projects/${projectId}/attachments/${attachmentId}`;

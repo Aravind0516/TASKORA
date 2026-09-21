@@ -6,7 +6,7 @@ import { createOrganization } from "@/lib/server/organizations";
 export async function POST(request: NextRequest) {
   try {
     const ctx = await requireRole(request, ["super_admin"]);
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
 
     if (typeof body?.name !== "string" || body.name.trim().length < 2) {
       throw new ApiError(400, "Organization name is required.");

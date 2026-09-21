@@ -11,7 +11,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
 
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="flex size-12 items-center justify-center rounded-full bg-[#d03b3b]/10 text-[#d03b3b]">
+      <div className="flex size-12 items-center justify-center rounded-full bg-danger/10 text-danger">
         <AlertTriangle className="size-6" />
       </div>
       <h1 className="mt-4 text-lg font-semibold text-foreground">Something went wrong</h1>

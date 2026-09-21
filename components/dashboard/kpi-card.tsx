@@ -21,7 +21,7 @@ export function KpiCard({ label, value, helperText, icon: Icon, accent = "defaul
             <p
               className={cn(
                 "mt-1.5 text-xs",
-                accent === "critical" ? "text-[#d03b3b]" : "text-muted-foreground"
+                accent === "critical" ? "text-danger" : "text-muted-foreground"
               )}
             >
               {helperText}
@@ -32,7 +32,7 @@ export function KpiCard({ label, value, helperText, icon: Icon, accent = "defaul
           className={cn(
             "flex size-10 shrink-0 items-center justify-center rounded-lg",
             accent === "critical"
-              ? "bg-[#d03b3b]/10 text-[#d03b3b]"
+              ? "bg-danger/10 text-danger"
               : "bg-primary/10 text-primary"
           )}
         >

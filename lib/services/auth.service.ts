@@ -5,6 +5,7 @@ import {
   onAuthStateChanged,
   sendPasswordResetEmail,
   setPersistence,
+  signInWithCustomToken,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -14,6 +15,7 @@ import { FirebaseError } from "firebase/app";
 import { auth } from "@/lib/firebase/auth";
 import { getAuthErrorMessage } from "@/lib/firebase/auth-errors";
 import { createUserProfile } from "@/lib/services/user.service";
+import { publicApiFetch } from "@/lib/api-client";
 
 export function subscribeToAuthChanges(callback: (user: User | null) => void): () => void {
   return onAuthStateChanged(auth, callback);
@@ -55,6 +57,26 @@ export async function setRememberMe(remember: boolean): Promise<void> {
 export async function loginWithEmail(email: string, password: string): Promise<User> {
   try {
     const credential = await signInWithEmailAndPassword(auth, email, password);
+    return credential.user;
+  } catch (error) {
+    throw new Error(getAuthErrorMessage(error));
+  }
+}
+
+/**
+ * Login by Admin-assigned User ID instead of email — the server resolves
+ * User ID -> uid -> email and verifies the password itself (Firebase Auth
+ * remains the actual authority; see lib/server/auth-userid.ts), then mints a
+ * short-lived custom token. The browser never learns the account's real
+ * email at any point in this flow.
+ */
+export async function loginWithUserId(userId: string, password: string): Promise<User> {
+  const { customToken } = await publicApiFetch<{ customToken: string }>("/api/auth/login-with-user-id", {
+    method: "POST",
+    body: JSON.stringify({ userId, password }),
+  });
+  try {
+    const credential = await signInWithCustomToken(auth, customToken);
     return credential.user;
   } catch (error) {
     throw new Error(getAuthErrorMessage(error));

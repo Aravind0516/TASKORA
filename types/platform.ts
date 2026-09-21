@@ -61,6 +61,15 @@ export interface PlatformUser {
   lastActiveAt: string;
   /** Personal notification opt-in/out — read (never written) here so the admin console can gate PHASE F notification fan-out the same way the individual shell does, without an extra Firestore read per recipient. Only ever meaningful for the signed-in user's own record when displayed. */
   notificationPreferences?: Record<string, boolean>;
+  /** Admin-assigned Candidate/User ID — undefined for accounts created before this field existed or that never had one set. */
+  userId?: string;
+  employmentType?: "EMPLOYEE" | "INTERN";
+  collegeName?: string;
+  branch?: string;
+  passedOutYear?: number;
+  domain?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
 }
 
 export interface PlatformTeam {

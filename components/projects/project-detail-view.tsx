@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { notFound, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, CalendarDays, CheckCircle2, FileText, ListChecks, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, FileText, ListChecks, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   Card,
   CardHeader,
@@ -29,6 +29,7 @@ import { ProjectTimeline } from "@/components/projects/project-timeline";
 import { ProjectTeam } from "@/components/projects/project-team";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { DeliverablesList } from "@/components/projects/deliverables-list";
+import { DeliverableFormDialog } from "@/components/projects/deliverable-form-dialog";
 import { TaskTable } from "@/components/tasks/task-table";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { ProjectMyTasksPanel } from "@/components/projects/project-my-tasks-panel";
@@ -41,13 +42,15 @@ import { ProjectVerificationDashboard } from "@/components/work-verification/pro
 import { ProjectHealthExplanation } from "@/components/shared/project-health-badge";
 import { calculateProjectHealth } from "@/lib/project-health";
 import { formatDate } from "@/lib/format";
-import { getDeliverablesByProjectId } from "@/lib/mock-data/deliverables";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import * as dailyUpdateService from "@/lib/services/daily-work-update.service";
+import * as deliverableService from "@/lib/services/deliverable.service";
+import { submitProject } from "@/lib/services/project.service";
 import type { ProjectStatus } from "@/types/project";
 import type { DailyWorkUpdate } from "@/types/daily-work-update";
 import type { Task } from "@/types/task";
+import type { Deliverable, DeliverableStatus } from "@/types/deliverable";
 
 export function ProjectDetailView({ projectId }: { projectId: string }) {
   const router = useRouter();
@@ -71,6 +74,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [submittingProject, setSubmittingProject] = useState(false);
   // Lazy initializer (not an effect) — lets a link like
   // /projects/[id]?tab=work-verification land directly on that tab, e.g.
   // from the dashboard's "Submit Daily Update" / manager "Review" CTAs,
@@ -90,7 +94,15 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   const project = getProjectById(projectId);
   const tasks = getTasksByProjectId(projectId);
   const activity = getActivityByProjectId(projectId);
-  const deliverables = getDeliverablesByProjectId(projectId);
+
+  const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
+  const [deliverableFormOpen, setDeliverableFormOpen] = useState(false);
+
+  useEffect(() => {
+    if (!organizationId) return;
+    const unsubscribe = deliverableService.subscribeToProjectDeliverables(organizationId, projectId, setDeliverables, () => setDeliverables([]));
+    return unsubscribe;
+  }, [organizationId, projectId]);
 
   useEffect(() => {
     if (!successMessage) return;
@@ -212,6 +224,53 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     }
   }
 
+  async function handleSubmitProject() {
+    if (!project) return;
+    const confirmed = window.confirm(
+      `Mark "${project.name}" as submitted? This awards Project Submission (and On-Time, if before the deadline) credits to every assigned member — once, permanently.`
+    );
+    if (!confirmed) return;
+    setSubmittingProject(true);
+    try {
+      const result = await submitProject(project.id);
+      setSuccessMessage(
+        `Project marked as submitted ${result.onTime ? "on time" : "(after the deadline)"}. Credits awarded to ${result.awardedCount} member${result.awardedCount === 1 ? "" : "s"}.`
+      );
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Failed to submit project.");
+    } finally {
+      setSubmittingProject(false);
+    }
+  }
+
+  async function handleDeliverableStatusChange(deliverable: Deliverable, status: DeliverableStatus) {
+    try {
+      await deliverableService.updateDeliverable(deliverable.id, { status });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Failed to update the deliverable.");
+    }
+  }
+
+  async function handleCreateDeliverable(values: {
+    title: string;
+    description: string;
+    status: DeliverableStatus;
+    dueDate: string | null;
+    assignedTo: string | null;
+  }) {
+    if (!project || !organizationId || !uid) throw new Error("You must be logged in.");
+    await deliverableService.createDeliverable({
+      organizationId,
+      projectId: project.id,
+      title: values.title,
+      description: values.description,
+      status: values.status,
+      dueDate: values.dueDate,
+      assignedTo: values.assignedTo,
+      createdBy: uid,
+    });
+  }
+
   return (
     <div>
       <Link
@@ -242,6 +301,17 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
               </Button>
             )}
             <ProjectStatusControl status={project.status} onStatusChange={handleStatusChange} saving={statusSaving} />
+            {canManageProject && project.submissionStatus !== "SUBMITTED" && (
+              <Button size="sm" variant="outline" onClick={handleSubmitProject} disabled={submittingProject}>
+                <CheckCircle2 />
+                {submittingProject ? "Submitting..." : "Mark Submitted"}
+              </Button>
+            )}
+            {project.submissionStatus === "SUBMITTED" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+                <CheckCircle2 className="size-3.5" /> Submitted
+              </span>
+            )}
             {(canManageProject || canDeleteProject) && (
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -274,7 +344,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
       </div>
 
       {successMessage && (
-        <div className="mb-5 flex items-center gap-2 rounded-lg bg-[#0ca30c]/10 px-4 py-2.5 text-sm text-[#0ca30c]">
+        <div className="mb-5 flex items-center gap-2 rounded-lg bg-success/10 px-4 py-2.5 text-sm text-success">
           <CheckCircle2 className="size-4 shrink-0" />
           {successMessage}
         </div>
@@ -287,11 +357,11 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             <>
               <TabsTrigger value="tasks">Tasks ({tasks.length})</TabsTrigger>
               <TabsTrigger value="members">Members ({project.memberIds.length})</TabsTrigger>
-              <TabsTrigger value="deliverables">Deliverables ({deliverables.length})</TabsTrigger>
             </>
           ) : (
             <TabsTrigger value="my-tasks">My Tasks ({myTasks.length})</TabsTrigger>
           )}
+          <TabsTrigger value="deliverables">Deliverables ({deliverables.length})</TabsTrigger>
           <TabsTrigger value="files">Files &amp; Requirements</TabsTrigger>
           <TabsTrigger value="discussion">Discussion</TabsTrigger>
           {project.workVerificationEnabled && (
@@ -414,12 +484,25 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
 
         <TabsContent value="deliverables" className="mt-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Deliverables</CardTitle>
-              <CardDescription>Artifacts produced by this project</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+              <div>
+                <CardTitle>Deliverables</CardTitle>
+                <CardDescription>Artifacts produced by this project</CardDescription>
+              </div>
+              {canManageProject && (
+                <Button size="sm" variant="outline" onClick={() => setDeliverableFormOpen(true)}>
+                  <Plus />
+                  New Deliverable
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
-              <DeliverablesList deliverables={deliverables} />
+              <DeliverablesList
+                deliverables={deliverables}
+                getMemberById={getMemberById}
+                canManage={canManageProject}
+                onStatusChange={handleDeliverableStatusChange}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -542,6 +625,13 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         onSaved={() => {}}
         task={openTask}
         onOpenDailyUpdate={handleOpenDailyUpdateForTask}
+      />
+
+      <DeliverableFormDialog
+        open={deliverableFormOpen}
+        onOpenChange={setDeliverableFormOpen}
+        members={project.memberIds.map(getMemberById).filter((m): m is NonNullable<typeof m> => Boolean(m))}
+        onSubmit={handleCreateDeliverable}
       />
     </div>
   );

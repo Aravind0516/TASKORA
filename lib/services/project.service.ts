@@ -14,6 +14,7 @@ import {
 import { db } from "@/lib/firebase/firestore";
 import { getFirestoreErrorMessage } from "@/lib/firebase/firestore-errors";
 import { toIso } from "@/lib/firebase/timestamp";
+import { apiFetch } from "@/lib/api-client";
 import type { Project, ProjectPriority, ProjectStatus, RepositoryProvider } from "@/types/project";
 
 function projectFromDoc(docSnap: QueryDocumentSnapshot): Project {
@@ -40,6 +41,8 @@ function projectFromDoc(docSnap: QueryDocumentSnapshot): Project {
     repositoryProvider: data.repositoryProvider ?? "NONE",
     workVerificationEnabled: Boolean(data.workVerificationEnabled),
     verificationFrequency: data.verificationFrequency ?? "DAILY",
+    submissionStatus: data.submissionStatus === "SUBMITTED" ? "SUBMITTED" : "NONE",
+    submittedAt: data.submittedAt ? toIso(data.submittedAt) : null,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
@@ -201,4 +204,20 @@ export async function deleteProject(projectId: string): Promise<void> {
   } catch (error) {
     throw new Error(getFirestoreErrorMessage(error, "projects:delete"));
   }
+}
+
+export interface SubmitProjectResult {
+  onTime: boolean;
+  awardedCount: number;
+}
+
+/**
+ * The formal "submit" milestone — goes through the Admin SDK (see
+ * lib/server/project-submission.ts) rather than a plain client write,
+ * because it must use a SERVER timestamp (never the browser clock) to
+ * decide on-time vs late, and because it fans out PROJECT_SUBMISSION/
+ * ON_TIME_PROJECT credit awards to every project member atomically.
+ */
+export function submitProject(projectId: string): Promise<SubmitProjectResult> {
+  return apiFetch<SubmitProjectResult>(`/api/projects/${projectId}/submit`, { method: "POST" });
 }

@@ -7,7 +7,7 @@ export async function PATCH(request: NextRequest, props: RouteContext<"/api/orga
   try {
     const ctx = await requireRole(request, ["super_admin"]);
     const { id } = await props.params;
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
 
     if (body?.status !== "active" && body?.status !== "suspended") {
       throw new ApiError(400, "status must be 'active' or 'suspended'.");

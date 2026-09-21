@@ -1,7 +1,10 @@
 import { z } from "zod";
 
+// Accepts either a work email or an Admin-assigned User ID — branched at
+// submit time (see components/auth/login-form.tsx) rather than split into
+// two fields, matching the requested single "User ID or Email" input.
 export const loginSchema = z.object({
-  email: z.string().trim().min(1, "Email is required").email("Enter a valid email address"),
+  identifier: z.string().trim().min(1, "Enter your email or User ID"),
   password: z.string().min(1, "Password is required"),
 });
 

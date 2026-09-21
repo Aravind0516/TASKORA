@@ -64,7 +64,7 @@ export function MyWorkVerificationCard({ uid, workVerificationProjects }: MyWork
                 <li key={project.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
                   <span className="min-w-0 truncate text-sm text-foreground">{project.name}</span>
                   {submitted ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 text-xs text-[#0ca30c]">
+                    <span className="inline-flex shrink-0 items-center gap-1 text-xs text-success">
                       <CheckCircle2 className="size-3.5" /> Submitted
                     </span>
                   ) : (

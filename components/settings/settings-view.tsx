@@ -138,7 +138,7 @@ export function SettingsView() {
             </CardHeader>
             <CardContent className="space-y-5">
               {profileSaved && (
-                <div className="flex items-center gap-2 rounded-lg bg-[#0ca30c]/10 px-4 py-2.5 text-sm text-[#0ca30c]">
+                <div className="flex items-center gap-2 rounded-lg bg-success/10 px-4 py-2.5 text-sm text-success">
                   <CheckCircle2 className="size-4 shrink-0" />
                   Profile updated successfully.
                 </div>

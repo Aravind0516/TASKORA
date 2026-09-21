@@ -1,0 +1,259 @@
+<title>TASKORA Pre-Production Audit</title>
+<style>
+  :root{
+    --bg:#f7f7f8; --card:#ffffff; --border:#e3e3e6; --text:#1a1a1e; --muted:#6b6b74;
+    --pass:#0ca30c; --partial:#b8860b; --fail:#d03b3b; --notver:#6b7280; --accent:oklch(0.47 0.19 264);
+    --chip-bg:#eef0ff;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#15151a; --card:#1c1c22; --border:#2c2c34; --text:#eceef2; --muted:#9a9aa5;
+      --pass:#3ecf3e; --partial:#e0b23a; --fail:#ff6b6b; --notver:#9aa0ac; --accent:oklch(0.7 0.16 264);
+      --chip-bg:#232338;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#15151a; --card:#1c1c22; --border:#2c2c34; --text:#eceef2; --muted:#9a9aa5;
+    --pass:#3ecf3e; --partial:#e0b23a; --fail:#ff6b6b; --notver:#9aa0ac; --accent:oklch(0.7 0.16 264);
+    --chip-bg:#232338;
+  }
+  body{background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding-block:32px;}
+  .wrap{max-width:1180px;margin:0 auto;padding-inline:20px;}
+  h1{font-size:26px;margin:0 0 4px;letter-spacing:-0.01em;}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 28px;}
+  h2{font-size:19px;margin:40px 0 12px;letter-spacing:-0.01em;border-top:1px solid var(--border);padding-top:24px;}
+  h2:first-of-type{border-top:none;padding-top:0;margin-top:0;}
+  h3{font-size:15px;margin:20px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  p{margin:0 0 12px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:16px;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{background:var(--chip-bg);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);}
+  tr:last-child td{border-bottom:none;}
+  .tbl-wrap{overflow-x:auto;margin-bottom:20px;}
+  .pass{color:var(--pass);font-weight:600;}
+  .partial{color:var(--partial);font-weight:600;}
+  .fail{color:var(--fail);font-weight:600;}
+  .notver{color:var(--notver);font-weight:600;}
+  .chip{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600;background:var(--chip-bg);color:var(--accent);}
+  .sev{border-radius:10px;padding:16px 18px;margin-bottom:14px;border:1px solid var(--border);}
+  .sev-crit{border-left:4px solid var(--fail);}
+  .sev-high{border-left:4px solid #e0752b;}
+  .sev-med{border-left:4px solid var(--partial);}
+  .sev-low{border-left:4px solid #4a90d9;}
+  .sev h4{margin:0 0 6px;font-size:15px;}
+  .sev dl{margin:8px 0 0;font-size:13.5px;}
+  .sev dt{font-weight:600;color:var(--muted);display:inline;}
+  .sev dd{display:inline;margin:0 0 0 4px;}
+  .sev .row{margin-bottom:4px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media (max-width:700px){.grid2{grid-template-columns:1fr;}}
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:14px;}
+  .kv:last-child{border-bottom:none;}
+  .kv b{font-size:20px;}
+  .readiness{font-size:18px;font-weight:700;padding:14px 18px;border-radius:10px;text-align:center;margin:18px 0;}
+  .readiness.ready-fixes{background:color-mix(in oklab, var(--partial) 18%, transparent);color:var(--partial);border:1px solid var(--partial);}
+  code{background:var(--chip-bg);padding:1px 5px;border-radius:4px;font-size:.9em;}
+  .qa{margin-bottom:14px;}
+  .qa .q{font-weight:600;margin-bottom:2px;}
+  .qa .a{color:var(--muted);}
+  footer{margin-top:40px;color:var(--muted);font-size:12.5px;text-align:center;}
+</style>
+
+<div class="wrap">
+  <h1>TASKORA — Final Pre-Production Audit</h1>
+  <p class="sub">Audit only — no code modified. Firebase project taskora-38082 · Next.js 16.3.4 · Firestore rules unchanged this pass.</p>
+
+  <div class="readiness ready-fixes">READY WITH FIXES</div>
+
+  <h2>Executive Summary</h2>
+  <div class="grid2">
+    <div class="card">
+      <div class="kv"><span>Total features audited</span><b>27</b></div>
+      <div class="kv"><span class="pass">Fully verified</span><b class="pass">14</b></div>
+      <div class="kv"><span class="partial">Partial</span><b class="partial">9</b></div>
+      <div class="kv"><span class="fail">Broken</span><b class="fail">0</b></div>
+      <div class="kv"><span class="fail">Missing</span><b class="fail">1</b></div>
+      <div class="kv"><span class="notver">Not verified this pass</span><b class="notver">3</b></div>
+    </div>
+    <div class="card">
+      <div class="kv"><span>Critical security issues found</span><b>0</b></div>
+      <div class="kv"><span>Critical UX issues found</span><b>2</b></div>
+      <div class="kv"><span>Critical backend issues found</span><b>0</b></div>
+      <div class="kv"><span>Confirmed mock/placeholder data</span><b>1 (disclosed)</b></div>
+    </div>
+  </div>
+
+  <p><b>Methodology note:</b> Credits, Leaderboard, Candidate ID/Invitations, and strict project privacy were built and live-tested end-to-end in prior sessions this engagement (real Firebase Auth accounts, real HTTP routes, real deployed Firestore rules, throwaway data cleaned up after) — those results are cited here, not re-fabricated. This pass added fresh static + targeted checks specifically for <b>UI reachability</b> (nav → route → component), since that was this audit's own stated concern ("previous audit proved backend features I could not find in the actual platform"). No browser-automation tool is available in this environment — reachability was verified by tracing the actual render tree (nav config → page.tsx → imported component → button/handler), not by guessing.</p>
+
+  <h2>A. Final Feature Matrix</h2>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Feature</th><th>Code</th><th>UI</th><th>Backend</th><th>Security</th><th>E2E</th><th>Status</th></tr>
+    <tr><td>Authentication (email+password, Candidate ID)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Registration (self-serve org creation)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="notver">NOT VERIFIED</td><td class="partial">🟠 not re-tested this pass</td></tr>
+    <tr><td>Add User</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Candidate ID</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Invitations</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Teams</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="partial">🟠 CRUD confirmed in code; not freshly E2E'd this pass</td></tr>
+    <tr><td>Projects</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Tasks</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="partial">🟠 create-restriction E2E'd; edit/status/priority not re-tested this pass</td></tr>
+    <tr><td>Subtasks</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="notver">NOT VERIFIED</td><td class="partial">🟠 fixed 3 phases ago, not re-tested this pass</td></tr>
+    <tr><td>Comments</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="notver">NOT VERIFIED</td><td class="partial">🟠 not touched/re-tested this session</td></tr>
+    <tr><td>Activity Log</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="notver">NOT VERIFIED</td><td class="partial">🟠 fixed 4 phases ago, not re-tested this pass</td></tr>
+    <tr><td>Meetings</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Calendar</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="notver">NOT VERIFIED</td><td class="partial">🟠 confirmed real data source, not click-tested</td></tr>
+    <tr><td>Notifications</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="partial">🟡 no bell in Admin/Super Admin console (see HIGH-1)</td></tr>
+    <tr><td>Global Search</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="notver">NOT VERIFIED</td><td class="partial">🟡 exists, privacy-safe by construction, admin console has none</td></tr>
+    <tr><td>Daily Work Updates</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Work Evidence (typed inputs)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="partial">🟠 built 4 phases ago (URL vs upload split), not re-tested this pass</td></tr>
+    <tr><td>Work Verification</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="partial">🟡 no org-wide admin-console page, only per-project tab / personal dashboard card</td></tr>
+    <tr><td>Credits (ledger)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Credit Transactions</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Credit Automation (Project Submission + On-Time)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Credit Automation (LinkedIn/Docs/Meeting/Productivity)</td><td class="partial">PARTIAL</td><td class="partial">PARTIAL</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="partial">⚠️ manual admin-award only, by design (disclosed)</td></tr>
+    <tr><td>Leaderboard</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">✅ VERIFIED</td></tr>
+    <tr><td>Candidate/Intern Dashboard</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="partial">🟠 built/reasoned through, not clicked live this pass</td></tr>
+    <tr><td>Admin Dashboard</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="notver">NOT VERIFIED</td><td class="partial">🟡 missing org-wide work-verification + notifications (see HIGH-1)</td></tr>
+    <tr><td>Subscription</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="notver">NOT VERIFIED</td><td class="partial">🟠 pre-existing, not touched/re-tested this session</td></tr>
+    <tr><td>Super Admin</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="notver">NOT VERIFIED</td><td class="partial">🟠 pre-existing, not touched/re-tested this session</td></tr>
+    <tr><td>Profile / Settings</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="partial">PARTIAL</td><td class="partial">🟠 My Profile (candidate) verified; account Settings pre-existing/not re-tested</td></tr>
+    <tr><td>Project Deliverables tab</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="fail">FAIL</td><td class="notver">N/A</td><td class="fail">FAIL</td><td class="fail">⚠️ static mock data, not Firestore-backed (disclosed in CLAUDE.md)</td></tr>
+  </table>
+  </div>
+
+  <h2>B. Role Matrix (representative features)</h2>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Feature</th><th>SUPER_ADMIN</th><th>ORG_ADMIN</th><th>MANAGER*</th><th>EMPLOYEE/INTERN</th></tr>
+    <tr><td>Add User / Invite</td><td>Platform-wide via own org context</td><td class="pass">✅ own org only</td><td class="fail">❌ denied (rule+UI)</td><td class="fail">❌ denied (rule+UI)</td></tr>
+    <tr><td>Create Project</td><td class="pass">✅</td><td class="pass">✅ own org</td><td class="fail">❌</td><td class="fail">❌ denied (rule+UI)</td></tr>
+    <tr><td>Create Task</td><td class="pass">✅</td><td class="pass">✅</td><td class="pass">✅ own managed project</td><td class="fail">❌ denied (rule+UI)</td></tr>
+    <tr><td>Schedule Meeting</td><td class="pass">✅</td><td class="pass">✅</td><td class="pass">✅ own managed project</td><td class="fail">❌ denied (rule+UI)</td></tr>
+    <tr><td>See Project</td><td>All orgs</td><td>All own-org projects</td><td>Own-org projects (any, per current model)</td><td class="partial">✅ assigned only — verified live: unassigned denied</td></tr>
+    <tr><td>Award/Deduct Credits</td><td class="pass">✅</td><td class="pass">✅ own org, never self</td><td class="fail">❌ (deferred, disclosed 3 phases ago)</td><td class="fail">❌ denied (rule+API, verified live)</td></tr>
+    <tr><td>View Own Credits/Leaderboard</td><td>n/a</td><td>✅</td><td>✅</td><td class="pass">✅ verified live</td></tr>
+    <tr><td>View Another User's Credit Reason</td><td>✅ (own+all orgs)</td><td>✅ own org</td><td class="fail">❌</td><td class="fail">❌ denied — verified live</td></tr>
+    <tr><td>Change Team/Project Assignment</td><td>✅</td><td class="pass">✅ own org — verified live</td><td class="fail">❌</td><td class="fail">❌ denied</td></tr>
+    <tr><td>Change Own Candidate ID</td><td>n/a</td><td>n/a (sets others')</td><td>n/a</td><td class="fail">❌ no client path exists at all (Admin-SDK-only)</td></tr>
+  </table>
+  </div>
+  <p style="font-size:13px;color:var(--muted)">*MANAGER is <b>not a distinct system role</b> in TASKORA's current architecture — confirmed in code (<code>UserRole = "super_admin" | "admin" | "user"</code>). "Manager" is a per-project <code>managerId</code> assignment on any <code>user</code> account, granting elevated permissions on <i>that one project only</i>. This is a deliberate, previously-confirmed design choice, not a gap — but it means a "Manager" row in any role matrix is really "a user account, on the specific projects where <code>managerId == their uid</code>."</p>
+
+  <h2>C. UI / Navigation Reachability Trace</h2>
+  <div class="tbl-wrap">
+  <table>
+    <tr><th>Feature</th><th>Route</th><th>Nav Entry</th><th>Trigger</th><th>Component</th><th>Reachable?</th></tr>
+    <tr><td>Add User</td><td><code>/admin/users</code></td><td>Admin nav → Users</td><td>"+ Add User" button</td><td><code>InviteUserDialog</code></td><td class="pass">✅ Yes</td></tr>
+    <tr><td>Teams</td><td><code>/admin/teams</code></td><td>Admin nav → Teams</td><td>"Create Team" button</td><td><code>AdminTeamsView</code></td><td class="pass">✅ Yes</td></tr>
+    <tr><td>Projects (admin)</td><td><code>/admin/projects</code></td><td>Admin nav → Projects</td><td>"New Project"</td><td><code>project-form-dialog.tsx</code></td><td class="pass">✅ Yes</td></tr>
+    <tr><td>Tasks (admin)</td><td><code>/admin/tasks</code></td><td>Admin nav → Tasks</td><td>"New Task"</td><td><code>task-form-dialog.tsx</code></td><td class="pass">✅ Yes</td></tr>
+    <tr><td>Credits (admin)</td><td><code>/admin/credits</code></td><td>Admin nav → Credits</td><td>row action → Award/Deduct</td><td><code>AdminCreditsView</code></td><td class="pass">✅ Yes</td></tr>
+    <tr><td>Meetings</td><td><code>/meetings</code></td><td><b>Only in the regular app sidebar</b>, not Admin nav</td><td>"Schedule Meeting"</td><td><code>MeetingsView</code></td><td class="partial">🟡 2 clicks for an admin (account menu → "User dashboard" → sidebar)</td></tr>
+    <tr><td>Leaderboard</td><td><code>/leaderboard</code></td><td>Regular app sidebar only</td><td>nav link</td><td><code>LeaderboardView</code></td><td class="partial">🟡 same 2-click path for an admin; direct for interns</td></tr>
+    <tr><td>My Credits</td><td><code>/credits</code></td><td>Regular app sidebar</td><td>nav link</td><td><code>MyCreditsView</code></td><td class="pass">✅ Yes (intern's primary shell)</td></tr>
+    <tr><td>Work Verification (org-wide)</td><td><i>none</i></td><td><i>none</i></td><td><i>none</i></td><td><i>n/a</i></td><td class="fail">🔴 no dedicated admin-console page exists</td></tr>
+    <tr><td>Global Search</td><td>in-page widget</td><td>Regular app topbar only</td><td>topbar input</td><td><code>GlobalSearch</code></td><td class="partial">🟡 not present in Admin/Super Admin console at all</td></tr>
+    <tr><td>Notifications</td><td>in-page widget</td><td>Regular app topbar only</td><td>bell icon</td><td><code>NotificationsMenu</code></td><td class="partial">🟡 not present in Admin/Super Admin console at all</td></tr>
+    <tr><td>Subscription request</td><td><code>/admin/billing</code></td><td>Admin nav → Billing</td><td>"Request" action</td><td>(pre-existing)</td><td class="pass">✅ Yes</td></tr>
+  </table>
+  </div>
+
+  <h2>D. Missing vs. Invisible — Disambiguation</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Truly not implemented</h3>
+      <p>Dedicated organization-wide "Work Verification" admin page (aggregating pending reviews across <i>all</i> projects for an admin who isn't personally a project manager). Today this data is only reachable per-project or via a manager's own personal dashboard card.</p>
+    </div>
+    <div class="card">
+      <h3>Implemented but not linked to UI (this shell)</h3>
+      <p>Notifications bell and Global Search: both fully built and working, but only mounted in the regular app shell's topbar — never added to <code>PlatformShell</code> (Admin/Super Admin console).</p>
+    </div>
+    <div class="card">
+      <h3>Implemented but route requires an extra step</h3>
+      <p>Meetings and Leaderboard for an admin acting on their own account: no direct Admin-nav link, reachable via the account-menu "User dashboard" detour into the regular sidebar.</p>
+    </div>
+    <div class="card">
+      <h3>Implemented and working, backed by fake data</h3>
+      <p>Project "Deliverables" tab — real UI, real tab, sources from <code>lib/mock-data/deliverables.ts</code> (static, not Firestore). Disclosed in the project's own CLAUDE.md as a known, intentional gap ("deliverables aren't part of the Firestore schema yet").</p>
+    </div>
+  </div>
+
+  <h2>🔴 CRITICAL</h2>
+  <p style="color:var(--muted)">None found this pass. No public/insecure Firestore rule, no client-writable credit ledger, no cross-organization data leak, no role-escalation path identified.</p>
+
+  <h2>🟠 HIGH</h2>
+  <div class="sev sev-high">
+    <h4>HIGH-1 — Admin/Super Admin console has no Notifications bell and no Global Search</h4>
+    <dl>
+      <div class="row"><dt>Where:</dt><dd><code>components/platform/platform-shell.tsx</code></dd></div>
+      <div class="row"><dt>Role affected:</dt><dd>ORG_ADMIN, SUPER_ADMIN</dd></div>
+      <div class="row"><dt>Evidence:</dt><dd>Grepped <code>NotificationsMenu</code>/<code>GlobalSearch</code> — both mounted only in <code>components/layout/topbar.tsx</code> (regular app shell), never imported by <code>platform-shell.tsx</code>.</dd></div>
+      <div class="row"><dt>Impact:</dt><dd>An admin working inside the console never sees "Daily Work Update Submitted," project-submission, or credit events land — they'd have to know to click their account menu → "User dashboard" to see anything.</dd></div>
+      <div class="row"><dt>Recommended fix:</dt><dd>Add <code>&lt;NotificationsMenu /&gt;</code> (and optionally <code>&lt;GlobalSearch /&gt;</code>) to <code>PlatformShell</code>'s header row, reusing the existing components as-is — no new backend work.</dd></div>
+    </dl>
+  </div>
+  <div class="sev sev-high">
+    <h4>HIGH-2 — No organization-wide "Work Verification" view for admins</h4>
+    <dl>
+      <div class="row"><dt>Where:</dt><dd>No file exists; closest analog is <code>components/dashboard/manager-pending-reviews-card.tsx</code>, scoped to projects the signed-in account personally manages.</dd></div>
+      <div class="row"><dt>Role affected:</dt><dd>ORG_ADMIN who is not personally a project manager on every project.</dd></div>
+      <div class="row"><dt>Impact:</dt><dd>An admin has no single place to see all pending Daily Work Update reviews across the organization — must open each project individually.</dd></div>
+      <div class="row"><dt>Recommended fix:</dt><dd>A new <code>/admin/work-verification</code> page reusing the existing <code>dailyWorkUpdateService.subscribeToProjectDailyUpdates</code> per-project pattern, fanned out across <code>projectsInOrg()</code> — a real, scoped, moderate-effort addition, not a security change.</dd></div>
+    </dl>
+  </div>
+
+  <h2>🟡 MEDIUM</h2>
+  <div class="sev sev-med">
+    <h4>MEDIUM-1 — Project "Deliverables" tab is static mock data</h4>
+    <dl>
+      <div class="row"><dt>Where:</dt><dd><code>lib/mock-data/deliverables.ts</code>, imported by <code>components/projects/project-detail-view.tsx</code>.</dd></div>
+      <div class="row"><dt>Impact:</dt><dd>Every project shows the <i>same</i> canned deliverables list regardless of real project content — cosmetic-only tab.</dd></div>
+      <div class="row"><dt>Recommended fix:</dt><dd>Out of scope for a quick fix (needs a real schema decision) — but should be labeled clearly in the UI ("Preview data") or removed from the tab list before a real client demo, to avoid it reading as a real feature.</dd></div>
+    </dl>
+  </div>
+  <div class="sev sev-med">
+    <h4>MEDIUM-2 — LinkedIn/Documentation/Meeting/Productivity credit categories have no dedicated candidate-facing submission flow</h4>
+    <dl>
+      <div class="row"><dt>Where:</dt><dd><code>components/admin/award-credit-dialog.tsx</code> — all 6 categories route through one manual admin action.</dd></div>
+      <div class="row"><dt>Impact:</dt><dd>Not a bug — a disclosed, deliberate scope decision from 3 phases ago (avoids inventing a fake meeting-attendance or LinkedIn-verification signal). Still worth flagging here since the audit explicitly asks whether automation is "real."</dd></div>
+    </dl>
+  </div>
+
+  <h2>🔵 LOW</h2>
+  <div class="sev sev-low">
+    <h4>LOW-1 — Two dead mock-data files</h4>
+    <dl><div class="row"><dt>Where:</dt><dd><code>lib/mock-data/analytics.ts</code>, <code>lib/mock-data/notifications.ts</code> — confirmed via grep, imported nowhere.</dd></div>
+    <div class="row"><dt>Impact:</dt><dd>None functionally; harmless dead code, could be deleted for repo cleanliness.</dd></div></dl>
+  </div>
+  <div class="sev sev-low">
+    <h4>LOW-2 — Old superseded client-rule comment left in firestore.rules</h4>
+    <dl><div class="row"><dt>Where:</dt><dd><code>firestore.rules</code>, credit collections section — commented-out historical rule text kept for context.</dd></div>
+    <div class="row"><dt>Impact:</dt><dd>None; purely documentation, could be trimmed.</dd></div></dl>
+  </div>
+
+  <h2>Five Direct Questions</h2>
+  <table>
+    <tr><td style="width:6%">1</td><td class="pass">YES</td><td>Admin nav → Users → "+ Add User" opens <code>InviteUserDialog</code>. Live-verified end-to-end 2 phases ago through the real HTTP route with a real team and two real projects (20/20 checks passed, including a fresh restart to rule out the stale-cache issue found earlier in this engagement).</td></tr>
+    <tr><td>2</td><td class="pass">YES</td><td>Same dialog, same test: <code>teamId</code> + <code>projectIds</code> persisted to the invitation, copied onto <code>teams.memberIds</code>/<code>projects.memberIds</code> at acceptance, both confirmed via a fresh Firestore read (not React state).</td></tr>
+    <tr><td>3</td><td class="pass">YES</td><td><code>/credits</code> in the regular sidebar (an intern's home shell) → <code>MyCreditsView</code>: live progress bar, category breakdown, and history sourced from real <code>creditTransactions</code>/<code>leaderboardStats</code> reads.</td></tr>
+    <tr><td>4</td><td class="pass">YES</td><td><code>/leaderboard</code> in the same sidebar → <code>LeaderboardView</code>, weekly/monthly tabs, current-user highlight, org-scoped query — live-verified.</td></tr>
+    <tr><td>5</td><td class="pass">YES</td><td>Confirmed no hardcoded arrays anywhere in <code>credit.service.ts</code>/<code>leaderboardStats</code>/<code>creditTransactions</code> code paths. Every award is a real, awarder-identified, reason-required, immutable ledger row (or a real project-submission event with a server timestamp); every leaderboard number derives from that same ledger's aggregate. The <i>one</i> disclosed exception in the whole platform is the Project Deliverables tab (MEDIUM-1) — entirely unrelated to credits/leaderboard.</td></tr>
+  </table>
+
+  <h2>Top 10 Items To Fix Before Production</h2>
+  <ol>
+    <li>Add <code>NotificationsMenu</code> to the Admin/Super Admin console shell (HIGH-1).</li>
+    <li>Add <code>GlobalSearch</code> to the Admin/Super Admin console shell, or accept it's intern/employee-only by design and document that.</li>
+    <li>Build an org-wide Work Verification page for admins (HIGH-2).</li>
+    <li>Decide the fate of the Deliverables tab — real schema, or remove/relabel (MEDIUM-1).</li>
+    <li>Fresh live re-verification of Teams CRUD, Comments, Activity Log, Subtasks (all built correctly in earlier phases, none re-tested in the last 3 audit passes — risk of silent regression is low but unconfirmed).</li>
+    <li>Fresh live re-verification of Super Admin platform-wide views and Subscription approve/reject (pre-existing, untouched this entire engagement — never audited by me directly).</li>
+    <li>Decide whether LinkedIn/Documentation/Meeting/Productivity credits stay manual-only long-term, or get dedicated submission flows (MEDIUM-2) — a product decision, not a bug.</li>
+    <li>Delete the two dead mock-data files for repo cleanliness (LOW-1).</li>
+    <li>Trim the superseded rule comment in firestore.rules (LOW-2).</li>
+    <li>A real browser click-through pass (this environment has no browser-automation tool) — every functional claim above rests on live HTTP+Firestore E2E tests or static render-tree tracing, never a literal screenshot.</li>
+  </ol>
+
+  <footer>Audit performed without modifying any code, rules, or dependencies. Not pushed. Not deployed.</footer>
+</div>

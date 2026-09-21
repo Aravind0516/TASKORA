@@ -30,6 +30,7 @@ export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   { id: "meetings", title: "Meeting invites & changes", description: "Get notified when you're added to a meeting or its time changes." },
   { id: "weekly-summary", title: "Weekly summary", description: "A weekly digest of activity across your projects." },
   { id: "work-verification", title: "Work Verification", description: "Daily update submissions and review results for projects you manage or work on." },
+  { id: "credits", title: "Credit awards", description: "Get notified when your credits are awarded or adjusted." },
 ];
 
 /**
@@ -66,5 +67,8 @@ export function categoryForNotificationType(type: NotificationType): string | nu
     case "subscription_approved":
     case "subscription_rejected":
       return null;
+    case "credit_awarded":
+    case "credit_deducted":
+      return "credits";
   }
 }

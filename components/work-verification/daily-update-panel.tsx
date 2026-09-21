@@ -1,14 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useEffect, useRef, useState } from "react";
+import {
+  useForm,
+  useFieldArray,
+  useWatch,
+  Controller,
+  type Control,
+  type UseFormRegister,
+  type UseFormSetValue,
+  type FieldErrors,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, AlertTriangle, CheckCircle2, HelpCircle, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, File as FileIcon, HelpCircle, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -16,18 +26,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { dailyWorkUpdateFormSchema, EVIDENCE_TYPES, EVIDENCE_TYPE_LABELS, type DailyWorkUpdateFormValues } from "@/lib/validation/daily-work-update.schema";
+import {
+  dailyWorkUpdateFormSchema,
+  EVIDENCE_TYPES,
+  EVIDENCE_TYPE_LABELS,
+  EVIDENCE_URL_FIELD,
+  FILE_EVIDENCE_TYPES,
+  type DailyWorkUpdateFormValues,
+} from "@/lib/validation/daily-work-update.schema";
+import { IMAGE_ATTACHMENT_TYPES, DOCUMENT_ATTACHMENT_TYPES, IMAGE_ATTACHMENT_INPUT_ACCEPT, DOCUMENT_ATTACHMENT_INPUT_ACCEPT, validateAttachmentFile } from "@/lib/validation/attachment";
 import * as dailyUpdateService from "@/lib/services/daily-work-update.service";
+import * as attachmentService from "@/lib/services/attachment.service";
 import * as notificationService from "@/lib/services/notification.service";
-import { formatDate } from "@/lib/format";
-import type { DailyWorkUpdate } from "@/types/daily-work-update";
+import { formatDate, formatFileSize } from "@/lib/format";
+import type { DailyWorkUpdate, EvidenceType } from "@/types/daily-work-update";
+import type { Attachment } from "@/types/attachment";
 import type { Task } from "@/types/task";
 
 const NO_TASK = "none";
 
 const STATUS_META: Record<DailyWorkUpdate["status"], { icon: typeof CheckCircle2; label: string; className: string }> = {
   SUBMITTED: { icon: HelpCircle, label: "Submitted — awaiting review", className: "text-muted-foreground" },
-  VERIFIED: { icon: CheckCircle2, label: "Verified by Manager", className: "text-[#0ca30c]" },
+  VERIFIED: { icon: CheckCircle2, label: "Verified by Manager", className: "text-success" },
   PARTIALLY_VERIFIED: { icon: AlertTriangle, label: "Partially verified", className: "text-amber-600 dark:text-amber-400" },
   NEEDS_CLARIFICATION: { icon: HelpCircle, label: "Needs clarification", className: "text-amber-600 dark:text-amber-400" },
 };
@@ -49,7 +69,7 @@ interface DailyUpdatePanelProps {
   initialTaskId?: string | null;
 }
 
-const emptyEvidence = { type: EVIDENCE_TYPES[0], url: "", title: "", description: "" };
+const emptyEvidence = { type: EVIDENCE_TYPES[0], url: "", title: "", description: "", attachmentId: undefined, fileName: undefined };
 
 export function DailyUpdatePanel({
   organizationId,
@@ -239,34 +259,18 @@ export function DailyUpdatePanel({
                   </p>
                 )}
                 {fields.map((field, index) => (
-                  <div key={field.id} className="space-y-2 rounded-lg border border-border p-3">
-                    <div className="flex items-center gap-2">
-                      <Controller
-                        control={control}
-                        name={`evidence.${index}.type`}
-                        render={({ field: f }) => (
-                          <Select value={f.value} onValueChange={f.onChange}>
-                            <SelectTrigger className="w-48 shrink-0">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {EVIDENCE_TYPES.map((t) => (
-                                <SelectItem key={t} value={t}>
-                                  {EVIDENCE_TYPE_LABELS[t]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                      <Button type="button" variant="ghost" size="icon-sm" className="ml-auto shrink-0" aria-label="Remove evidence" onClick={() => remove(index)}>
-                        <Trash2 />
-                      </Button>
-                    </div>
-                    <Input placeholder="Evidence URL" {...register(`evidence.${index}.url`)} />
-                    {errors.evidence?.[index]?.url && <p className="text-xs text-destructive">{errors.evidence[index]?.url?.message}</p>}
-                    <Input placeholder="Description (optional)" {...register(`evidence.${index}.description`)} />
-                  </div>
+                  <EvidenceRow
+                    key={field.id}
+                    control={control}
+                    index={index}
+                    register={register}
+                    setValue={setValue}
+                    errors={errors}
+                    organizationId={organizationId}
+                    projectId={projectId}
+                    uid={uid}
+                    onRemove={() => remove(index)}
+                  />
                 ))}
                 <Button type="button" variant="outline" size="sm" onClick={() => append(emptyEvidence)}>
                   <Plus />
@@ -323,6 +327,197 @@ export function DailyUpdatePanel({
   );
 }
 
+interface EvidenceRowProps {
+  control: Control<DailyWorkUpdateFormValues>;
+  index: number;
+  register: UseFormRegister<DailyWorkUpdateFormValues>;
+  setValue: UseFormSetValue<DailyWorkUpdateFormValues>;
+  errors: FieldErrors<DailyWorkUpdateFormValues>;
+  organizationId: string;
+  projectId: string;
+  uid: string;
+  onRemove: () => void;
+}
+
+/**
+ * One evidence entry, its input shape entirely driven by the selected type —
+ * a URL field for GITHUB_REPOSITORY/GITHUB_COMMIT/GITHUB_PR/DEPLOYMENT/OTHER_URL,
+ * a real file upload for SCREENSHOT/DOCUMENT. A generic "Evidence URL" text box for every type was
+ * the actual bug this replaces: asking for a URL when the employee has a
+ * screenshot to attach makes no sense and doesn't match what the type is
+ * supposed to mean.
+ *
+ * File uploads go through the EXISTING attachments Storage/Firestore flow
+ * (lib/services/attachment.service.ts) — never a second upload path — as a
+ * project-level attachment (taskId: null; the update's own optional taskId
+ * is a separate, independently-changeable field, so tying the file to it
+ * would be a moving target). Only `attachmentId`/`fileName` are stored on
+ * the evidence entry, never a persistent download URL — see
+ * types/daily-work-update.ts's WorkEvidence for why that matters.
+ */
+function EvidenceRow({ control, index, register, setValue, errors, organizationId, projectId, uid, onRemove }: EvidenceRowProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const type = useWatch({ control, name: `evidence.${index}.type` }) as EvidenceType;
+  const attachmentId = useWatch({ control, name: `evidence.${index}.attachmentId` });
+  const fileName = useWatch({ control, name: `evidence.${index}.fileName` });
+  const fileSize = useWatch({ control, name: `evidence.${index}.fileSize` });
+  const isFileType = FILE_EVIDENCE_TYPES.has(type);
+  const urlField = EVIDENCE_URL_FIELD[type];
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const isImage = type === "SCREENSHOT";
+    const validation = validateAttachmentFile(file, isImage ? IMAGE_ATTACHMENT_TYPES : DOCUMENT_ATTACHMENT_TYPES);
+    if (!validation.ok) {
+      setUploadError(validation.error ?? "That file can't be uploaded.");
+      return;
+    }
+
+    setUploadError(null);
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const attachment: Attachment = await attachmentService.uploadAttachment(
+        { organizationId, projectId, taskId: null, uploadedBy: uid, file },
+        setUploadProgress
+      );
+      setValue(`evidence.${index}.attachmentId`, attachment.id, { shouldValidate: true });
+      setValue(`evidence.${index}.fileName`, attachment.fileName);
+      setValue(`evidence.${index}.fileSize`, attachment.size);
+      setValue(`evidence.${index}.url`, "");
+      if (isImage) {
+        setPreviewUrl(URL.createObjectURL(file));
+      }
+    } catch (err) {
+      // Never pretend the file was uploaded — no fake URL, no fake success.
+      setUploadError(err instanceof Error ? err.message : "Failed to upload file. Firebase Storage may not be available right now.");
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  }
+
+  function handleRemoveFile() {
+    setValue(`evidence.${index}.attachmentId`, undefined);
+    setValue(`evidence.${index}.fileName`, undefined);
+    setValue(`evidence.${index}.fileSize`, undefined);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    setUploadError(null);
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-border p-3">
+      <div className="flex items-center gap-2">
+        <Controller
+          control={control}
+          name={`evidence.${index}.type`}
+          render={({ field: f }) => (
+            <Select
+              value={f.value}
+              onValueChange={(next) => {
+                if (next === f.value) return;
+                handleRemoveFile();
+                setValue(`evidence.${index}.url`, "");
+                f.onChange(next);
+              }}
+            >
+              <SelectTrigger className="w-48 shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EVIDENCE_TYPES.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {EVIDENCE_TYPE_LABELS[t]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+        <Button type="button" variant="ghost" size="icon-sm" className="ml-auto shrink-0" aria-label="Remove evidence" onClick={onRemove}>
+          <Trash2 />
+        </Button>
+      </div>
+
+      {isFileType ? (
+        <div className="space-y-1.5">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={type === "SCREENSHOT" ? IMAGE_ATTACHMENT_INPUT_ACCEPT : DOCUMENT_ATTACHMENT_INPUT_ACCEPT}
+            className="hidden"
+            onChange={handleFileSelected}
+          />
+          {attachmentId && fileName ? (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-2">
+              {previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- ephemeral local object: URL, not a remote/optimizable image
+                <img src={previewUrl} alt={fileName} className="size-8 shrink-0 rounded object-cover" />
+              ) : (
+                <FileIcon className="size-4 shrink-0 text-muted-foreground" />
+              )}
+              <span className="min-w-0 flex-1 truncate text-xs text-foreground">
+                {fileName}
+                {typeof fileSize === "number" && <span className="text-muted-foreground"> · {formatFileSize(fileSize)}</span>}
+              </span>
+              <Button type="button" variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                Replace
+              </Button>
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove file" onClick={handleRemoveFile} disabled={uploading}>
+                <Trash2 />
+              </Button>
+            </div>
+          ) : uploading ? (
+            <div className="space-y-1.5 rounded-md border border-border px-2.5 py-2">
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                Uploading...
+              </p>
+              <Progress value={uploadProgress} className="h-1.5" />
+            </div>
+          ) : (
+            <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+              <Upload />
+              Upload {type === "SCREENSHOT" ? "Screenshot" : "Document"}
+            </Button>
+          )}
+          {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+          {errors.evidence?.[index]?.attachmentId && !uploadError && (
+            <p className="text-xs text-destructive">{errors.evidence[index]?.attachmentId?.message}</p>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <Label htmlFor={`evidence-${index}-url`} className="text-xs text-muted-foreground">
+            {urlField?.label ?? "URL"}
+          </Label>
+          <Input id={`evidence-${index}-url`} placeholder={urlField?.placeholder ?? "https://..."} {...register(`evidence.${index}.url`)} />
+          {errors.evidence?.[index]?.url && <p className="text-xs text-destructive">{errors.evidence[index]?.url?.message}</p>}
+        </div>
+      )}
+
+      <Input placeholder="Description (optional)" {...register(`evidence.${index}.description`)} />
+    </div>
+  );
+}
+
 function ReadOnlyUpdate({ update, tasks }: { update: DailyWorkUpdate; tasks: Task[] }) {
   const task = update.taskId ? tasks.find((t) => t.id === update.taskId) : null;
   return (
@@ -348,9 +543,13 @@ function ReadOnlyUpdate({ update, tasks }: { update: DailyWorkUpdate; tasks: Tas
           <ul className="mt-1 space-y-1">
             {update.evidence.map((e, i) => (
               <li key={i}>
-                <a href={e.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                  {EVIDENCE_TYPE_LABELS[e.type]}
-                </a>
+                {e.attachmentId ? (
+                  <EvidenceFileLink organizationId={update.organizationId} projectId={update.projectId} attachmentId={e.attachmentId} fileName={e.fileName} label={EVIDENCE_TYPE_LABELS[e.type]} />
+                ) : (
+                  <a href={e.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                    {EVIDENCE_TYPE_LABELS[e.type]}
+                  </a>
+                )}
                 {e.description && <span className="text-muted-foreground"> — {e.description}</span>}
               </li>
             ))}
@@ -358,6 +557,61 @@ function ReadOnlyUpdate({ update, tasks }: { update: DailyWorkUpdate; tasks: Tas
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A SCREENSHOT/DOCUMENT evidence entry has no persistent URL to link to
+ * (see WorkEvidence's own doc comment on why) — opening it re-fetches the
+ * file through the authenticated SDK on demand, exactly like the
+ * Attachments feature's own download button, so storage.rules/firestore.rules'
+ * per-project authorization is re-checked every time, not just once at
+ * upload.
+ */
+function EvidenceFileLink({
+  organizationId,
+  projectId,
+  attachmentId,
+  fileName,
+  label,
+}: {
+  organizationId: string;
+  projectId: string;
+  attachmentId: string;
+  fileName?: string;
+  label: string;
+}) {
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleOpen() {
+    setError(null);
+    setDownloading(true);
+    try {
+      const storagePath = attachmentService.storagePathFor(organizationId, projectId, null, attachmentId);
+      const blobUrl = await attachmentService.downloadAttachmentBlob(storagePath);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName ?? label;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to open this file.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <button type="button" onClick={handleOpen} disabled={downloading} className="text-primary hover:underline disabled:opacity-60">
+        {downloading ? "Opening..." : (fileName ?? label)}
+      </button>
+      {error && <span className="text-xs text-destructive">({error})</span>}
+    </span>
   );
 }
 

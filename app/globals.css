@@ -26,7 +26,9 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -35,10 +37,30 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* Semantic status family — the ONE place TASKORA's success/warning/danger/
+     info colors are defined. Every status badge, alert, KPI accent, and
+     work-verification state should read these tokens (bg-success/10
+     text-success, etc.) instead of a hardcoded hex or an arbitrary Tailwind
+     shade — see the design-system audit that introduced this block. Values
+     are intentionally the SAME colors lib/chart-colors.ts's STATUS_COLORS
+     already used (validated dataviz palette), so charts and UI chrome never
+     disagree about what "success green" or "critical red" looks like. */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-muted: var(--surface-muted);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,73 +70,110 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ================================================================
+   TASKORA design tokens — deep indigo/midnight primary, cool-slate
+   neutrals (a hair of the brand hue mixed into every gray so
+   backgrounds/borders/text never read as generic Tailwind gray),
+   and a restrained semantic status family. Every neutral below shares
+   the SAME hue (~258, matching --primary's 259) at very low chroma —
+   this is what makes the sidebar, cards, borders and buttons read as
+   one brand instead of "an indigo accent on top of a stock gray UI."
+   ================================================================ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.995 0.002 258);
+  --foreground: oklch(0.17 0.015 258);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.17 0.015 258);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.47 0.19 264);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.96 0.02 264);
-  --accent-foreground: oklch(0.47 0.19 264);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.47 0.19 264 / 0.4);
+  --popover-foreground: oklch(0.17 0.015 258);
+  --primary: oklch(0.42 0.16 259);
+  --primary-hover: oklch(0.36 0.16 259);
+  --primary-foreground: oklch(0.99 0.002 258);
+  --secondary: oklch(0.965 0.004 258);
+  --secondary-foreground: oklch(0.27 0.02 258);
+  --muted: oklch(0.965 0.004 258);
+  --muted-foreground: oklch(0.5 0.014 258);
+  --accent: oklch(0.955 0.024 259);
+  --accent-foreground: oklch(0.42 0.16 259);
+  --destructive: oklch(0.55 0.19 23);
+  --destructive-foreground: oklch(0.99 0.002 258);
+  --danger: var(--destructive);
+  --danger-foreground: var(--destructive-foreground);
+  --success: oklch(0.55 0.15 148);
+  --success-foreground: oklch(0.99 0.002 258);
+  --warning: oklch(0.79 0.15 76);
+  --warning-foreground: oklch(0.32 0.07 60);
+  --info: oklch(0.56 0.15 240);
+  --info-foreground: oklch(0.99 0.002 258);
+  --border: oklch(0.9 0.006 258);
+  --border-subtle: oklch(0.95 0.004 258);
+  --input: oklch(0.9 0.006 258);
+  --ring: oklch(0.42 0.16 259 / 0.4);
+  --surface: var(--card);
+  --surface-elevated: oklch(1 0 0);
+  --surface-muted: var(--muted);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.99 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.47 0.19 264);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.96 0.02 264);
-  --sidebar-accent-foreground: oklch(0.47 0.19 264);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.47 0.19 264 / 0.4);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.985 0.003 258);
+  --sidebar-foreground: oklch(0.22 0.015 258);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.94 0.022 259);
+  --sidebar-accent-foreground: var(--primary);
+  --sidebar-border: oklch(0.92 0.006 258);
+  --sidebar-ring: var(--ring);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.7 0.16 264);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.27 0.05 264);
-  --accent-foreground: oklch(0.85 0.1 264);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.7 0.16 264 / 0.5);
+  --background: oklch(0.16 0.012 258);
+  --foreground: oklch(0.96 0.004 258);
+  --card: oklch(0.205 0.014 258);
+  --card-foreground: oklch(0.96 0.004 258);
+  --popover: oklch(0.22 0.015 258);
+  --popover-foreground: oklch(0.96 0.004 258);
+  --primary: oklch(0.72 0.15 259);
+  --primary-hover: oklch(0.78 0.13 259);
+  --primary-foreground: oklch(0.16 0.012 258);
+  --secondary: oklch(0.26 0.016 258);
+  --secondary-foreground: oklch(0.96 0.004 258);
+  --muted: oklch(0.24 0.014 258);
+  --muted-foreground: oklch(0.68 0.012 258);
+  --accent: oklch(0.28 0.05 259);
+  --accent-foreground: oklch(0.86 0.08 259);
+  --destructive: oklch(0.65 0.19 23);
+  --destructive-foreground: oklch(0.99 0.002 258);
+  --danger: var(--destructive);
+  --danger-foreground: var(--destructive-foreground);
+  --success: oklch(0.68 0.16 148);
+  --success-foreground: oklch(0.14 0.02 148);
+  --warning: oklch(0.78 0.15 75);
+  --warning-foreground: oklch(0.2 0.04 70);
+  --info: oklch(0.72 0.13 231);
+  --info-foreground: oklch(0.14 0.02 231);
+  --border: oklch(1 0 0 / 12%);
+  --border-subtle: oklch(1 0 0 / 7%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.72 0.15 259 / 0.5);
+  --surface: var(--card);
+  --surface-elevated: oklch(0.25 0.017 258);
+  --surface-muted: var(--muted);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar: oklch(0.13 0.014 258);
+  --sidebar-foreground: oklch(0.9 0.006 258);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.27 0.05 259);
+  --sidebar-accent-foreground: oklch(0.85 0.1 259);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: var(--ring);
 }
 
 @layer base {
@@ -127,6 +186,30 @@
   html {
     @apply font-sans;
   }
+}
+
+/* ================================================================
+   Elevation system — ONE restrained depth mechanism (a soft, low-
+   opacity shadow), not "border + shadow + gradient" stacked on every
+   card. Use .taskora-surface for an ordinary card-level surface and
+   .taskora-surface-elevated for a popover/dialog-level surface that
+   needs to read clearly above page content. Both are opt-in additions
+   next to the shadcn Card default, never a replacement for it.
+   ================================================================ */
+.taskora-surface {
+  box-shadow: 0 1px 2px 0 color-mix(in oklch, var(--foreground) 4%, transparent);
+}
+.taskora-surface-elevated {
+  box-shadow:
+    0 1px 2px 0 color-mix(in oklch, var(--foreground) 4%, transparent),
+    0 12px 32px -16px color-mix(in oklch, var(--foreground) 14%, transparent);
+}
+
+/* Consistent, restrained motion timing (150-250ms) for the handful of
+   custom transitions in this app that don't already come from a shadcn
+   primitive's own Base UI defaults. */
+:root {
+  --taskora-transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ================================================================

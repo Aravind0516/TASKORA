@@ -9,10 +9,24 @@ import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
+import { useAuth } from "@/components/auth/auth-provider";
 import type { Task } from "@/types/task";
 
 export function TaskManagementView() {
-  const { uid, tasks, loaded, errors, retry, deleteTask } = useWorkspace();
+  const { role } = useAuth();
+  const { uid, tasks, projects, loaded, errors, retry, deleteTask } = useWorkspace();
+  // `projects` is already scoped to what this account can see (see
+  // workspace-provider.tsx's project privacy model), so this correctly
+  // answers "does this account manage at least one project" for both an
+  // employee (their own authorized projects only) and an admin (every
+  // project in the org).
+  const canManageAnyProject = projects.some((p) => p.managerId === uid);
+  // Matches firestore.rules' tasks create rule exactly: Org Admin/Super
+  // Admin, or a project's own assigned manager creating within that
+  // project. Delete is narrower (admin-only — see the tasks delete rule),
+  // so it's tracked separately rather than reusing this same flag.
+  const canCreateTasks = role === "admin" || role === "super_admin" || canManageAnyProject;
+  const canDeleteTasks = role === "admin" || role === "super_admin";
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -60,15 +74,17 @@ export function TaskManagementView() {
 
   return (
     <div>
-      <div className="mb-5 flex items-center justify-end">
-        <Button size="sm" onClick={openCreateDialog}>
-          <Plus />
-          New Task
-        </Button>
-      </div>
+      {canCreateTasks && (
+        <div className="mb-5 flex items-center justify-end">
+          <Button size="sm" onClick={openCreateDialog}>
+            <Plus />
+            New Task
+          </Button>
+        </div>
+      )}
 
       {successMessage && (
-        <div className="mb-5 flex items-center gap-2 rounded-lg bg-[#0ca30c]/10 px-4 py-2.5 text-sm text-[#0ca30c]">
+        <div className="mb-5 flex items-center gap-2 rounded-lg bg-success/10 px-4 py-2.5 text-sm text-success">
           <CheckCircle2 className="size-4 shrink-0" />
           {successMessage}
         </div>
@@ -85,12 +101,12 @@ export function TaskManagementView() {
         <EmptyState
           icon={ListChecks}
           title="No tasks assigned to you"
-          description="Create a task to start tracking your work."
-          actionLabel="New Task"
-          onAction={openCreateDialog}
+          description={canCreateTasks ? "Create a task to start tracking your work." : "Your manager or admin will assign tasks to you here."}
+          actionLabel={canCreateTasks ? "New Task" : undefined}
+          onAction={canCreateTasks ? openCreateDialog : undefined}
         />
       ) : (
-        <TaskTable tasks={myTasks} onEdit={openEditDialog} onDelete={handleDeleteTask} />
+        <TaskTable tasks={myTasks} onEdit={openEditDialog} onDelete={canDeleteTasks ? handleDeleteTask : undefined} />
       )}
 
       <TaskFormDialog

@@ -1,9 +1,9 @@
-import { doc, setDoc, updateDoc, serverTimestamp, collection, query, where, onSnapshot, type QueryDocumentSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, onSnapshot, type DocumentSnapshot, type QueryDocumentSnapshot } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { db } from "@/lib/firebase/firestore";
 import { getFirestoreErrorMessage } from "@/lib/firebase/firestore-errors";
 import { toIso } from "@/lib/firebase/timestamp";
-import type { FunctionalRole, UserProfile, UserRecord, UserRole, UserStatus } from "@/types/user";
+import type { EmploymentType, FunctionalRole, UserProfile, UserRecord, UserRole, UserStatus } from "@/types/user";
 
 interface CreateUserProfileInput {
   name: string;
@@ -82,8 +82,8 @@ export async function getSessionIdentity(user: User, forceRefresh = false): Prom
   }
 }
 
-function userFromDoc(docSnap: QueryDocumentSnapshot): UserRecord {
-  const data = docSnap.data();
+function userFromDoc(docSnap: QueryDocumentSnapshot | DocumentSnapshot): UserRecord {
+  const data = docSnap.data() ?? {};
   return {
     id: docSnap.id,
     uid: docSnap.id,
@@ -96,9 +96,38 @@ function userFromDoc(docSnap: QueryDocumentSnapshot): UserRecord {
     functionalRole: data.functionalRole as FunctionalRole | undefined,
     notificationPreferences: data.notificationPreferences ?? undefined,
     status: (data.status ?? "active") as UserStatus,
+    userId: data.userId ?? undefined,
+    employmentType: data.employmentType as EmploymentType | undefined,
+    collegeName: data.collegeName ?? undefined,
+    branch: data.branch ?? undefined,
+    passedOutYear: data.passedOutYear ?? undefined,
+    academicYear: data.academicYear ?? undefined,
+    domain: data.domain ?? undefined,
+    secondaryDomain: data.secondaryDomain ?? undefined,
+    linkedinUrl: data.linkedinUrl ?? undefined,
+    githubUrl: data.githubUrl ?? undefined,
+    phone: data.phone ?? undefined,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
+}
+
+/** One user's own (or, for an Admin, any org member's) real-time record — used by the intern dashboard, My Profile, and the admin user detail view instead of a separate profile collection. */
+export function subscribeToUser(uid: string, onData: (user: UserRecord | null) => void, onError: (message: string) => void): () => void {
+  return onSnapshot(
+    doc(db, "users", uid),
+    (snap) => onData(snap.exists() ? userFromDoc(snap) : null),
+    (error) => onError(getFirestoreErrorMessage(error, "users:self"))
+  );
+}
+
+export async function getUserOnce(uid: string): Promise<UserRecord | null> {
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    return snap.exists() ? userFromDoc(snap) : null;
+  } catch (error) {
+    throw new Error(getFirestoreErrorMessage(error, "users:getOnce"));
+  }
 }
 
 /** Real-time roster of every user in one organization — used by both the Admin Users page and the real User-facing Team page. */

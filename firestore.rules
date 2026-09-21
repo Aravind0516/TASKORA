@@ -146,6 +146,15 @@ service cloud.firestore {
         && request.resource.data.role == "user"
         && request.resource.data.organizationId == null;
 
+      // The intern/candidate identity fields (userId, employmentType,
+      // collegeName, branch, passedOutYear, academicYear, domain,
+      // secondaryDomain, linkedinUrl, githubUrl, phone) are set exclusively
+      // by the Admin SDK at invitation acceptance (see lib/server/
+      // invitations.ts) — they are intentionally ABSENT from both
+      // allow-lists below. userId in particular must never become
+      // client-editable: its global uniqueness is enforced by a Firestore
+      // transaction against userIdReservations/{userId} (Admin-SDK-only),
+      // which a plain field-level rule here could never re-verify.
       allow update: if (isSelf(uid) && onlyChangingFields(["name", "title", "notificationPreferences", "updatedAt"]))
         || (isAdmin() && resource.data.organizationId == myOrgId()
             && onlyChangingFields(["status", "name", "title", "teamIds", "functionalRole", "updatedAt"]))
@@ -379,6 +388,38 @@ service cloud.firestore {
         || isManagerOfProject(resource.data.projectId);
     }
 
+    // ── projectDeliverables/{deliverableId} ─────────────────────────────
+    // Replaces the previous static mock data (lib/mock-data/deliverables.ts)
+    // with a real, project-scoped collection. Read inherits the parent
+    // project's authorization exactly like tasks/comments/attachments — a
+    // deliverable is exactly as visible as the project it belongs to, never
+    // organization-wide (an Employee/Intern only ever sees deliverables for
+    // projects they're actually assigned to). Create/update is Admin or
+    // that project's assigned Manager only — a plain member can read but
+    // never manage a deliverable, matching "MANAGER: manage deliverables
+    // for authorized projects" / "EMPLOYEE: view... according to existing
+    // project privacy" from the request driving this change. Delete is
+    // Super Admin only for now — no UI/service path calls it, so there is
+    // no reason to open that surface until a real need appears.
+    match /projectDeliverables/{deliverableId} {
+      allow read: if isSuperAdmin()
+        || isAdminOfOrg(resource.data.organizationId)
+        || isAuthorizedForProject(resource.data.projectId);
+      allow create: if request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.organizationId == projectOrgId(request.resource.data.projectId)
+        && (isAdminOfOrg(request.resource.data.organizationId)
+            || (isMemberOfOrg(request.resource.data.organizationId) && isManagerOfProject(request.resource.data.projectId)));
+      allow update: if (
+          isAdminOfOrg(resource.data.organizationId)
+          || (isMemberOfOrg(resource.data.organizationId) && isManagerOfProject(resource.data.projectId))
+          || isSuperAdmin()
+        )
+        && request.resource.data.organizationId == resource.data.organizationId
+        && request.resource.data.projectId == resource.data.projectId
+        && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if isSuperAdmin();
+    }
+
     // ── dailyWorkUpdates/{updateId} ─────────────────────────────────────
     // TASKORA Work Verification (Phase 1) — "Claimed work -> Evidence ->
     // Review," never surveillance: no screen/keystroke capture exists
@@ -451,8 +492,24 @@ service cloud.firestore {
         || isAdminOfOrg(resource.data.organizationId)
         || isSelf(resource.data.organizerId)
         || (isSignedIn() && request.auth.uid in resource.data.participantIds);
-      allow create: if isMemberOfOrg(request.resource.data.organizationId)
-        && request.resource.data.organizerId == request.auth.uid
+      // Create is Org Admin/Super Admin, or that project's assigned manager
+      // scheduling a meeting tied to their own project — never a plain
+      // member. There is no account-wide "Manager" role in this app (see
+      // projects.managerId), so a project-less (organization-wide) meeting
+      // can only ever be scheduled by an Admin/Super Admin; a project-tied
+      // one additionally allows that exact project's manager, matching
+      // "manage assigned projects" the same way tasks' create rule already
+      // does. isMemberOfOrg() here is a defense-in-depth org-boundary check,
+      // not the authorization itself — isManagerOfProject() alone already
+      // implies real org membership via the project's own managerId match.
+      allow create: if request.resource.data.organizerId == request.auth.uid
+        && (
+          isSuperAdmin()
+          || isAdminOfOrg(request.resource.data.organizationId)
+          || (isMemberOfOrg(request.resource.data.organizationId)
+              && request.resource.data.projectId != null
+              && isManagerOfProject(request.resource.data.projectId))
+        )
         && (request.resource.data.projectId == null
             || request.resource.data.organizationId == projectOrgId(request.resource.data.projectId));
       // organizationId/organizerId/projectId are pinned unchanged — a
@@ -583,6 +640,69 @@ service cloud.firestore {
       // this allow-list alone, exactly like comments' content-only update
       // rule: any attempt to change them fails the update outright.
       allow update: if isSelf(resource.data.userId) && onlyChangingFields(["read"]);
+    }
+
+    // candidateProfiles/{uid} (verification-workflow collection) was removed
+    // in this pass — the intern/candidate onboarding architecture pivoted to
+    // Admin-invitation-based creation (Admin fills in identity fields at
+    // invite time; see lib/server/invitations.ts's acceptInvitation), so
+    // there is no more self-submitted-then-verified profile document. The
+    // identity fields now live directly on users/{uid} (see the users/{uid}
+    // block above) and are exclusively Admin-SDK-written, never client-
+    // editable at all — a stronger guarantee than the old per-field
+    // allow-list this collection used to need. userIdReservations/{userId}
+    // (global User ID uniqueness lock) is Admin-SDK-only with no client
+    // rule at all — it falls under the default-deny catch-all below.
+
+    // ── creditRules/{organizationId} ────────────────────────────────────
+    // Configurable category weights (TOTAL = 500 by default) — readable by
+    // any org member (candidates need to see the targets they're working
+    // toward), writable only by that organization's Admin. Changing a
+    // weight here never rewrites past creditTransactions — each transaction
+    // permanently stores the credits it actually awarded.
+    match /creditRules/{organizationId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(organizationId);
+      allow write: if isSuperAdmin() || isAdminOfOrg(organizationId);
+    }
+
+    // ── creditTransactions/{id} ──────────────────────────────────────────
+    // An immutable, auditable ledger — append-only by construction (no
+    // update or delete, ever; a correction is a NEW, separately-reasoned
+    // transaction, never an edit of an old one). Writes are now Admin-SDK-
+    // only (see app/api/credits/award/route.ts + lib/server/credits.ts) —
+    // there is no client write path left at all, for two compounding
+    // reasons: (1) the browser must never be able to send an arbitrary
+    // {credits: 500} payload and have it accepted, and (2) the OLD
+    // client-write rule below (kept here, commented, for the historical
+    // record) depended on resource.data.* for its read rule, which
+    // Firestore cannot prove for a get() on a document that doesn't exist
+    // yet — i.e. every first-ever award — verified live via a direct
+    // getDoc() as a real org admin, which was denied outright even though
+    // the admin was fully authorized to create that exact document. Moving
+    // every write server-side sidesteps rule evaluation entirely for the
+    // trusted path (by design) while this rule now denies every remaining
+    // client path, closing both problems at once instead of trading one for
+    // the other. Reads are still self/admin/superadmin only — a
+    // transaction's `reason` can be candid manager/admin commentary, never
+    // broadcast org-wide (the leaderboard reads from the separate,
+    // deliberately minimal leaderboardStats aggregate below instead).
+    match /creditTransactions/{id} {
+      allow read: if isSuperAdmin() || isSelf(resource.data.userId) || isAdminOfOrg(resource.data.organizationId);
+      allow write: if false;
+    }
+
+    // ── leaderboardStats/{uid} ───────────────────────────────────────────
+    // The ONLY credit-related data visible to the whole organization — a
+    // display name plus three numbers, nothing else (no reason, no
+    // category breakdown, no profile fields). Writes are Admin-SDK-only,
+    // same reasoning as creditTransactions immediately above (this doc is
+    // written in the exact same server-side transaction) — a candidate can
+    // never manipulate their own rank, total, or weekly/monthly credits by
+    // writing this document directly, because no client write path exists
+    // at all anymore.
+    match /leaderboardStats/{uid} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow write: if false;
     }
 
     match /{document=**} {

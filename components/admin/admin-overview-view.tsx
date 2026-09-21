@@ -43,7 +43,7 @@ function SetupProgress({ steps }: { steps: SetupStep[] }) {
             <li key={step.label} className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 {step.done ? (
-                  <CheckCircle2 className="size-4 shrink-0 text-[#0ca30c]" />
+                  <CheckCircle2 className="size-4 shrink-0 text-success" />
                 ) : (
                   <Circle className="size-4 shrink-0 text-muted-foreground" />
                 )}

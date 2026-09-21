@@ -11,7 +11,12 @@ import {
   Settings,
   ListChecks,
   CreditCard,
+  Coins,
   Receipt,
+  FileCheck2,
+  CalendarClock,
+  CalendarDays,
+  Trophy,
 } from "lucide-react";
 import type { NavItem } from "@/components/layout/nav-config";
 
@@ -22,6 +27,11 @@ export const ADMIN_NAV: NavItem[] = [
   { label: "Teams", href: "/admin/teams", icon: UsersRound },
   { label: "Projects", href: "/admin/projects", icon: FolderKanban },
   { label: "Tasks", href: "/admin/tasks", icon: ListChecks },
+  { label: "Work Verification", href: "/admin/work-verification", icon: FileCheck2 },
+  { label: "Credits", href: "/admin/credits", icon: Coins },
+  { label: "Meetings", href: "/meetings", icon: CalendarClock },
+  { label: "Calendar", href: "/calendar", icon: CalendarDays },
+  { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
   { label: "Billing", href: "/admin/billing", icon: CreditCard },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { label: "Activity", href: "/admin/activity", icon: Activity },

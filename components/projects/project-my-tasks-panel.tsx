@@ -78,7 +78,7 @@ export function ProjectMyTasksPanel({ organizationId, projectId, myTasks, onOpen
                 )}
               </div>
 
-              <p className={overdue ? "text-xs font-medium text-[#d03b3b]" : "text-xs text-muted-foreground"}>
+              <p className={overdue ? "text-xs font-medium text-danger" : "text-xs text-muted-foreground"}>
                 Due {formatDate(task.dueDate)}
                 {overdue ? " — overdue" : ""}
               </p>

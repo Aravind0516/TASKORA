@@ -12,12 +12,39 @@ export const EVIDENCE_TYPE_LABELS: Record<(typeof EVIDENCE_TYPES)[number], strin
   OTHER_URL: "Other",
 };
 
-const evidenceSchema = z.object({
-  type: z.enum(EVIDENCE_TYPES),
-  url: z.string().trim().min(1, "URL is required").url("Enter a valid URL"),
-  title: z.string().trim().max(120),
-  description: z.string().trim().max(300),
-});
+/** SCREENSHOT/DOCUMENT are uploaded files (attachmentId), never a URL the employee types in — everything else requires a real URL. */
+export const FILE_EVIDENCE_TYPES = new Set<(typeof EVIDENCE_TYPES)[number]>(["SCREENSHOT", "DOCUMENT"]);
+
+/** Per-type field label/placeholder for the URL-based evidence types — SCREENSHOT/DOCUMENT have no URL field at all, so they're absent here. */
+export const EVIDENCE_URL_FIELD: Partial<Record<(typeof EVIDENCE_TYPES)[number], { label: string; placeholder: string }>> = {
+  GITHUB_REPOSITORY: { label: "Repository URL", placeholder: "https://github.com/company/project" },
+  GITHUB_COMMIT: { label: "Commit URL", placeholder: "https://github.com/company/project/commit/abc123" },
+  GITHUB_PR: { label: "Pull Request URL", placeholder: "https://github.com/company/project/pull/12" },
+  DEPLOYMENT: { label: "Deployment URL", placeholder: "https://project.vercel.app" },
+  OTHER_URL: { label: "URL", placeholder: "https://..." },
+};
+
+const evidenceSchema = z
+  .object({
+    type: z.enum(EVIDENCE_TYPES),
+    url: z.string().trim().max(2000),
+    title: z.string().trim().max(120),
+    description: z.string().trim().max(300),
+    attachmentId: z.string().optional(),
+    fileName: z.string().optional(),
+    fileSize: z.number().optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (FILE_EVIDENCE_TYPES.has(val.type)) {
+      if (!val.attachmentId) {
+        ctx.addIssue({ code: "custom", path: ["attachmentId"], message: "Upload a file for this evidence type." });
+      }
+    } else if (!val.url) {
+      ctx.addIssue({ code: "custom", path: ["url"], message: "URL is required." });
+    } else if (!z.string().url().safeParse(val.url).success) {
+      ctx.addIssue({ code: "custom", path: ["url"], message: "Enter a valid URL." });
+    }
+  });
 
 export const dailyWorkUpdateFormSchema = z.object({
   taskId: z.string().optional(),

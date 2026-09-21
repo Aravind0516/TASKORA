@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MeetingFormDialog } from "@/components/meetings/meeting-form-dialog";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
+import { useAuth } from "@/components/auth/auth-provider";
 import { initials, isOverdue } from "@/lib/format";
 import type { Meeting } from "@/types/meeting";
 
@@ -34,7 +35,14 @@ function formatMeetingTime(meeting: Meeting): string {
 }
 
 export function MeetingsView() {
-  const { uid, meetings, getMemberById, getProjectById, loaded, errors, retry, deleteMeeting, updateMeetingStatus } = useWorkspace();
+  const { role } = useAuth();
+  const { uid, projects, meetings, getMemberById, getProjectById, loaded, errors, retry, deleteMeeting, updateMeetingStatus } = useWorkspace();
+  // Matches firestore.rules' meetings create rule exactly: Org Admin/Super
+  // Admin, or a project's own assigned manager (scheduling within their
+  // project) — never a plain employee. `projects` is already scoped to
+  // what this account can see, so this correctly answers "manages at least
+  // one project" for both an employee and an admin.
+  const canScheduleMeetings = role === "admin" || role === "super_admin" || projects.some((p) => p.managerId === uid);
   const [formOpen, setFormOpen] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
 
@@ -154,10 +162,12 @@ export function MeetingsView() {
         title="Meetings"
         description="Meetings you organize or are invited to"
         actions={
-          <Button size="sm" onClick={openCreate}>
-            <Plus />
-            Schedule Meeting
-          </Button>
+          canScheduleMeetings ? (
+            <Button size="sm" onClick={openCreate}>
+              <Plus />
+              Schedule Meeting
+            </Button>
+          ) : undefined
         }
       />
 
@@ -172,9 +182,9 @@ export function MeetingsView() {
         <EmptyState
           icon={CalendarClock}
           title="No meetings yet"
-          description="Schedule a meeting to coordinate with your team."
-          actionLabel="Schedule Meeting"
-          onAction={openCreate}
+          description={canScheduleMeetings ? "Schedule a meeting to coordinate with your team." : "Meetings you're invited to will show up here."}
+          actionLabel={canScheduleMeetings ? "Schedule Meeting" : undefined}
+          onAction={canScheduleMeetings ? openCreate : undefined}
         />
       ) : (
         <div className="space-y-6">

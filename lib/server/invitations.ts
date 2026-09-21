@@ -5,8 +5,9 @@ import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
 import { ApiError } from "@/lib/server/api-response";
 import { logActivity } from "@/lib/server/activity";
 import { sendInvitationEmail, EmailNotConfiguredError, EmailDeliveryError } from "@/lib/server/email";
+import { reserveUserId, releaseUserId, attachUidToUserId } from "@/lib/server/user-ids";
 import type { InvitationRole, InvitationStatus, PlatformInvitation, PublicInvitationView } from "@/types/invitation";
-import type { FunctionalRole } from "@/types/user";
+import type { EmploymentType, FunctionalRole } from "@/types/user";
 
 const INVITATION_TTL_DAYS = Number(process.env.INVITATION_TTL_DAYS ?? 7);
 
@@ -31,7 +32,19 @@ function invitationFromDoc(id: string, data: FirebaseFirestore.DocumentData): Pl
     name: data.name,
     role: data.role,
     teamId: data.teamId,
+    projectIds: data.projectIds ?? [],
     functionalRole: data.functionalRole ?? null,
+    employmentType: data.employmentType ?? null,
+    userId: data.userId ?? null,
+    collegeName: data.collegeName ?? null,
+    branch: data.branch ?? null,
+    passedOutYear: data.passedOutYear ?? null,
+    academicYear: data.academicYear ?? null,
+    domain: data.domain ?? null,
+    secondaryDomain: data.secondaryDomain ?? null,
+    linkedinUrl: data.linkedinUrl ?? null,
+    githubUrl: data.githubUrl ?? null,
+    phone: data.phone ?? null,
     emailSent: data.emailSent ?? false,
     status: data.status,
     tokenHash: data.tokenHash,
@@ -49,7 +62,20 @@ export interface CreateInvitationInput {
   name: string;
   role: InvitationRole;
   teamId: string | null;
+  projectIds: string[];
   functionalRole: FunctionalRole | null;
+  employmentType: EmploymentType | null;
+  /** Raw (un-normalized) User ID, or null. Reserved atomically before the invitation is created — see lib/server/user-ids.ts. */
+  userId: string | null;
+  collegeName: string | null;
+  branch: string | null;
+  passedOutYear: number | null;
+  academicYear: string | null;
+  domain: string | null;
+  secondaryDomain: string | null;
+  linkedinUrl: string | null;
+  githubUrl: string | null;
+  phone: string | null;
 }
 
 export async function createInvitation(input: CreateInvitationInput): Promise<{ invitation: PlatformInvitation; rawToken: string }> {
@@ -75,6 +101,15 @@ export async function createInvitation(input: CreateInvitationInput): Promise<{ 
   const rawToken = generateToken();
   const now = new Date().toISOString();
   const ref = db.collection("invitations").doc();
+
+  // Reserve the User ID BEFORE writing the invitation — if this throws
+  // (already taken), no invitation doc is created at all, so a failed
+  // attempt never leaves a dangling pending invitation behind.
+  let userId: string | null = null;
+  if (input.userId) {
+    userId = await reserveUserId(input.userId, input.organizationId, ref.id);
+  }
+
   const record = {
     organizationId: input.organizationId,
     invitedBy: input.invitedBy,
@@ -82,7 +117,19 @@ export async function createInvitation(input: CreateInvitationInput): Promise<{ 
     name: input.name,
     role: input.role,
     teamId: input.teamId,
+    projectIds: input.projectIds,
     functionalRole: input.functionalRole,
+    employmentType: input.employmentType,
+    userId,
+    collegeName: input.collegeName,
+    branch: input.branch,
+    passedOutYear: input.passedOutYear,
+    academicYear: input.academicYear,
+    domain: input.domain,
+    secondaryDomain: input.secondaryDomain,
+    linkedinUrl: input.linkedinUrl,
+    githubUrl: input.githubUrl,
+    phone: input.phone,
     // Set once the caller (the Route Handler, which owns the actual send
     // attempt — it needs org/team lookups already in scope there) knows the
     // real outcome — see setInvitationEmailStatus below. Never optimistic.
@@ -94,7 +141,15 @@ export async function createInvitation(input: CreateInvitationInput): Promise<{ 
     acceptedAt: null,
     cancelledAt: null,
   };
-  await ref.set(record);
+
+  try {
+    await ref.set(record);
+  } catch (error) {
+    // Roll back the reservation if the invitation write itself fails, so a
+    // transient Firestore error never permanently locks a User ID.
+    if (userId) await releaseUserId(userId).catch(() => {});
+    throw error;
+  }
 
   await logActivity({
     organizationId: input.organizationId,
@@ -208,6 +263,15 @@ export async function cancelInvitation(invitationId: string, organizationId: str
     throw new ApiError(404, "Invitation not found.");
   }
   await ref.update({ status: "cancelled" satisfies InvitationStatus, cancelledAt: new Date().toISOString() });
+
+  // Free the User ID for reuse — only if it was never actually activated
+  // (an accepted invitation's reservation must never be released; acceptance
+  // is guarded separately by status checks in acceptInvitation, so this only
+  // ever runs for a still-pending invitation).
+  const userId = snap.data()?.userId;
+  if (typeof userId === "string" && userId) {
+    await releaseUserId(userId).catch(() => {});
+  }
 }
 
 async function findInvitationByToken(rawToken: string) {
@@ -229,18 +293,23 @@ export async function getPublicInvitationView(rawToken: string): Promise<PublicI
     invitation.status === "pending" && new Date(invitation.expiresAt).getTime() < Date.now() ? "expired" : invitation.status;
 
   const db = getAdminDb();
-  const [orgSnap, teamSnap] = await Promise.all([
+  const [orgSnap, teamSnap, projectSnaps] = await Promise.all([
     db.collection("organizations").doc(invitation.organizationId).get(),
     invitation.teamId ? db.collection("teams").doc(invitation.teamId).get() : Promise.resolve(null),
+    Promise.all(invitation.projectIds.map((id) => db.collection("projects").doc(id).get())),
   ]);
 
   return {
     status: effectiveStatus,
     organizationName: (orgSnap.data()?.name as string) ?? "your organization",
     teamName: teamSnap ? ((teamSnap.data()?.name as string) ?? "—") : null,
+    projectNames: projectSnaps.filter((s) => s.exists).map((s) => (s.data()?.name as string) ?? "—"),
     role: invitation.role,
     name: invitation.name,
     email: invitation.email,
+    userId: invitation.userId,
+    collegeName: invitation.collegeName,
+    domain: invitation.domain,
   };
 }
 
@@ -314,6 +383,17 @@ export async function acceptInvitation(input: AcceptInvitationInput): Promise<Ac
       organizationId: invitation.organizationId,
       teamIds: invitation.teamId ? [invitation.teamId] : [],
       functionalRole: invitation.functionalRole,
+      employmentType: invitation.employmentType,
+      userId: invitation.userId,
+      collegeName: invitation.collegeName,
+      branch: invitation.branch,
+      passedOutYear: invitation.passedOutYear,
+      academicYear: invitation.academicYear,
+      domain: invitation.domain,
+      secondaryDomain: invitation.secondaryDomain,
+      linkedinUrl: invitation.linkedinUrl,
+      githubUrl: invitation.githubUrl,
+      phone: invitation.phone,
       status: "active",
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -340,9 +420,31 @@ export async function acceptInvitation(input: AcceptInvitationInput): Promise<Ac
     });
   }
 
+  // Project assignment(s) chosen by the Admin at invite time — the same
+  // memberIds arrayUnion pattern every other project-membership grant in
+  // this app already uses; there is no separate projectIds field on
+  // users/{uid} (project membership's source of truth has always been
+  // projects.memberIds, never the user doc — see admin-users-view's
+  // existing (buggy, now-fixed) projectIds derivation).
+  for (const projectId of invitation.projectIds) {
+    batch.update(db.collection("projects").doc(projectId), {
+      memberIds: FieldValue.arrayUnion(uid),
+      updatedAt: now,
+    });
+  }
+
   batch.update(ref, { status: "accepted" satisfies InvitationStatus, acceptedAt: now });
 
   await batch.commit();
+
+  if (invitation.userId) {
+    await attachUidToUserId(invitation.userId, uid).catch((error) => {
+      // Non-fatal: the account is fully activated either way; only
+      // login-by-User-ID would be affected, and email/password login always
+      // still works. Logged for visibility, never surfaced to the candidate.
+      console.error(`[invite] failed to attach uid to User ID ${invitation.userId}:`, error);
+    });
+  }
 
   await logActivity({
     organizationId: invitation.organizationId,

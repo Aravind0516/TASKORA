@@ -10,10 +10,17 @@ import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
+import { useAuth } from "@/components/auth/auth-provider";
 import type { ProjectPriority, ProjectStatus } from "@/types/project";
 
 export function ProjectDirectory() {
+  const { role } = useAuth();
   const { projects, loaded, errors, retry } = useWorkspace();
+  // Matches firestore.rules' projects create rule exactly — Org Admin only
+  // (there's no manager or plain-employee create path there at all; a
+  // project's assigned manager works within existing projects, never
+  // creates new ones — see CLAUDE.md's project-scoped manager note).
+  const canCreateProjects = role === "admin" || role === "super_admin";
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ProjectStatus | "all">("all");
@@ -63,14 +70,16 @@ export function ProjectDirectory() {
           activeCount={activeFilterCount}
           onClear={clearFilters}
         />
-        <Button size="sm" className="shrink-0" onClick={() => setFormOpen(true)}>
-          <Plus />
-          New Project
-        </Button>
+        {canCreateProjects && (
+          <Button size="sm" className="shrink-0" onClick={() => setFormOpen(true)}>
+            <Plus />
+            New Project
+          </Button>
+        )}
       </div>
 
       {successMessage && (
-        <div className="mb-5 flex items-center gap-2 rounded-lg bg-[#0ca30c]/10 px-4 py-2.5 text-sm text-[#0ca30c]">
+        <div className="mb-5 flex items-center gap-2 rounded-lg bg-success/10 px-4 py-2.5 text-sm text-success">
           <CheckCircle2 className="size-4 shrink-0" />
           {successMessage}
         </div>
@@ -88,9 +97,13 @@ export function ProjectDirectory() {
         <EmptyState
           icon={FolderKanban}
           title="No projects yet"
-          description="Create your first project to start tracking work across your team."
-          actionLabel="Create Project"
-          onAction={() => setFormOpen(true)}
+          description={
+            canCreateProjects
+              ? "Create your first project to start tracking work across your team."
+              : "You haven't been assigned to any projects yet. Your admin will add you to a project here."
+          }
+          actionLabel={canCreateProjects ? "Create Project" : undefined}
+          onAction={canCreateProjects ? () => setFormOpen(true) : undefined}
         />
       ) : filtered.length === 0 ? (
         <EmptyState

@@ -36,6 +36,18 @@ export interface Project {
    */
   workVerificationEnabled: boolean;
   verificationFrequency: VerificationFrequency;
+  /**
+   * The formal "submitted" milestone that drives PROJECT_SUBMISSION /
+   * ON_TIME_PROJECT credit automation (see lib/server/project-submission.ts)
+   * — deliberately NOT the same thing as status "Completed", which is a
+   * plain workflow state any manager can toggle back and forth. Submission
+   * is a one-way, server-timestamped event; absent/"NONE" on every project
+   * created before this field existed, so nothing about an existing
+   * project's behavior changes until its manager/admin explicitly submits.
+   */
+  submissionStatus: "NONE" | "SUBMITTED";
+  /** Server timestamp (never the browser clock) set exactly once, at submission — see lib/server/project-submission.ts. null until submitted. */
+  submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

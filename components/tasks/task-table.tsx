@@ -137,7 +137,7 @@ export function TaskTable({ tasks, onEdit, onDelete, emptyMessage = "No tasks ye
                   <TableCell>
                     <PriorityBadge priority={task.priority} />
                   </TableCell>
-                  <TableCell className={overdue ? "font-medium text-[#d03b3b]" : "text-muted-foreground"}>
+                  <TableCell className={overdue ? "font-medium text-danger" : "text-muted-foreground"}>
                     {formatDate(task.dueDate)}
                     {overdue && " · Overdue"}
                   </TableCell>

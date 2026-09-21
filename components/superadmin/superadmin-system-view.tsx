@@ -24,9 +24,9 @@ const STATUS_ICON: Record<ServiceHealth, typeof CheckCircle2> = {
 };
 
 const STATUS_TEXT: Record<ServiceHealth, string> = {
-  Healthy: "text-[#0ca30c]",
-  Warning: "text-[#fab219]",
-  Critical: "text-[#d03b3b]",
+  Healthy: "text-success",
+  Warning: "text-amber-600 dark:text-amber-400",
+  Critical: "text-danger",
 };
 
 const STATUS_VARIANT: Record<ServiceHealth, "default" | "outline" | "destructive"> = {

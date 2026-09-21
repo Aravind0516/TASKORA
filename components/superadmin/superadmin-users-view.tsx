@@ -123,7 +123,7 @@ export function SuperAdminUsersView() {
       </div>
 
       {successMessage && (
-        <div className="mb-5 flex items-center gap-2 rounded-lg bg-[#0ca30c]/10 px-4 py-2.5 text-sm text-[#0ca30c]">
+        <div className="mb-5 flex items-center gap-2 rounded-lg bg-success/10 px-4 py-2.5 text-sm text-success">
           <CheckCircle2 className="size-4 shrink-0" />
           {successMessage}
         </div>

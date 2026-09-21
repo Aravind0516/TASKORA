@@ -129,7 +129,7 @@ export function ProjectVerificationDashboard({
                       <TableCell className="font-medium text-foreground">{member.name}</TableCell>
                       <TableCell>
                         {todayUpdate ? (
-                          <span className="inline-flex items-center gap-1 text-[#0ca30c]">
+                          <span className="inline-flex items-center gap-1 text-success">
                             <CheckCircle2 className="size-3.5" /> Submitted
                           </span>
                         ) : (
@@ -140,7 +140,7 @@ export function ProjectVerificationDashboard({
                         {!todayUpdate ? (
                           "—"
                         ) : todayUpdate.evidence.length > 0 ? (
-                          <span className="text-[#0ca30c]">✓ Evidence</span>
+                          <span className="text-success">✓ Evidence</span>
                         ) : (
                           <span className="text-amber-600 dark:text-amber-400">⚠ No evidence</span>
                         )}
@@ -247,7 +247,7 @@ function ReviewBadge({ status }: { status: DailyUpdateStatus }) {
   if (status === "SUBMITTED") return <Badge variant="outline">Pending review</Badge>;
   if (status === "VERIFIED")
     return (
-      <span className="inline-flex items-center gap-1 text-[#0ca30c]">
+      <span className="inline-flex items-center gap-1 text-success">
         <CheckCircle2 className="size-3.5" /> Verified
       </span>
     );
