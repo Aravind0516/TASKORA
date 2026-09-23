@@ -8,6 +8,7 @@ import { z } from "zod";
 // this codebase (see lib/validation/invitation.schema.ts).
 export const editProfileSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(60),
+  title: z.string().trim().max(80).optional(),
   phone: z.string().trim().max(20).optional(),
   address: z.string().trim().max(240).optional(),
   collegeName: z.string().trim().max(120).optional(),

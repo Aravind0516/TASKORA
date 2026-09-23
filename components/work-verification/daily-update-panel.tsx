@@ -581,7 +581,7 @@ function ReadOnlyUpdate({ update, tasks }: { update: DailyWorkUpdate; tasks: Tas
  * per-project authorization is re-checked every time, not just once at
  * upload.
  */
-function EvidenceFileLink({
+export function EvidenceFileLink({
   organizationId,
   projectId,
   attachmentId,

@@ -125,6 +125,7 @@ export function MyProfileView() {
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
               <Field label="Full Name" value={user.name} />
+              <Field label="Job Title" value={user.title} />
               <Field label="Email" value={user.email} hint="Read-only — managed by Firebase Authentication" />
               <Field label="Phone" value={user.phone} />
               <Field label="Address" value={user.address} />

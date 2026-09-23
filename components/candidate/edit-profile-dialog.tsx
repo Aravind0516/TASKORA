@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/select";
 import { editProfileSchema, type EditProfileFormValues } from "@/lib/validation/edit-profile.schema";
 import { updateMyProfile } from "@/lib/services/user.service";
+import { updateDisplayName } from "@/lib/services/auth.service";
+import { useAuth } from "@/components/auth/auth-provider";
 import { DOMAIN_OPTIONS } from "@/types/candidate";
 import type { UserRecord } from "@/types/user";
 
@@ -43,6 +45,7 @@ interface EditProfileDialogProps {
  * allow-list, not because the UI merely hides them.
  */
 export function EditProfileDialog({ open, onOpenChange, user, onSaved }: EditProfileDialogProps) {
+  const { user: authUser } = useAuth();
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
@@ -54,6 +57,7 @@ export function EditProfileDialog({ open, onOpenChange, user, onSaved }: EditPro
     resolver: zodResolver(editProfileSchema),
     defaultValues: {
       name: user.name ?? "",
+      title: user.title ?? "",
       phone: user.phone ?? "",
       address: user.address ?? "",
       collegeName: user.collegeName ?? "",
@@ -71,8 +75,17 @@ export function EditProfileDialog({ open, onOpenChange, user, onSaved }: EditPro
   async function onSubmit(values: EditProfileFormValues) {
     setFormError(null);
     try {
+      // Keep Firebase Auth's own displayName (read by the topbar/sidebar
+      // account menu via useAuth()) in sync with the Firestore profile name
+      // — previously only Settings' now-removed duplicate Profile tab did
+      // this, so editing your name here alone would leave the header/
+      // dropdown showing a stale name until next login.
+      if (authUser && values.name !== user.name) {
+        await updateDisplayName(authUser, values.name);
+      }
       await updateMyProfile(user.id, {
         name: values.name,
+        title: values.title || undefined,
         phone: values.phone || undefined,
         address: values.address || undefined,
         collegeName: values.collegeName || undefined,
@@ -115,14 +128,20 @@ export function EditProfileDialog({ open, onOpenChange, user, onSaved }: EditPro
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-profile-phone">Phone</Label>
-              <Input id="edit-profile-phone" {...register("phone")} />
+              <Label htmlFor="edit-profile-title">Job title</Label>
+              <Input id="edit-profile-title" {...register("title")} />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="edit-profile-address">Address</Label>
-            <Input id="edit-profile-address" {...register("address")} />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-profile-phone">Phone</Label>
+              <Input id="edit-profile-phone" {...register("phone")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-profile-address">Address</Label>
+              <Input id="edit-profile-address" {...register("address")} />
+            </div>
           </div>
 
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Academic / professional</p>

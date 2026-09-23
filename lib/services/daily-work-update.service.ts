@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -133,6 +134,46 @@ export function subscribeToMyProjectDailyUpdates(
     q,
     (snapshot) => onData(snapshot.docs.map(updateFromDoc)),
     (error) => onError(getFirestoreErrorMessage(error, "dailyWorkUpdates:myProject"))
+  );
+}
+
+/**
+ * Every update submitted anywhere in one organization, across every
+ * project — powers the Admin Daily Work Update center (/admin/work-
+ * verification) and the Admin Dashboard's Daily Work Updates summary.
+ * ADMIN/SUPER_ADMIN ONLY: firestore.rules' dailyWorkUpdates read rule only
+ * provides isAdminOfOrg(resource.data.organizationId) for a non-reviewer,
+ * non-self document with no projectId filter, so a plain member or a
+ * project manager calling this exact query would be denied outright — they
+ * must keep using subscribeToProjectDailyUpdates (manager) or
+ * subscribeToMyDailyUpdates/subscribeToMyProjectDailyUpdates (member).
+ * Never call this from a component reachable by a manager or plain member.
+ *
+ * A single indexed query (organizationId + date, see firestore.indexes.json)
+ * replaces the previous "fan out one listener per project" approach the
+ * admin Work Verification page used — one listener instead of N, and no
+ * risk of missing updates on a project the admin's project list hasn't
+ * loaded yet. `limitCount` bounds the read instead of pulling the entire
+ * organization's history (see CLAUDE.md's "no unnecessary expensive reads");
+ * every dashboard/summary use of this data only ever needs "recent," never
+ * "all time."
+ */
+export function subscribeToOrgDailyUpdates(
+  organizationId: string,
+  onData: (updates: DailyWorkUpdate[]) => void,
+  onError: (message: string) => void,
+  limitCount = 500
+): () => void {
+  const q = query(
+    collection(db, "dailyWorkUpdates"),
+    where("organizationId", "==", organizationId),
+    orderBy("date", "desc"),
+    limit(limitCount)
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => onData(snapshot.docs.map(updateFromDoc)),
+    (error) => onError(getFirestoreErrorMessage(error, "dailyWorkUpdates:org"))
   );
 }
 

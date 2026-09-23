@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Users, UsersRound, FolderKanban, ListChecks, TrendingUp, AlertTriangle, CheckCircle2, Circle, ArrowRight, UserPlus, FolderPlus } from "lucide-react";
+import { Users, UsersRound, FolderKanban, ListChecks, TrendingUp, AlertTriangle, CheckCircle2, Circle, ArrowRight, UserPlus, FolderPlus, ClipboardCheck, HelpCircle, FileCheck2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -21,6 +21,13 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { initials, isOverdue, timeAgo, formatDate } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
 import { cn } from "@/lib/utils";
+import * as dailyWorkUpdateService from "@/lib/services/daily-work-update.service";
+import {
+  WORK_VERIFICATION_STATUS_LABELS,
+  WORK_VERIFICATION_STATUS_TONE,
+  workVerificationDateKey,
+} from "@/components/admin/admin-work-verification-view";
+import type { DailyWorkUpdate } from "@/types/daily-work-update";
 
 interface SetupStep {
   label: string;
@@ -70,11 +77,21 @@ function SetupProgress({ steps }: { steps: SetupStep[] }) {
 export function AdminOverviewView() {
   const [loading, setLoading] = useState(true);
   const { currentOrganizationId, getOrganization, usersInOrg, teamsInOrg, projectsInOrg, tasksInOrg, activityInOrg, getUser, getTeam } = usePlatform();
+  const [dailyUpdates, setDailyUpdates] = useState<DailyWorkUpdate[] | null>(null);
 
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 450);
     return () => clearTimeout(timeout);
   }, []);
+
+  useEffect(() => {
+    if (!currentOrganizationId) return;
+    return dailyWorkUpdateService.subscribeToOrgDailyUpdates(
+      currentOrganizationId,
+      setDailyUpdates,
+      () => setDailyUpdates([])
+    );
+  }, [currentOrganizationId]);
 
   const org = getOrganization(currentOrganizationId);
   const members = usersInOrg(currentOrganizationId);
@@ -88,6 +105,14 @@ export function AdminOverviewView() {
   const completedTasks = tasks.filter((t) => t.status === "Completed");
   const overdueTasks = tasks.filter((t) => isOverdue(t.dueDate, t.status === "Completed"));
   const completionRate = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
+
+  const todayKey = workVerificationDateKey(0);
+  const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
+  const todaysUpdates = (dailyUpdates ?? []).filter((u) => u.date === todayKey);
+  const pendingReviewUpdates = (dailyUpdates ?? []).filter((u) => u.status === "SUBMITTED");
+  const verifiedTodayUpdates = todaysUpdates.filter((u) => u.status === "VERIFIED");
+  const needsClarificationUpdates = (dailyUpdates ?? []).filter((u) => u.status === "NEEDS_CLARIFICATION");
+  const recentUpdates = [...(dailyUpdates ?? [])].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)).slice(0, 6);
 
   const upcomingTasks = tasks
     .filter((t) => t.status !== "Completed")
@@ -184,6 +209,32 @@ export function AdminOverviewView() {
         />
       </div>
 
+      <p className="mt-6 mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Daily Work Updates</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Link href="/admin/work-verification?date=today" className="block">
+          <KpiCard label="Today's Updates" value={String(todaysUpdates.length)} icon={FileCheck2} />
+        </Link>
+        <Link href="/admin/work-verification?status=SUBMITTED" className="block">
+          <KpiCard
+            label="Pending Review"
+            value={String(pendingReviewUpdates.length)}
+            icon={ClipboardCheck}
+            accent={pendingReviewUpdates.length > 0 ? "critical" : "default"}
+          />
+        </Link>
+        <Link href="/admin/work-verification?status=VERIFIED&date=today" className="block">
+          <KpiCard label="Verified Today" value={String(verifiedTodayUpdates.length)} icon={CheckCircle2} />
+        </Link>
+        <Link href="/admin/work-verification?status=NEEDS_CLARIFICATION" className="block">
+          <KpiCard
+            label="Needs Clarification"
+            value={String(needsClarificationUpdates.length)}
+            icon={HelpCircle}
+            accent={needsClarificationUpdates.length > 0 ? "critical" : "default"}
+          />
+        </Link>
+      </div>
+
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -232,6 +283,41 @@ export function AdminOverviewView() {
                   </span>
                 </div>
               ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+            <div>
+              <CardTitle>Recent Daily Work Updates</CardTitle>
+              <CardDescription>Latest submissions across your organization</CardDescription>
+            </div>
+            <Link href="/admin/work-verification" className="shrink-0 text-xs font-medium text-primary hover:underline">
+              View All Updates
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {recentUpdates.length === 0 ? (
+              <EmptyState icon={FileCheck2} title="No daily work updates have been submitted yet." />
+            ) : (
+              <ul className="space-y-4">
+                {recentUpdates.map((update) => {
+                  const person = getUser(update.userId);
+                  return (
+                    <li key={update.id} className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">{person?.name ?? "Unknown"}</p>
+                        <p className="truncate text-xs text-muted-foreground">{projectNameById.get(update.projectId) ?? "Unknown project"}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Submitted {timeAgo(update.submittedAt)}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${WORK_VERIFICATION_STATUS_TONE[update.status]}`}>
+                        {WORK_VERIFICATION_STATUS_LABELS[update.status]}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </CardContent>
         </Card>

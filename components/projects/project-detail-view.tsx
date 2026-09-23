@@ -61,6 +61,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   const {
     uid,
     organizationId,
+    members,
     loaded,
     errors,
     retry,
@@ -571,7 +572,15 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
               const projectMembers = project.memberIds
                 .map((id) => getMemberById(id))
                 .filter((m): m is NonNullable<typeof m> => Boolean(m));
-              const reviewRecipientIds = [project.managerId, ...projectMembers.filter((m) => m.role === "Admin").map((m) => m.id)];
+              // Every org Admin/Super Admin should be notified of a
+              // submission, not only ones who happen to also be listed in
+              // project.memberIds (the normal case — an Admin oversees a
+              // project without being a "member" of it) — this was the
+              // actual reason submissions weren't reaching the Admin: the
+              // recipient list was previously filtered from projectMembers,
+              // which is almost always empty of Admins.
+              const orgAdminIds = members.filter((m) => m.role === "Admin").map((m) => m.id);
+              const reviewRecipientIds = [project.managerId, ...orgAdminIds];
               return (
                 <>
                   <DailyUpdatePanel
