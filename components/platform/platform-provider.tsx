@@ -484,6 +484,21 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         entityName: input.name,
         projectId: id,
       });
+      if (uid) {
+        notificationService
+          .notifyUsers({
+            organizationId: input.organizationId,
+            actorId: uid,
+            recipientIds: input.memberIds,
+            type: "project_assigned",
+            title: "Added to project",
+            message: `You have been assigned to the "${input.name}" project.`,
+            href: `/projects/${id}`,
+            projectId: id,
+            getPreferences: getMemberPreferences,
+          })
+          .catch((e) => console.error("createProject: notifyUsers failed", e));
+      }
       return {
         ...input,
         id,
@@ -495,12 +510,59 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         updatedAt: nowIso(),
       };
     },
-    [uid, actorName]
+    [uid, actorName, getMemberPreferences]
   );
 
-  const updateProject = useCallback<PlatformContextValue["updateProject"]>(async (id, patch) => {
-    await projectService.updateProject(id, patch as Partial<projectService.ProjectInput> & { progress?: number; archived?: boolean });
-  }, []);
+  const updateProject = useCallback<PlatformContextValue["updateProject"]>(
+    async (id, patch) => {
+      const before = rawProjects.find((p) => p.id === id);
+      await projectService.updateProject(id, patch as Partial<projectService.ProjectInput> & { progress?: number; archived?: boolean });
+      if (!uid || !before) return;
+
+      // Only the NEWLY added members — not everyone already on the project —
+      // matching "notify the assigned user," never re-notifying existing
+      // members on every unrelated edit.
+      if (patch.memberIds) {
+        const newlyAdded = patch.memberIds.filter((memberId) => !before.memberIds.includes(memberId));
+        if (newlyAdded.length > 0) {
+          notificationService
+            .notifyUsers({
+              organizationId: before.organizationId,
+              actorId: uid,
+              recipientIds: newlyAdded,
+              type: "project_assigned",
+              title: "Added to project",
+              message: `You have been assigned to the "${before.name}" project.`,
+              href: `/projects/${id}`,
+              projectId: id,
+              getPreferences: getMemberPreferences,
+            })
+            .catch((e) => console.error("updateProject: notifyUsers (project_assigned) failed", e));
+        }
+      }
+
+      // Requirements text actually changed — notify already-assigned
+      // members without including the requirement text itself in the
+      // notification (project privacy: the message never repeats content,
+      // only points back to the project).
+      if (patch.requirements !== undefined && patch.requirements !== before.requirements) {
+        notificationService
+          .notifyUsers({
+            organizationId: before.organizationId,
+            actorId: uid,
+            recipientIds: before.memberIds,
+            type: "project_requirements_updated",
+            title: "Project requirements updated",
+            message: `Project requirements updated for "${before.name}".`,
+            href: `/projects/${id}?tab=files`,
+            projectId: id,
+            getPreferences: getMemberPreferences,
+          })
+          .catch((e) => console.error("updateProject: notifyUsers (project_requirements_updated) failed", e));
+      }
+    },
+    [uid, rawProjects, getMemberPreferences]
+  );
 
   const deleteProject = useCallback(async (id: string) => {
     const projectTasks = tasks.filter((t) => t.projectId === id);

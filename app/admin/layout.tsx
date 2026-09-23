@@ -3,6 +3,7 @@ import { AdminRoute } from "@/components/auth/admin-route";
 import { PlatformProvider } from "@/components/platform/platform-provider";
 import { WorkspaceProvider } from "@/components/workspace/workspace-provider";
 import { PlatformShell } from "@/components/platform/platform-shell";
+import { NotificationExperienceProvider } from "@/components/notifications/notification-experience-provider";
 
 // WorkspaceProvider is added here (alongside PlatformProvider, not instead
 // of it) purely so PlatformShell can mount the EXISTING NotificationsMenu/
@@ -19,9 +20,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <AdminRoute>
       <PlatformProvider>
         <WorkspaceProvider>
-          <PlatformShell navKey="admin" brandLabel="Admin" roleBadge="Organization Administrator">
-            {children}
-          </PlatformShell>
+          <NotificationExperienceProvider>
+            <PlatformShell navKey="admin" brandLabel="Admin" roleBadge="Organization Administrator">
+              {children}
+            </PlatformShell>
+          </NotificationExperienceProvider>
         </WorkspaceProvider>
       </PlatformProvider>
     </AdminRoute>
