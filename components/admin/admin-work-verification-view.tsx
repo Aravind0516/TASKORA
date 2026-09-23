@@ -159,7 +159,11 @@ export function AdminWorkVerificationView() {
         const haystack = `${person?.name ?? ""} ${person?.userId ?? ""} ${projectName} ${taskTitle}`.toLowerCase();
         return haystack.includes(q);
       })
-      .sort((a, b) => b.date.localeCompare(a.date));
+      // Sort by the real submission INSTANT (submittedAt), not the coarser
+      // calendar-day `date` field — two updates on the same day (different
+      // projects/tasks) must still order by actual submission time, so the
+      // most-recently-submitted one is always shown first.
+      .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
   }
   const rows = computeRows();
 
@@ -321,8 +325,9 @@ export function AdminWorkVerificationView() {
                     <TableHead>Candidate</TableHead>
                     <TableHead>Project</TableHead>
                     <TableHead>Task</TableHead>
+                    <TableHead>Project Status</TableHead>
                     <TableHead>Submitted</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Review Status</TableHead>
                     <TableHead>Reviewer</TableHead>
                     <TableHead>Evidence</TableHead>
                     <TableHead className="w-16" />
@@ -343,6 +348,7 @@ export function AdminWorkVerificationView() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">{projectNameById.get(update.projectId) ?? "Unknown project"}</TableCell>
                         <TableCell className="text-muted-foreground">{task?.title ?? "Project-level"}</TableCell>
+                        <TableCell className="text-muted-foreground">{update.projectStatus ?? "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">
                           {formatDate(update.submittedAt, { hour: "numeric", minute: "2-digit" })}
                         </TableCell>
@@ -400,6 +406,10 @@ export function AdminWorkVerificationView() {
                   <div>
                     <p className="text-xs text-muted-foreground">Submitted</p>
                     <p className="text-foreground">{formatDate(detailTarget.submittedAt, { hour: "numeric", minute: "2-digit" })}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Project Status</p>
+                    <p className="text-foreground">{detailTarget.projectStatus ?? "—"}</p>
                   </div>
                 </div>
 

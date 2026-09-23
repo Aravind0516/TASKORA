@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-export const EVIDENCE_TYPES = ["GITHUB_REPOSITORY", "GITHUB_COMMIT", "GITHUB_PR", "DEPLOYMENT", "SCREENSHOT", "DOCUMENT", "OTHER_URL"] as const;
+// Reuses the project's OWN canonical status enum (types/project.ts's
+// ProjectStatus) rather than inventing a second, competing status system —
+// see types/daily-work-update.ts's `projectStatus` field.
+export const PROJECT_STATUS_OPTIONS = ["Planning", "Active", "On Hold", "Completed"] as const;
+
+export const EVIDENCE_TYPES =["GITHUB_REPOSITORY", "GITHUB_COMMIT", "GITHUB_PR", "DEPLOYMENT", "SCREENSHOT", "DOCUMENT", "OTHER_URL"] as const;
 
 export const EVIDENCE_TYPE_LABELS: Record<(typeof EVIDENCE_TYPES)[number], string> = {
   GITHUB_REPOSITORY: "GitHub Repository",
@@ -48,6 +53,7 @@ const evidenceSchema = z
 
 export const dailyWorkUpdateFormSchema = z.object({
   taskId: z.string().optional(),
+  projectStatus: z.enum(PROJECT_STATUS_OPTIONS),
   workSummary: z.string().trim().min(10, "Describe today's work in at least 10 characters").max(2000),
   completedWork: z.string().trim().min(5, "List what you completed in at least 5 characters").max(2000),
   blockers: z.string().trim().max(1000),

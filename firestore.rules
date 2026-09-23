@@ -102,6 +102,13 @@ service cloud.firestore {
     function isValidRequirements(value) {
       return value == null || (value is string && value.size() <= 20000);
     }
+    // The project's own canonical status enum (types/project.ts's
+    // ProjectStatus) — reused as-is for the Daily Work Update's reported
+    // projectStatus field AND for the project-member status-sync write
+    // below, never a second/competing enum.
+    function isValidProjectStatus(value) {
+      return value in ["Planning", "Active", "On Hold", "Completed"];
+    }
     // Work Verification review outcomes — VERIFIED needs no explanation, but
     // PARTIALLY_VERIFIED/NEEDS_CLARIFICATION must carry an actual, non-empty
     // comment (server-side backstop for the client's Zod validation — same
@@ -253,7 +260,20 @@ service cloud.firestore {
             && isValidRequirements(request.resource.data.get("requirements", null)))
         || (isMemberOfOrg(resource.data.organizationId) && resource.data.managerId == request.auth.uid
             && isValidRequirements(request.resource.data.get("requirements", null))
-            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "requirementDocument", "requirements", "updatedAt"]));
+            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "requirementDocument", "requirements", "updatedAt"]))
+        // A plain project member (not the manager, not an Admin) may update
+        // ONLY the project's status — this is what lets an authorized Daily
+        // Work Update submission (see dailyWorkUpdates create/update below)
+        // sync the live project's current status, per the same project
+        // authorization boundary (managerId or memberIds) every other
+        // project-scoped write already uses. The manager/admin branches
+        // above already cover status changes for those roles; this branch
+        // exists specifically for everyone else who is still authorized for
+        // the project.
+        || (isMemberOfOrg(resource.data.organizationId)
+            && (resource.data.managerId == request.auth.uid || request.auth.uid in resource.data.memberIds)
+            && onlyChangingFields(["status", "updatedAt"])
+            && isValidProjectStatus(request.resource.data.status));
       allow delete: if isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();
     }
 
@@ -492,6 +512,7 @@ service cloud.firestore {
         && (request.resource.data.taskId == null
             || (taskOrgId(request.resource.data.taskId) == request.resource.data.organizationId
                 && get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.projectId == request.resource.data.projectId))
+        && isValidProjectStatus(request.resource.data.projectStatus)
         && request.resource.data.status == "SUBMITTED"
         && request.resource.data.reviewedBy == null
         && request.resource.data.reviewedAt == null
@@ -518,7 +539,8 @@ service cloud.firestore {
             && isValidReviewStatus(request.resource.data.status, request.resource.data.get("reviewerComment", null)))
         || (isSelf(resource.data.userId)
             && resource.data.status == "SUBMITTED"
-            && onlyChangingFields(["taskId", "workSummary", "completedWork", "blockers", "tomorrowPlan", "evidence", "updatedAt"]));
+            && isValidProjectStatus(request.resource.data.projectStatus)
+            && onlyChangingFields(["taskId", "projectStatus", "workSummary", "completedWork", "blockers", "tomorrowPlan", "evidence", "updatedAt"]));
 
       // Delete: Admin/Super Admin only — an intern can never erase their own
       // submitted record; this is meant to build an accountable history, not

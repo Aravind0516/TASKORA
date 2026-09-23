@@ -26,7 +26,6 @@ import { platformTaskFormSchema, type PlatformTaskFormValues } from "@/lib/valid
 import { PLATFORM_TASK_STATUSES, PLATFORM_PRIORITIES } from "@/lib/platform/constants";
 import { SubtaskChecklist } from "@/components/tasks/subtask-checklist";
 import { CommentSection } from "@/components/comments/comment-section";
-import { AttachmentSection } from "@/components/attachments/attachment-section";
 import { parseOptionalHours } from "@/lib/format";
 import { useAuth } from "@/components/auth/auth-provider";
 import { usePlatform } from "@/components/platform/platform-provider";
@@ -299,16 +298,6 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
         </form>
 
         {task && <SubtaskChecklist taskId={task.id} organizationId={task.organizationId} projectId={task.projectId} members={users} />}
-
-        {task && user && (
-          <AttachmentSection
-            organizationId={task.organizationId}
-            currentUserId={user.uid}
-            getUploaderName={(uploaderUid) => getUser(uploaderUid)?.name}
-            target={{ kind: "task", taskId: task.id, projectId: task.projectId }}
-            variant="compact"
-          />
-        )}
 
         {task && user && (
           <CommentSection

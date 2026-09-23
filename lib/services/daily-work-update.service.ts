@@ -15,6 +15,7 @@ import { db } from "@/lib/firebase/firestore";
 import { getFirestoreErrorMessage } from "@/lib/firebase/firestore-errors";
 import { toIso } from "@/lib/firebase/timestamp";
 import type { DailyUpdateStatus, DailyWorkUpdate, WorkEvidence } from "@/types/daily-work-update";
+import type { ProjectStatus } from "@/types/project";
 
 // Direct client writes under firestore.rules' dailyWorkUpdates block — the
 // same pattern tasks/comments/subtasks already use, NOT a privileged
@@ -49,6 +50,7 @@ function updateFromDoc(docSnap: QueryDocumentSnapshot): DailyWorkUpdate {
     blockers: data.blockers ?? "",
     tomorrowPlan: data.tomorrowPlan ?? "",
     evidence: (data.evidence ?? []) as WorkEvidence[],
+    projectStatus: (data.projectStatus ?? null) as ProjectStatus | null,
     status: data.status,
     submittedAt: toIso(data.submittedAt),
     reviewedAt: data.reviewedAt ? toIso(data.reviewedAt) : null,
@@ -183,11 +185,34 @@ export interface DailyUpdateInput {
   taskId?: string | null;
   userId: string;
   date: string;
+  /** The project's status as reported by the submitter — see types/daily-work-update.ts's `projectStatus` doc comment. */
+  projectStatus: ProjectStatus;
   workSummary: string;
   completedWork: string;
   blockers?: string;
   tomorrowPlan?: string;
   evidence: WorkEvidence[];
+}
+
+/**
+ * Keeps the live project document's own `status` in sync with the status
+ * most recently reported through an authorized Daily Work Update — best
+ * effort, deliberately never thrown/surfaced to the submitter as a hard
+ * failure: the Daily Work Update itself (the record of what was reported)
+ * is the important write and must not be rolled back or blocked just
+ * because this secondary sync failed (e.g. a transient permission hiccup).
+ * Authorization for this specific write is firestore.rules' own
+ * onlyChangingFields(["status","updatedAt"]) branch for a project member —
+ * the exact same isAuthorizedForProject() boundary the Daily Work Update
+ * create/update rule already required to get this far, never a separate or
+ * weaker check.
+ */
+async function syncProjectStatus(projectId: string, projectStatus: ProjectStatus): Promise<void> {
+  try {
+    await updateDoc(doc(db, "projects", projectId), { status: projectStatus, updatedAt: serverTimestamp() });
+  } catch (error) {
+    console.error(`dailyWorkUpdates: failed to sync project ${projectId} status to ${projectStatus}`, error);
+  }
 }
 
 /** First submission of the day — fails (permission-denied) if one already exists, by firestore.rules' create-time checks; the UI decides create vs. edit by whether today's update already loaded, same convention as every record-editing dialog in this app. */
@@ -201,6 +226,7 @@ export async function createDailyUpdate(input: DailyUpdateInput): Promise<void> 
       taskId: input.taskId ?? null,
       userId: input.userId,
       date: input.date,
+      projectStatus: input.projectStatus,
       workSummary: input.workSummary,
       completedWork: input.completedWork,
       blockers: input.blockers ?? "",
@@ -217,18 +243,29 @@ export async function createDailyUpdate(input: DailyUpdateInput): Promise<void> 
   } catch (error) {
     throw new Error(getFirestoreErrorMessage(error, "dailyWorkUpdates:create"));
   }
+  await syncProjectStatus(input.projectId, input.projectStatus);
 }
 
 /** Editing today's own update — only permitted (by firestore.rules) while it's still awaiting review (status "SUBMITTED"). */
 export async function editOwnDailyUpdate(
   updateId: string,
-  patch: { taskId?: string | null; workSummary: string; completedWork: string; blockers?: string; tomorrowPlan?: string; evidence: WorkEvidence[] }
+  projectId: string,
+  patch: {
+    taskId?: string | null;
+    projectStatus: ProjectStatus;
+    workSummary: string;
+    completedWork: string;
+    blockers?: string;
+    tomorrowPlan?: string;
+    evidence: WorkEvidence[];
+  }
 ): Promise<void> {
   try {
     await updateDoc(doc(db, "dailyWorkUpdates", updateId), { ...patch, updatedAt: serverTimestamp() });
   } catch (error) {
     throw new Error(getFirestoreErrorMessage(error, "dailyWorkUpdates:edit"));
   }
+  await syncProjectStatus(projectId, patch.projectStatus);
 }
 
 /** Manager/Admin review action — status must be one of the three review outcomes; reviewedBy is always the caller's own uid (firestore.rules requires this, preventing attribution to someone else). */

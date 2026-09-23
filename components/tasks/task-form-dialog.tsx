@@ -29,7 +29,6 @@ import { PriorityBadge } from "@/components/shared/priority-badge";
 import { taskFormSchema, type TaskFormValues } from "@/lib/validation/task.schema";
 import { SubtaskChecklist } from "@/components/tasks/subtask-checklist";
 import { CommentSection } from "@/components/comments/comment-section";
-import { AttachmentSection } from "@/components/attachments/attachment-section";
 import { parseOptionalHours, formatDate } from "@/lib/format";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
@@ -491,16 +490,6 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
         )}
 
         {task && organizationId && <SubtaskChecklist taskId={task.id} organizationId={organizationId} projectId={task.projectId} members={members} />}
-
-        {task && organizationId && uid && (
-          <AttachmentSection
-            organizationId={organizationId}
-            currentUserId={uid}
-            getUploaderName={(uploaderUid) => getMemberById(uploaderUid)?.name}
-            target={{ kind: "task", taskId: task.id, projectId: task.projectId }}
-            variant="compact"
-          />
-        )}
 
         {task && organizationId && uid && (
           <CommentSection

@@ -514,18 +514,12 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           <Card>
             <CardHeader>
               <CardTitle>Files &amp; Requirements</CardTitle>
-              <CardDescription>Project requirement documents and other files — upload the requirement doc here so every assigned member can find it</CardDescription>
+              <CardDescription>Project requirements and other files, visible to every assigned member</CardDescription>
             </CardHeader>
             <CardContent>
               <ProjectRequirementsTextSection requirements={project.requirements} updatedAt={project.updatedAt} />
               {uid && organizationId && (
-                <ProjectRequirementSection
-                  project={project}
-                  organizationId={organizationId}
-                  currentUserId={uid}
-                  canManage={canManageProject}
-                  getUploaderName={(uploaderUid) => getMemberById(uploaderUid)?.name}
-                />
+                <ProjectRequirementSection project={project} getUploaderName={(uploaderUid) => getMemberById(uploaderUid)?.name} />
               )}
               {uid && organizationId && (
                 <AttachmentSection
@@ -590,6 +584,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                     uid={uid}
                     userName={getMemberById(uid)?.name ?? user?.displayName ?? user?.email ?? "You"}
                     tasks={tasks}
+                    currentProjectStatus={project.status}
                     todayUpdate={todayUpdate}
                     recentUpdates={recentUpdates}
                     notifyRecipientIds={reviewRecipientIds}
