@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { platformTeamFormSchema, type PlatformTeamFormValues } from "@/lib/validation/platform-team.schema";
 import type { PlatformTeam, PlatformUser } from "@/types/platform";
+import { selectItems } from "@/lib/select-items";
 
 // Sentinel item value for "no Team Lead" — Select items can't use an empty
 // string as their value, so this is translated to/from "" at the form
@@ -103,7 +104,15 @@ export function TeamFormDialog({ open, onOpenChange, onSubmitTeam, users, team }
                 control={control}
                 name="leadId"
                 render={({ field }) => (
-                  <Select value={field.value || NO_LEAD} onValueChange={(value) => field.onChange(value ?? NO_LEAD)}>
+                  <Select
+                    value={field.value || NO_LEAD}
+                    onValueChange={(value) => field.onChange(value ?? NO_LEAD)}
+                    items={selectItems(users, (u) => u.id, (u) => u.name, {
+                      extra: { [NO_LEAD]: "No team lead" },
+                      value: field.value,
+                      unresolvedLabel: "Unknown user",
+                    })}
+                  >
                     <SelectTrigger id="team-lead" className="w-full">
                       <SelectValue placeholder="Select a team lead" />
                     </SelectTrigger>

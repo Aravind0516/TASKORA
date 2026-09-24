@@ -28,6 +28,7 @@ import {
 import { platformProjectFormSchema, type PlatformProjectFormValues } from "@/lib/validation/platform-project.schema";
 import { initials } from "@/lib/format";
 import type { PlatformProject, PlatformProjectStatus, PlatformPriority, PlatformTeam, PlatformUser } from "@/types/platform";
+import { selectItems } from "@/lib/select-items";
 
 const STATUSES: PlatformProjectStatus[] = ["Planning", "Active", "On Hold", "Completed"];
 const PRIORITIES: PlatformPriority[] = ["Low", "Medium", "High", "Critical"];
@@ -143,6 +144,7 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
                 render={({ field }) => (
                   <Select
                     value={field.value}
+                    items={selectItems(teams, (t) => t.id, (t) => t.name, { value: field.value, unresolvedLabel: "Unknown team" })}
                     onValueChange={(value) => {
                       field.onChange(value ?? "");
                       setValue("memberIds", []);
@@ -188,7 +190,15 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
                     control={control}
                     name="managerId"
                     render={({ field }) => (
-                      <Select value={field.value || NO_MANAGER} onValueChange={(value) => field.onChange(value === NO_MANAGER ? undefined : value)}>
+                      <Select
+                        value={field.value || NO_MANAGER}
+                        onValueChange={(value) => field.onChange(value === NO_MANAGER ? undefined : value)}
+                        items={selectItems(teamMembers, (m) => m.id, (m) => m.name, {
+                          extra: { [NO_MANAGER]: "No manager assigned" },
+                          value: field.value,
+                          unresolvedLabel: "Unknown user",
+                        })}
+                      >
                         <SelectTrigger id="pp-manager" className="w-full">
                           <SelectValue placeholder="Select a project manager" />
                         </SelectTrigger>

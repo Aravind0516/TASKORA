@@ -14,6 +14,7 @@ import * as dailyWorkUpdateService from "@/lib/services/daily-work-update.servic
 import { DEFAULT_CREDIT_WEIGHTS, type CreditRules, type CreditTransaction, type LeaderboardEntry } from "@/types/credit";
 import type { DailyWorkUpdate } from "@/types/daily-work-update";
 import { formatDate } from "@/lib/format";
+import { CreditAmount, CreditEntryBadges } from "@/components/credits/credit-entry";
 
 function mondayOf(date: Date): Date {
   const d = new Date(date);
@@ -209,8 +210,8 @@ export function MyPerformanceView() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Submission History</CardTitle>
-                <CardDescription>Verified credit-earning submissions</CardDescription>
+                <CardTitle>Credit History</CardTitle>
+                <CardDescription>Your most recent credits awarded and deducted</CardDescription>
               </CardHeader>
               <CardContent>
                 {submissionHistory.length === 0 ? (
@@ -219,8 +220,11 @@ export function MyPerformanceView() {
                   <ul className="space-y-2 text-sm">
                     {submissionHistory.map((t) => (
                       <li key={t.id} className="flex items-center justify-between border-b border-border pb-2 last:border-0">
-                        <span className="text-foreground">{t.action}</span>
-                        <span className="text-success">+{t.credits}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <CreditEntryBadges transaction={t} />
+                          <span className="truncate text-foreground">{t.action}</span>
+                        </span>
+                        <CreditAmount credits={t.credits} className="shrink-0" />
                       </li>
                     ))}
                   </ul>

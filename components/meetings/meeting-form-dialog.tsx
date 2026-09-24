@@ -29,6 +29,7 @@ import { TimeInput12h } from "@/components/meetings/time-input-12h";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { useAuth } from "@/components/auth/auth-provider";
 import type { Meeting } from "@/types/meeting";
+import { selectItems } from "@/lib/select-items";
 
 const NO_PROJECT = "none";
 
@@ -176,6 +177,11 @@ export function MeetingFormDialog({ open, onOpenChange, onSaved, meeting }: Meet
                 <Select
                   value={field.value || (isPrivileged ? NO_PROJECT : selectableProjects[0]?.id)}
                   onValueChange={(value) => field.onChange(value === NO_PROJECT ? undefined : value)}
+                  items={selectItems(selectableProjects, (p) => p.id, (p) => p.name, {
+                    extra: { [NO_PROJECT]: "No related project" },
+                    value: field.value,
+                    unresolvedLabel: "Unknown project",
+                  })}
                 >
                   <SelectTrigger id="meeting-project" className="w-full">
                     <SelectValue placeholder={isPrivileged ? "No related project" : "Select a project you manage"} />

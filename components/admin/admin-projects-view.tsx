@@ -9,13 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableHeader,
   TableBody,
@@ -37,7 +30,7 @@ import { formatDate } from "@/lib/format";
 import { calculateProjectHealth } from "@/lib/project-health";
 import { usePlatform } from "@/components/platform/platform-provider";
 import { useAuth } from "@/components/auth/auth-provider";
-import type { PlatformProject, PlatformProjectStatus } from "@/types/platform";
+import type { PlatformProject } from "@/types/platform";
 import type { PlatformProjectFormValues } from "@/lib/validation/platform-project.schema";
 
 export function AdminProjectsView() {
@@ -46,7 +39,6 @@ export function AdminProjectsView() {
   const { user } = useAuth();
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<PlatformProjectStatus | "all">("all");
   const [showArchived, setShowArchived] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<PlatformProject | null>(null);
@@ -71,11 +63,10 @@ export function AdminProjectsView() {
     const q = search.trim().toLowerCase();
     return allProjects.filter((p) => {
       if (p.archived !== showArchived) return false;
-      if (statusFilter !== "all" && p.status !== statusFilter) return false;
       if (q && !`${p.name} ${p.description}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [allProjects, search, statusFilter, showArchived]);
+  }, [allProjects, search, showArchived]);
 
   function openCreate() {
     setEditingProject(null);
@@ -139,18 +130,6 @@ export function AdminProjectsView() {
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search projects..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as PlatformProjectStatus | "all")}>
-          <SelectTrigger className="w-full sm:w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="Planning">Planning</SelectItem>
-            <SelectItem value="Active">Active</SelectItem>
-            <SelectItem value="On Hold">On Hold</SelectItem>
-            <SelectItem value="Completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
         <Button variant={showArchived ? "secondary" : "outline"} size="sm" onClick={() => setShowArchived((v) => !v)}>
           {showArchived ? "Showing Archived" : "Show Archived"}
         </Button>

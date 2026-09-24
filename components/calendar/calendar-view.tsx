@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
+import { dateKey, dueDateKey, shiftAnchor, startOfWeek, type CalendarViewMode } from "@/lib/calendar";
 
-type ViewMode = "month" | "week";
 
 interface DayEntry {
   key: string;
@@ -19,18 +19,6 @@ interface DayEntry {
   overdue: boolean;
 }
 
-function dateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function startOfWeek(date: Date): Date {
-  const result = new Date(date);
-  const day = result.getDay();
-  const diff = (day + 6) % 7; // week starts Monday, matching lib/analytics.ts
-  result.setHours(0, 0, 0, 0);
-  result.setDate(result.getDate() - diff);
-  return result;
-}
 
 /**
  * Calendar is a pure derived view over tasks/projects/meetings already
@@ -41,7 +29,7 @@ function startOfWeek(date: Date): Date {
  */
 export function CalendarView() {
   const { tasks, projects, meetings, loaded, errors } = useWorkspace();
-  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
   const [anchor, setAnchor] = useState(() => new Date());
 
   const loading = !loaded.tasks || !loaded.projects || !loaded.meetings;
@@ -57,7 +45,7 @@ export function CalendarView() {
 
     for (const task of tasks) {
       if (!task.dueDate) continue;
-      const key = dateKey(new Date(task.dueDate));
+      const key = dueDateKey(task.dueDate);
       add(key, {
         key: `task-${task.id}`,
         kind: "task",
@@ -68,7 +56,7 @@ export function CalendarView() {
     }
     for (const project of projects) {
       if (!project.dueDate || project.archived) continue;
-      const key = dateKey(new Date(project.dueDate));
+      const key = dueDateKey(project.dueDate);
       add(key, {
         key: `project-${project.id}`,
         kind: "project",
@@ -106,16 +94,10 @@ export function CalendarView() {
   }, [viewMode, anchor]);
 
   function goPrev() {
-    const next = new Date(anchor);
-    if (viewMode === "month") next.setMonth(next.getMonth() - 1);
-    else next.setDate(next.getDate() - 7);
-    setAnchor(next);
+    setAnchor(shiftAnchor(anchor, viewMode, -1));
   }
   function goNext() {
-    const next = new Date(anchor);
-    if (viewMode === "month") next.setMonth(next.getMonth() + 1);
-    else next.setDate(next.getDate() + 7);
-    setAnchor(next);
+    setAnchor(shiftAnchor(anchor, viewMode, 1));
   }
   function goToday() {
     setAnchor(new Date());

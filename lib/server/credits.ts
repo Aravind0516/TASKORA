@@ -2,7 +2,7 @@ import "server-only";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { writeNotification } from "@/lib/server/notifications";
-import { CREDIT_CATEGORY_LABELS, type CreditCategory, type CreditSourceType } from "@/types/credit";
+import { CREDIT_CATEGORY_LABELS, creditEntryTypeForAmount, type CreditCategory, type CreditSourceType } from "@/types/credit";
 
 // THE centralized credit-award service (Phase 2/16 of this pass's request).
 // Runs exclusively via the Admin SDK — never callable from the browser with
@@ -37,6 +37,14 @@ export interface CreditAwardInput {
   action: string;
   reason: string;
   awardedBy: string;
+  /**
+   * Client-generated idempotency key for ONE submission of the manual
+   * Award/Deduct dialog (reused on retry of that same submission, fresh for
+   * the next one). Makes a retried request resolve to the same ledger row
+   * instead of a second one. Required for deductions (see
+   * creditTransactionId); optional for awards.
+   */
+  requestId?: string | null;
   /** Set true to skip the recipient notification (used by callers that send their own combined notification, e.g. project submission awarding two categories at once). */
   skipNotification?: boolean;
 }
@@ -63,20 +71,39 @@ export function currentMonthKey(date = new Date()): string {
 }
 
 /**
- * Deterministic transaction document id. Scoped by organizationId as well
- * as userId/category/sourceId — per Phase 5 of this pass's request, this is
- * the "organizationId + userId + sourceType + category + sourceId" scheme
- * (sourceType folded in implicitly: the same sourceId under a different
- * category is a different id already, and categories are already
- * source-type-specific in practice) — closing the theoretical gap where a
- * client-supplied sourceId string alone (e.g. free-text like "In Time
- * Project Submission" typed into the admin dialog's Reference field) could
- * never collide with another organization's or another category's award,
- * even though sourceId itself is caller-chosen free text, not a real
- * document id.
+ * Deterministic transaction document id — the ledger's duplicate-prevention
+ * mechanism (a transaction whose id already exists is never written twice).
+ *
+ *   AWARD with a reference   {org}_{user}_{category}_{sourceId}
+ *       Unchanged from the original scheme, so every award already in the
+ *       ledger still blocks a second award for the same item ("the same
+ *       category + reference can only be credited once").
+ *   AWARD without a reference  {org}_{user}_{category}_req_{requestId}
+ *   DEDUCTION                  {org}_{user}_{category}_DEDUCTION_{requestId}
+ *       Its own namespace, so a deduction can never collide with the award
+ *       for the same source (the old scheme gave a -50 deduction referencing
+ *       "Project X" the SAME id as the +100 award for "Project X", so it was
+ *       rejected as "already awarded"). Keyed by the per-submission
+ *       requestId: a retry of the same request is idempotent, while a
+ *       separate, deliberate deduction against the same source is a new,
+ *       separately-reasoned ledger event, as it should be.
+ *
+ * Without a requestId (server-side automations only) the id falls back to a
+ * unique random suffix, exactly as before.
  */
-export function creditTransactionId(organizationId: string, userId: string, category: CreditCategory, sourceId: string | null): string {
-  return sourceId ? `${organizationId}_${userId}_${category}_${sourceId}` : `${organizationId}_${userId}_${category}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+export function creditTransactionId(
+  organizationId: string,
+  userId: string,
+  category: CreditCategory,
+  sourceId: string | null,
+  credits: number,
+  requestId?: string | null
+): string {
+  const base = `${organizationId}_${userId}_${category}`;
+  const unique = requestId ? requestId : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  if (creditEntryTypeForAmount(credits) === "DEDUCTION") return `${base}_DEDUCTION_${unique}`;
+  if (sourceId) return `${base}_${sourceId}`;
+  return `${base}_req_${unique}`;
 }
 
 /**
@@ -86,7 +113,9 @@ export function creditTransactionId(organizationId: string, userId: string, cate
  */
 export async function awardCredit(input: CreditAwardInput): Promise<void> {
   const db = getAdminDb();
-  const txRef = db.collection("creditTransactions").doc(creditTransactionId(input.organizationId, input.userId, input.category, input.sourceId));
+  const txRef = db
+    .collection("creditTransactions")
+    .doc(creditTransactionId(input.organizationId, input.userId, input.category, input.sourceId, input.credits, input.requestId));
   const statsRef = db.collection("leaderboardStats").doc(input.userId);
   const weekKey = currentWeekStartKey();
   const monthKey = currentMonthKey();
@@ -106,6 +135,10 @@ export async function awardCredit(input: CreditAwardInput): Promise<void> {
       candidateId: input.candidateId,
       category: input.category,
       credits: input.credits,
+      // Explicit, so history never has to infer "award vs deduction" from
+      // anything but the ledger row itself (older rows without it are
+      // classified by the sign of `credits` — see types/credit.ts).
+      entryType: creditEntryTypeForAmount(input.credits),
       status: "VERIFIED",
       sourceType: input.sourceType,
       sourceId: input.sourceId,
@@ -133,7 +166,15 @@ export async function awardCredit(input: CreditAwardInput): Promise<void> {
     return true;
   });
 
-  if (!awarded) throw new DuplicateCreditAwardError();
+  if (!awarded) {
+    // A request-keyed row that already exists is THIS request being replayed
+    // (a retry after a dropped response) — it was already applied exactly
+    // once, so report success without writing or notifying again. Only a
+    // reference-keyed award (same item credited twice) is a real duplicate.
+    const isReferenceKeyedAward = creditEntryTypeForAmount(input.credits) === "AWARD" && Boolean(input.sourceId);
+    if (input.requestId && !isReferenceKeyedAward) return;
+    throw new DuplicateCreditAwardError();
+  }
 
   if (!input.skipNotification) {
     const isDeduction = input.credits < 0;

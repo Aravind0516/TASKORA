@@ -8,8 +8,6 @@
 // client SDK under firestore.rules, exactly like tasks/comments/subtasks
 // already do (no new privileged/Admin-SDK path was needed).
 
-import type { ProjectStatus } from "@/types/project";
-
 export type EvidenceType =
   | "GITHUB_REPOSITORY"
   | "GITHUB_COMMIT"
@@ -61,19 +59,6 @@ export interface DailyWorkUpdate {
   userId: string;
   /** Calendar date this update is FOR, as "YYYY-MM-DD" (not a timestamp) — doubles as the deterministic id suffix (see lib/services/daily-work-update.service.ts), so there is exactly one update per user per project per day by construction, not by a query-time duplicate check. */
   date: string;
-  /**
-   * The PROJECT's status as reported by the submitter at the moment of this
-   * update — reuses types/project.ts's ProjectStatus (the project's own
-   * canonical enum) rather than a second, competing status system. This is
-   * completely separate from `status` below (the daily update's own review
-   * outcome — SUBMITTED/VERIFIED/etc.) and from any task's own status.
-   * Historical updates retain whatever value was reported at submission
-   * time, even after the project's own current status later changes — see
-   * lib/services/daily-work-update.service.ts's syncProjectStatus for how
-   * the live project document is kept in sync. null only for updates
-   * created before this field existed.
-   */
-  projectStatus: ProjectStatus | null;
   workSummary: string;
   completedWork: string;
   blockers: string;
@@ -81,6 +66,8 @@ export interface DailyWorkUpdate {
   evidence: WorkEvidence[];
   status: DailyUpdateStatus;
   submittedAt: string;
+  /** When the AUTHOR last edited it after submitting (same-day, before review) — null if never edited. Distinct from updatedAt, which an admin's review also bumps. */
+  editedAt: string | null;
   reviewedAt: string | null;
   reviewedBy: string | null;
   reviewerComment: string | null;

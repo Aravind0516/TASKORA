@@ -32,6 +32,7 @@ function taskFromDoc(docSnap: QueryDocumentSnapshot): Task {
     reviewerId: data.reviewerId ?? null,
     estimatedHours: data.estimatedHours ?? null,
     actualHours: data.actualHours ?? null,
+    assignmentVersion: typeof data.assignmentVersion === "number" ? data.assignmentVersion : 0,
     dueDate: data.dueDate,
     labels: data.labels ?? [],
     createdAt: toIso(data.createdAt),
@@ -122,6 +123,13 @@ export interface TaskInput {
   actualHours?: number | null;
   dueDate: string;
   labels?: string[];
+  /** Set by the caller only when assignedTo is created or changed (see types/task.ts) — omitted otherwise so an unrelated edit never touches it. */
+  assignmentVersion?: number;
+}
+
+function withoutUndefinedAssignmentVersion(input: TaskInput): Omit<TaskInput, "assignmentVersion"> & { assignmentVersion?: number } {
+  const { assignmentVersion, ...rest } = input;
+  return assignmentVersion === undefined ? rest : { ...rest, assignmentVersion };
 }
 
 // Guards against float-drift noise (e.g. repeated +0.1 additions elsewhere
@@ -138,6 +146,7 @@ export async function createTask(input: TaskInput): Promise<string> {
     const now = serverTimestamp();
     await setDoc(ref, {
       ...input,
+      assignmentVersion: input.assignmentVersion ?? (input.assignedTo ? 1 : 0),
       reviewerId: input.reviewerId ?? null,
       estimatedHours: roundHours(input.estimatedHours) ?? null,
       actualHours: roundHours(input.actualHours) ?? null,
@@ -154,7 +163,7 @@ export async function createTask(input: TaskInput): Promise<string> {
 export async function updateTask(taskId: string, input: TaskInput): Promise<void> {
   try {
     await updateDoc(doc(db, "tasks", taskId), {
-      ...input,
+      ...withoutUndefinedAssignmentVersion(input),
       reviewerId: input.reviewerId ?? null,
       estimatedHours: roundHours(input.estimatedHours) ?? null,
       actualHours: roundHours(input.actualHours) ?? null,

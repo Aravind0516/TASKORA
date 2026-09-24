@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { showsGlobalSearch } from "@/lib/global-search";
 import { Menu, LogOut, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -17,6 +18,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { NotificationsMenu } from "@/components/layout/notifications-menu";
+import { NotificationAlerts } from "@/components/layout/notification-alerts";
 import { AboutTaskoraMenuItem } from "@/components/shared/product-branding";
 import { DemoRoleMenu } from "@/components/platform/demo-role-menu";
 import { usePlatformRole } from "@/components/platform/use-platform-role";
@@ -30,6 +32,7 @@ import { ROLE_DISPLAY_LABELS, ROLE_CAPS_LABEL } from "@/lib/platform/constants";
 export function Topbar() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
   const { role } = usePlatformRole();
   const { setDemoRole } = useDemoRole();
@@ -67,11 +70,12 @@ export function Topbar() {
         </SheetContent>
       </Sheet>
 
-      <GlobalSearch />
+      {showsGlobalSearch(pathname) && <GlobalSearch />}
 
       <div className="ml-auto flex items-center gap-1.5">
         <DemoRoleMenu />
         <NotificationsMenu />
+        <NotificationAlerts />
 
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="ghost" className="ml-1 gap-2 px-1.5" />}>

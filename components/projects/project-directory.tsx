@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { useAuth } from "@/components/auth/auth-provider";
-import type { ProjectPriority, ProjectStatus } from "@/types/project";
+import type { ProjectPriority } from "@/types/project";
 
 export function ProjectDirectory() {
   const { role } = useAuth();
@@ -23,7 +23,6 @@ export function ProjectDirectory() {
   const canCreateProjects = role === "admin" || role === "super_admin";
 
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<ProjectStatus | "all">("all");
   const [priority, setPriority] = useState<ProjectPriority | "all">("all");
   const [formOpen, setFormOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -38,7 +37,6 @@ export function ProjectDirectory() {
     const query = search.trim().toLowerCase();
 
     return projects.filter((project) => {
-      if (status !== "all" && project.status !== status) return false;
       if (priority !== "all" && project.priority !== priority) return false;
       if (query) {
         const haystack = `${project.name} ${project.description}`.toLowerCase();
@@ -46,14 +44,13 @@ export function ProjectDirectory() {
       }
       return true;
     });
-  }, [projects, search, status, priority]);
+  }, [projects, search, priority]);
 
-  const activeFilterCount = [search.trim() !== "", status !== "all", priority !== "all"].filter(Boolean).length;
+  const activeFilterCount = [search.trim() !== "", priority !== "all"].filter(Boolean).length;
   const loading = !loaded.projects;
 
   function clearFilters() {
     setSearch("");
-    setStatus("all");
     setPriority("all");
   }
 
@@ -63,8 +60,6 @@ export function ProjectDirectory() {
         <ProjectFilters
           search={search}
           onSearchChange={setSearch}
-          status={status}
-          onStatusChange={setStatus}
           priority={priority}
           onPriorityChange={setPriority}
           activeCount={activeFilterCount}

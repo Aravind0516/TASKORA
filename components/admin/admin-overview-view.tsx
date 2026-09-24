@@ -108,7 +108,6 @@ export function AdminOverviewView() {
 
   const todayKey = workVerificationDateKey(0);
   const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
-  const taskById = new Map(tasks.map((t) => [t.id, t]));
   const todaysUpdates = (dailyUpdates ?? []).filter((u) => u.date === todayKey);
   const pendingReviewUpdates = (dailyUpdates ?? []).filter((u) => u.status === "SUBMITTED");
   const verifiedTodayUpdates = todaysUpdates.filter((u) => u.status === "VERIFIED");
@@ -305,21 +304,12 @@ export function AdminOverviewView() {
               <ul className="space-y-4">
                 {recentUpdates.map((update) => {
                   const person = getUser(update.userId);
-                  const task = update.taskId ? taskById.get(update.taskId) : null;
                   return (
                     <li key={update.id} className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {person?.name ?? "Unknown"}
-                          {person?.userId && <span className="font-normal text-muted-foreground"> · {person.userId}</span>}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {projectNameById.get(update.projectId) ?? "Unknown project"} · {task?.title ?? "Project-level"}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {update.projectStatus && <>Project Status: {update.projectStatus} · </>}
-                          Submitted {timeAgo(update.submittedAt)}
-                        </p>
+                        <p className="truncate text-sm font-medium text-foreground">{person?.name ?? "Unknown"}</p>
+                        <p className="truncate text-xs text-muted-foreground">{projectNameById.get(update.projectId) ?? "Unknown project"}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Submitted {timeAgo(update.submittedAt)}</p>
                       </div>
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${WORK_VERIFICATION_STATUS_TONE[update.status]}`}>
                         {WORK_VERIFICATION_STATUS_LABELS[update.status]}

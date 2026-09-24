@@ -29,10 +29,12 @@ import { PriorityBadge } from "@/components/shared/priority-badge";
 import { taskFormSchema, type TaskFormValues } from "@/lib/validation/task.schema";
 import { SubtaskChecklist } from "@/components/tasks/subtask-checklist";
 import { CommentSection } from "@/components/comments/comment-section";
+import { AttachmentSection } from "@/components/attachments/attachment-section";
 import { parseOptionalHours, formatDate } from "@/lib/format";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { TASK_STATUSES, type Task, type TaskPriority, type TaskStatus } from "@/types/task";
+import { selectItems } from "@/lib/select-items";
 
 const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High", "Critical"];
 
@@ -55,6 +57,8 @@ interface TaskFormDialogProps {
    * never a second implementation.
    */
   onOpenDailyUpdate?: (task: Task) => void;
+  /** false where file upload isn't part of the workflow (Project View) — existing attachments stay visible and downloadable, only the upload control is removed. */
+  allowAttachmentUpload?: boolean;
 }
 
 function buildDefaultValues(defaultAssigneeId?: string): TaskFormValues {
@@ -97,7 +101,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssigneeId, onOpenDailyUpdate }: TaskFormDialogProps) {
+export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssigneeId, onOpenDailyUpdate, allowAttachmentUpload = true }: TaskFormDialogProps) {
   const { user, role } = useAuth();
   const { uid, members, projects, organizationId, getMemberById, createTask, updateTask, updateTaskStatus } = useWorkspace();
   const isEditing = Boolean(task);
@@ -264,7 +268,11 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
                 control={control}
                 name="projectId"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => field.onChange(value ?? "")}
+                    items={selectItems(projects, (p) => p.id, (p) => p.name, { value: field.value, unresolvedLabel: "Unknown project" })}
+                  >
                     <SelectTrigger id="task-project" className="w-full">
                       <SelectValue placeholder="Select a project" />
                     </SelectTrigger>
@@ -377,7 +385,12 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
                   control={control}
                   name="assignedTo"
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")} disabled={!selectedProject}>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => field.onChange(value ?? "")}
+                      items={selectItems(members, (m) => m.id, (m) => m.name, { value: field.value, unresolvedLabel: "Unknown user" })}
+                      disabled={!selectedProject}
+                    >
                       <SelectTrigger id="task-assignee" className="w-full">
                         <SelectValue placeholder={selectedProject ? "Assign to" : "Select a project first"} />
                       </SelectTrigger>
@@ -423,7 +436,11 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
                   control={control}
                   name="reviewerId"
                   render={({ field }) => (
-                    <Select value={field.value || NO_REVIEWER} onValueChange={(value) => field.onChange(value === NO_REVIEWER ? undefined : value)}>
+                    <Select
+                      value={field.value || NO_REVIEWER}
+                      onValueChange={(value) => field.onChange(value === NO_REVIEWER ? undefined : value)}
+                      items={selectItems(members, (m) => m.id, (m) => m.name, { extra: { [NO_REVIEWER]: "No reviewer" }, value: field.value, unresolvedLabel: "Unknown user" })}
+                    >
                       <SelectTrigger id="task-reviewer" className="w-full">
                         <SelectValue placeholder="No reviewer" />
                       </SelectTrigger>
@@ -490,6 +507,17 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
         )}
 
         {task && organizationId && <SubtaskChecklist taskId={task.id} organizationId={organizationId} projectId={task.projectId} members={members} />}
+
+        {task && organizationId && uid && (
+          <AttachmentSection
+            organizationId={organizationId}
+            currentUserId={uid}
+            getUploaderName={(uploaderUid) => getMemberById(uploaderUid)?.name}
+            target={{ kind: "task", taskId: task.id, projectId: task.projectId }}
+            variant="compact"
+            allowUpload={allowAttachmentUpload}
+          />
+        )}
 
         {task && organizationId && uid && (
           <CommentSection

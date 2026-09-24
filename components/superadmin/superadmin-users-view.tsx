@@ -36,6 +36,7 @@ import { initials, timeAgo } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
 import type { PersonStatus, PlatformUser } from "@/types/platform";
 import type { PlatformUserFormValues } from "@/lib/validation/platform-user.schema";
+import { selectItems } from "@/lib/select-items";
 
 export function SuperAdminUsersView() {
   const [loading, setLoading] = useState(true);
@@ -96,7 +97,11 @@ export function SuperAdminUsersView() {
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search users..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <Select value={orgFilter} onValueChange={(v) => setOrgFilter(v ?? "all")}>
+        <Select
+          value={orgFilter}
+          onValueChange={(v) => setOrgFilter(v ?? "all")}
+          items={selectItems(organizations, (o) => o.id, (o) => o.name, { extra: { all: "All organizations" } })}
+        >
           <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Organization" />
           </SelectTrigger>

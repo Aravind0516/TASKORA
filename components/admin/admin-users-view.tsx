@@ -45,6 +45,7 @@ import type { PersonStatus, PlatformUser } from "@/types/platform";
 import type { PlatformUserFormValues } from "@/lib/validation/platform-user.schema";
 import type { PlatformInvitation } from "@/types/invitation";
 import type { LeaderboardEntry } from "@/types/credit";
+import { selectItems } from "@/lib/select-items";
 
 const EMAIL_SENT_MESSAGE = "Invitation email sent successfully.";
 const EMAIL_UNAVAILABLE_MESSAGE = "Invitation could not be sent. Please try again.";
@@ -176,7 +177,11 @@ export function AdminUsersView() {
             <SelectItem value="INTERN">Intern</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v ?? "all")}>
+        <Select
+          value={teamFilter}
+          onValueChange={(v) => setTeamFilter(v ?? "all")}
+          items={selectItems(teams, (t) => t.id, (t) => t.name, { extra: { all: "All teams" } })}
+        >
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="Team" />
           </SelectTrigger>

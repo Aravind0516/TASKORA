@@ -106,7 +106,15 @@ export function TaskManagementView() {
           onAction={canCreateTasks ? openCreateDialog : undefined}
         />
       ) : (
-        <TaskTable tasks={myTasks} onEdit={openEditDialog} onDelete={canDeleteTasks ? handleDeleteTask : undefined} />
+        <TaskTable
+          tasks={myTasks}
+          onEdit={openEditDialog}
+          onDelete={canDeleteTasks ? handleDeleteTask : undefined}
+          canEditTask={(task) => {
+            const project = projects.find((p) => p.id === task.projectId);
+            return role === "admin" || role === "super_admin" || project?.managerId === uid;
+          }}
+        />
       )}
 
       <TaskFormDialog

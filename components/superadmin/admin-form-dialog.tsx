@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Organization } from "@/types/platform";
+import { selectItems } from "@/lib/select-items";
 
 const adminFormSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(60),
@@ -84,7 +85,11 @@ export function AdminFormDialog({ open, onOpenChange, onSubmitAdmin, organizatio
               control={control}
               name="organizationId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => field.onChange(value ?? "")}
+                  items={selectItems(organizations, (o) => o.id, (o) => o.name, { value: field.value, unresolvedLabel: "Unknown organization" })}
+                >
                   <SelectTrigger id="new-admin-org" className="w-full">
                     <SelectValue placeholder="Select an organization" />
                   </SelectTrigger>

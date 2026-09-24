@@ -18,6 +18,11 @@ export function formatDate(date: string, options?: Intl.DateTimeFormatOptions): 
   });
 }
 
+/** Time of day only, e.g. "10:02 AM" — for a timestamp whose date is already shown alongside it. */
+export function formatTime(date: string): string {
+  return new Date(date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
 export function isOverdue(dueDate: string, isDone: boolean): boolean {
   if (isDone) return false;
   return new Date(dueDate).getTime() < Date.now();

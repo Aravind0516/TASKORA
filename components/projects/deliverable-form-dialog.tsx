@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import type { TeamMember } from "@/types/team";
 import type { DeliverableStatus } from "@/types/deliverable";
+import { selectItems } from "@/lib/select-items";
 
 const NO_ASSIGNEE = "none";
 
@@ -143,7 +144,11 @@ export function DeliverableFormDialog({ open, onOpenChange, members, onSubmit }:
               control={control}
               name="assignedTo"
               render={({ field }) => (
-                <Select value={field.value || NO_ASSIGNEE} onValueChange={(v) => field.onChange(v ?? NO_ASSIGNEE)}>
+                <Select
+                  value={field.value || NO_ASSIGNEE}
+                  onValueChange={(v) => field.onChange(v ?? NO_ASSIGNEE)}
+                  items={selectItems(members, (m) => m.id, (m) => m.name, { extra: { [NO_ASSIGNEE]: "Unassigned" }, value: field.value, unresolvedLabel: "Unknown user" })}
+                >
                   <SelectTrigger id="deliverable-assignee" className="w-full">
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>

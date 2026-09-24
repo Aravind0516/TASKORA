@@ -98,8 +98,8 @@ export function AdminTasksView() {
     setFormOpen(true);
   }
 
-  function handleSubmit(values: PlatformTaskFormValues) {
-    if (!currentOrganizationId) return;
+  async function handleSubmit(values: PlatformTaskFormValues) {
+    if (!currentOrganizationId) throw new Error("No organization is selected.");
     const payload = {
       ...values,
       assigneeId: values.assigneeId ?? null,
@@ -108,11 +108,14 @@ export function AdminTasksView() {
       actualHours: values.actualHours ?? null,
       organizationId: currentOrganizationId,
     };
+    // Awaited so success is only reported after the write actually lands —
+    // a rejection propagates to TaskFormDialog, which keeps itself open and
+    // shows the error instead.
     if (editingTask) {
-      updateTask(editingTask.id, payload);
+      await updateTask(editingTask.id, payload);
       setSuccessMessage(`"${values.title}" was updated.`);
     } else {
-      createTask(payload);
+      await createTask(payload);
       setSuccessMessage(`"${values.title}" was created.`);
     }
   }
@@ -122,6 +125,15 @@ export function AdminTasksView() {
     if (!confirmed) return;
     deleteTask(task.id);
     setSuccessMessage(`"${task.title}" was deleted.`);
+  }
+
+  async function handleMarkComplete(task: PlatformTask) {
+    try {
+      await updateTask(task.id, { status: "Completed" });
+      setSuccessMessage(`"${task.title}" was marked complete.`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Failed to update the task.");
+    }
   }
 
   return (
@@ -231,7 +243,7 @@ export function AdminTasksView() {
                                 Edit
                               </DropdownMenuItem>
                               {task.status !== "Completed" && (
-                                <DropdownMenuItem onClick={() => updateTask(task.id, { status: "Completed" })}>
+                                <DropdownMenuItem onClick={() => handleMarkComplete(task)}>
                                   <CheckCircle2 />
                                   Mark complete
                                 </DropdownMenuItem>

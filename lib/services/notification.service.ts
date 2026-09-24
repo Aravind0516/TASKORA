@@ -12,6 +12,7 @@ import {
   writeBatch,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
+import { apiFetch } from "@/lib/api-client";
 import { db } from "@/lib/firebase/firestore";
 import { getFirestoreErrorMessage } from "@/lib/firebase/firestore-errors";
 import { toIso } from "@/lib/firebase/timestamp";
@@ -151,6 +152,23 @@ export async function notifyUsers(input: NotifyUsersInput): Promise<void> {
       }
     })
   );
+}
+
+/**
+ * Asks the server to notify a task's CURRENT assignee of their assignment —
+ * call only after a task write that created or changed assignedTo. The
+ * server derives recipient/version/wording from the persisted task and
+ * creates at most one document per assignment version (see
+ * lib/server/task-assignment.ts), so a repeated call is a harmless no-op.
+ * Never throws: a notification failure must never fail the task save that
+ * already succeeded, matching notifyUsers()'s philosophy.
+ */
+export async function notifyTaskAssigned(taskId: string): Promise<void> {
+  try {
+    await apiFetch(`/api/tasks/${encodeURIComponent(taskId)}/assignment-notification`, { method: "POST" });
+  } catch (error) {
+    console.error(`notifyTaskAssigned: failed for task ${taskId}`, error);
+  }
 }
 
 export async function markNotificationRead(notificationId: string): Promise<void> {

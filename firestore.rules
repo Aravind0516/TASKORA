@@ -87,6 +87,33 @@ service cloud.firestore {
       let project = get(/databases/$(database)/documents/projects/$(projectId)).data;
       return assignedTo == "" || assignedTo == project.managerId || assignedTo in project.memberIds;
     }
+    // Update-time counterpart: re-validates the assignee only when the
+    // assignment or the task's project actually changes, preserving the
+    // guarantee above that an unrelated edit to an existing task is never
+    // blocked by a stale assignedTo value.
+    function isValidAssigneeChange() {
+      return (request.resource.data.get("assignedTo", "") == resource.data.get("assignedTo", "")
+              && request.resource.data.projectId == resource.data.projectId)
+        || isValidAssignee(request.resource.data.get("assignedTo", ""), request.resource.data.projectId);
+    }
+    // Notification types a signed-in client may create directly (fan-out
+    // from its own comment/meeting/status/daily-update actions). Every other
+    // type — task_assigned, credit_*, subscription_*, organization_
+    // registration_*, invitation_accepted — is created ONLY by trusted server
+    // code via the Admin SDK (see lib/server/*), so a client can never forge
+    // e.g. a "Credits awarded" or "New task assigned" notification.
+    function isClientNotificationType(type) {
+      return type in ["task_status_changed", "task_completed", "task_commented", "project_commented",
+                      "meeting_created", "meeting_updated", "daily_update_submitted", "daily_update_reviewed"];
+    }
+    // In-app path only ("/tasks", "/projects/abc?tab=x") — never an absolute
+    // or protocol-relative URL ("https://…", "//evil.com", or the backslash
+    // variant browsers also treat as protocol-relative), so a notification
+    // link can't be used to send someone off-site. The character after the
+    // leading "/" must be alphanumeric, which rules out both "//" and "/\".
+    function isInAppHref(href) {
+      return href is string && href.matches('^/([A-Za-z0-9].*)?$');
+    }
     // Server-side backstop for the client's Zod validation — never trust
     // "the form already checked this." null/absent (an old task predating
     // this field, or simply not set) is always valid; a present value must
@@ -101,13 +128,6 @@ service cloud.firestore {
     // null/absent is always valid (no requirements written yet).
     function isValidRequirements(value) {
       return value == null || (value is string && value.size() <= 20000);
-    }
-    // The project's own canonical status enum (types/project.ts's
-    // ProjectStatus) — reused as-is for the Daily Work Update's reported
-    // projectStatus field AND for the project-member status-sync write
-    // below, never a second/competing enum.
-    function isValidProjectStatus(value) {
-      return value in ["Planning", "Active", "On Hold", "Completed"];
     }
     // Work Verification review outcomes — VERIFIED needs no explanation, but
     // PARTIALLY_VERIFIED/NEEDS_CLARIFICATION must carry an actual, non-empty
@@ -260,20 +280,7 @@ service cloud.firestore {
             && isValidRequirements(request.resource.data.get("requirements", null)))
         || (isMemberOfOrg(resource.data.organizationId) && resource.data.managerId == request.auth.uid
             && isValidRequirements(request.resource.data.get("requirements", null))
-            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "requirementDocument", "requirements", "updatedAt"]))
-        // A plain project member (not the manager, not an Admin) may update
-        // ONLY the project's status — this is what lets an authorized Daily
-        // Work Update submission (see dailyWorkUpdates create/update below)
-        // sync the live project's current status, per the same project
-        // authorization boundary (managerId or memberIds) every other
-        // project-scoped write already uses. The manager/admin branches
-        // above already cover status changes for those roles; this branch
-        // exists specifically for everyone else who is still authorized for
-        // the project.
-        || (isMemberOfOrg(resource.data.organizationId)
-            && (resource.data.managerId == request.auth.uid || request.auth.uid in resource.data.memberIds)
-            && onlyChangingFields(["status", "updatedAt"])
-            && isValidProjectStatus(request.resource.data.status));
+            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "requirementDocument", "requirements", "updatedAt"]));
       allow delete: if isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();
     }
 
@@ -301,11 +308,15 @@ service cloud.firestore {
         && isValidHours(request.resource.data.get("actualHours", null));
       allow update: if isSuperAdmin()
         || (isAdminOfOrg(resource.data.organizationId) && request.resource.data.organizationId == resource.data.organizationId
+            && isValidAssigneeChange()
             && isValidReviewer(request.resource.data.get("reviewerId", null), request.resource.data.organizationId)
             && isValidHours(request.resource.data.get("estimatedHours", null))
             && isValidHours(request.resource.data.get("actualHours", null)))
         || (isMemberOfOrg(resource.data.organizationId) && isManagerOfProject(resource.data.projectId)
             && request.resource.data.organizationId == resource.data.organizationId
+            // A manager may move a task only into another project they also manage.
+            && isManagerOfProject(request.resource.data.projectId)
+            && isValidAssigneeChange()
             && isValidReviewer(request.resource.data.get("reviewerId", null), request.resource.data.organizationId)
             && isValidHours(request.resource.data.get("estimatedHours", null))
             && isValidHours(request.resource.data.get("actualHours", null)))
@@ -512,7 +523,6 @@ service cloud.firestore {
         && (request.resource.data.taskId == null
             || (taskOrgId(request.resource.data.taskId) == request.resource.data.organizationId
                 && get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.projectId == request.resource.data.projectId))
-        && isValidProjectStatus(request.resource.data.projectStatus)
         && request.resource.data.status == "SUBMITTED"
         && request.resource.data.reviewedBy == null
         && request.resource.data.reviewedAt == null
@@ -539,8 +549,7 @@ service cloud.firestore {
             && isValidReviewStatus(request.resource.data.status, request.resource.data.get("reviewerComment", null)))
         || (isSelf(resource.data.userId)
             && resource.data.status == "SUBMITTED"
-            && isValidProjectStatus(request.resource.data.projectStatus)
-            && onlyChangingFields(["taskId", "projectStatus", "workSummary", "completedWork", "blockers", "tomorrowPlan", "evidence", "updatedAt"]));
+            && onlyChangingFields(["taskId", "workSummary", "completedWork", "blockers", "tomorrowPlan", "evidence", "editedAt", "updatedAt"]));
 
       // Delete: Admin/Super Admin only — an intern can never erase their own
       // submitted record; this is meant to build an accountable history, not
@@ -717,6 +726,9 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read, delete: if isSelf(resource.data.userId);
       allow create: if request.resource.data.actorId == request.auth.uid
+        && isClientNotificationType(request.resource.data.type)
+        && request.resource.data.read == false
+        && isInAppHref(request.resource.data.href)
         && (
           isSelf(request.resource.data.userId)
           || (isMemberOfOrg(request.resource.data.organizationId)

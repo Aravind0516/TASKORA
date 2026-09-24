@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Minus, Plus } from "lucide-react";
 import {
   Dialog,
@@ -55,6 +55,11 @@ export function AwardCreditDialog({ organizationId, candidate, open, onOpenChang
   const [reference, setReference] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Idempotency key for the submission in flight — reused only when the
+  // admin retries the IDENTICAL request (e.g. after a network error, when the
+  // first attempt may already have been applied), regenerated as soon as any
+  // field differs, so an edited retry is never mistaken for a replay.
+  const pendingRequestRef = useRef<{ fingerprint: string; requestId: string } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -87,6 +92,11 @@ export function AwardCreditDialog({ organizationId, candidate, open, onOpenChang
       return;
     }
     const signedAmount = action === "deduct" ? -magnitude : magnitude;
+    const fingerprint = JSON.stringify([candidate.uid, category, signedAmount, reason.trim(), reference.trim()]);
+    if (pendingRequestRef.current?.fingerprint !== fingerprint) {
+      pendingRequestRef.current = { fingerprint, requestId: crypto.randomUUID() };
+    }
+    const { requestId } = pendingRequestRef.current;
     setSubmitting(true);
     setError(null);
     try {
@@ -102,7 +112,9 @@ export function AwardCreditDialog({ organizationId, candidate, open, onOpenChang
         action: `${CREDIT_CATEGORY_LABELS[category]}${reference.trim() ? ` — ${reference.trim()}` : ""}`,
         reason: reason.trim(),
         awardedBy: user.uid,
+        requestId,
       });
+      pendingRequestRef.current = null;
       onOpenChange(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : `Failed to ${action === "deduct" ? "deduct" : "award"} credit.`);
@@ -182,7 +194,9 @@ export function AwardCreditDialog({ organizationId, candidate, open, onOpenChang
               onChange={(e) => setReference(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              A reference lets the same item be {action === "deduct" ? "deducted" : "credited"} only once — re-{action === "deduct" ? "deducting" : "awarding"} the same category + reference is blocked automatically.
+              {action === "deduct"
+                ? "Recorded with the deduction for context. A deduction is always a separate ledger entry — it never conflicts with an earlier award for the same item."
+                : "A reference lets the same item be credited only once — re-awarding the same category + reference is blocked automatically."}
             </p>
           </div>
 

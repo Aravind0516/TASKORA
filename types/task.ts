@@ -27,6 +27,8 @@ export interface Task {
   estimatedHours?: number | null;
   /** Actual/logged hours — a single running total, not a timer/timesheet. Optional, same compatibility note as estimatedHours. */
   actualHours?: number | null;
+  /** Incremented only when assignedTo actually changes (0 = never assigned, or a task created before this field existed). The deterministic identity of a task-assignment notification — see lib/server/task-assignment.ts. */
+  assignmentVersion: number;
   dueDate: string;
   labels: string[];
   createdAt: string;

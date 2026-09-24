@@ -3,7 +3,6 @@ import { SuperAdminRoute } from "@/components/auth/super-admin-route";
 import { PlatformProvider } from "@/components/platform/platform-provider";
 import { WorkspaceProvider } from "@/components/workspace/workspace-provider";
 import { PlatformShell } from "@/components/platform/platform-shell";
-import { NotificationExperienceProvider } from "@/components/notifications/notification-experience-provider";
 
 // See app/admin/layout.tsx for why WorkspaceProvider is added here — same
 // reasoning. A Super Admin has no single organizationId, so WorkspaceProvider
@@ -17,11 +16,9 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
     <SuperAdminRoute>
       <PlatformProvider>
         <WorkspaceProvider>
-          <NotificationExperienceProvider>
-            <PlatformShell navKey="superadmin" brandLabel="NxtWise Platform Administration" roleBadge="Platform Owner">
-              {children}
-            </PlatformShell>
-          </NotificationExperienceProvider>
+          <PlatformShell navKey="superadmin" brandLabel="NxtWise Platform Administration" roleBadge="Platform Owner">
+            {children}
+          </PlatformShell>
         </WorkspaceProvider>
       </PlatformProvider>
     </SuperAdminRoute>

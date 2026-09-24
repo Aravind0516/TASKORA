@@ -24,6 +24,7 @@ import {
 import { platformUserFormSchema, type PlatformUserFormValues } from "@/lib/validation/platform-user.schema";
 import type { PersonStatus, PlatformTeam, PlatformUser } from "@/types/platform";
 import { FUNCTIONAL_ROLES } from "@/types/user";
+import { selectItems } from "@/lib/select-items";
 
 const STATUSES: PersonStatus[] = ["Active", "Invited", "Suspended"];
 
@@ -147,7 +148,15 @@ export function UserFormDialog({ open, onOpenChange, onSubmitUser, teams, user }
                   control={control}
                   name="teamId"
                   render={({ field }) => (
-                    <Select value={field.value || NO_TEAM} onValueChange={(value) => field.onChange(value ?? NO_TEAM)}>
+                    <Select
+                      value={field.value || NO_TEAM}
+                      onValueChange={(value) => field.onChange(value ?? NO_TEAM)}
+                      items={selectItems(teams, (t) => t.id, (t) => t.name, {
+                        extra: { [NO_TEAM]: "No team assigned" },
+                        value: field.value,
+                        unresolvedLabel: "Unknown team",
+                      })}
+                    >
                       <SelectTrigger id="user-team" className="w-full">
                         <SelectValue placeholder="No team" />
                       </SelectTrigger>

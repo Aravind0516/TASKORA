@@ -32,18 +32,17 @@ import {
   EVIDENCE_TYPE_LABELS,
   EVIDENCE_URL_FIELD,
   FILE_EVIDENCE_TYPES,
-  PROJECT_STATUS_OPTIONS,
   type DailyWorkUpdateFormValues,
 } from "@/lib/validation/daily-work-update.schema";
 import { IMAGE_ATTACHMENT_TYPES, DOCUMENT_ATTACHMENT_TYPES, IMAGE_ATTACHMENT_INPUT_ACCEPT, DOCUMENT_ATTACHMENT_INPUT_ACCEPT, validateAttachmentFile } from "@/lib/validation/attachment";
 import * as dailyUpdateService from "@/lib/services/daily-work-update.service";
 import * as attachmentService from "@/lib/services/attachment.service";
 import * as notificationService from "@/lib/services/notification.service";
-import { formatDate, formatFileSize } from "@/lib/format";
+import { formatDate, formatFileSize, formatTime } from "@/lib/format";
 import type { DailyWorkUpdate, EvidenceType } from "@/types/daily-work-update";
 import type { Attachment } from "@/types/attachment";
 import type { Task } from "@/types/task";
-import type { ProjectStatus } from "@/types/project";
+import { selectItems } from "@/lib/select-items";
 
 const NO_TASK = "none";
 
@@ -61,8 +60,6 @@ interface DailyUpdatePanelProps {
   uid: string;
   userName: string;
   tasks: Task[];
-  /** The project's own CURRENT status (types/project.ts) — used only to pre-select a sensible default in the Project Status field for a fresh (not-yet-submitted) update; never shown as read-only, since the whole point of the field is letting the submitter confirm or correct it. */
-  currentProjectStatus: ProjectStatus;
   /** Today's update for this project + this user, if one already exists (from the parent's single shared subscription). null while none has been submitted yet today. */
   todayUpdate: DailyWorkUpdate | null;
   /** This user's own recent updates for this project (excluding today's), newest first. */
@@ -82,7 +79,6 @@ export function DailyUpdatePanel({
   uid,
   userName,
   tasks,
-  currentProjectStatus,
   todayUpdate,
   recentUpdates,
   notifyRecipientIds,
@@ -105,15 +101,7 @@ export function DailyUpdatePanel({
     formState: { errors },
   } = useForm<DailyWorkUpdateFormValues>({
     resolver: zodResolver(dailyWorkUpdateFormSchema),
-    defaultValues: {
-      taskId: initialTaskId ?? undefined,
-      projectStatus: currentProjectStatus,
-      workSummary: "",
-      completedWork: "",
-      blockers: "",
-      tomorrowPlan: "",
-      evidence: [],
-    },
+    defaultValues: { taskId: initialTaskId ?? undefined, workSummary: "", completedWork: "", blockers: "", tomorrowPlan: "", evidence: [] },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "evidence" });
 
@@ -121,7 +109,6 @@ export function DailyUpdatePanel({
     if (todayUpdate) {
       reset({
         taskId: todayUpdate.taskId ?? undefined,
-        projectStatus: todayUpdate.projectStatus ?? currentProjectStatus,
         workSummary: todayUpdate.workSummary,
         completedWork: todayUpdate.completedWork,
         blockers: todayUpdate.blockers,
@@ -129,7 +116,7 @@ export function DailyUpdatePanel({
         evidence: todayUpdate.evidence,
       });
     }
-  }, [todayUpdate, currentProjectStatus, reset]);
+  }, [todayUpdate, reset]);
 
   // Reactive, not just the initial defaultValues — covers arriving at an
   // already-mounted panel (e.g. Tabs keeps this mounted while hidden) via a
@@ -162,9 +149,8 @@ export function DailyUpdatePanel({
     const evidence = values.evidence.map((e) => ({ ...e, submittedAt: new Date().toISOString() }));
     try {
       if (todayUpdate) {
-        await dailyUpdateService.editOwnDailyUpdate(todayUpdate.id, projectId, {
+        await dailyUpdateService.editOwnDailyUpdate(todayUpdate.id, {
           taskId,
-          projectStatus: values.projectStatus,
           workSummary: values.workSummary,
           completedWork: values.completedWork,
           blockers: values.blockers,
@@ -178,7 +164,6 @@ export function DailyUpdatePanel({
           taskId,
           userId: uid,
           date: dailyUpdateService.todayDateKey(),
-          projectStatus: values.projectStatus,
           workSummary: values.workSummary,
           completedWork: values.completedWork,
           blockers: values.blockers,
@@ -243,7 +228,11 @@ export function DailyUpdatePanel({
                     control={control}
                     name="taskId"
                     render={({ field }) => (
-                      <Select value={field.value || NO_TASK} onValueChange={(v) => field.onChange(v === NO_TASK ? undefined : v)}>
+                      <Select
+                        value={field.value || NO_TASK}
+                        onValueChange={(v) => field.onChange(v === NO_TASK ? undefined : v)}
+                        items={selectItems(tasks, (t) => t.id, (t) => t.title, { extra: { [NO_TASK]: "Project-level update" }, value: field.value, unresolvedLabel: "Unknown task" })}
+                      >
                         <SelectTrigger id="duw-task" className="w-full">
                           <SelectValue placeholder="Project-level update" />
                         </SelectTrigger>
@@ -260,30 +249,6 @@ export function DailyUpdatePanel({
                   />
                 </div>
               )}
-
-              <div className="space-y-1.5">
-                <Label htmlFor="duw-project-status">Project Status</Label>
-                <Controller
-                  control={control}
-                  name="projectStatus"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={(v) => v && field.onChange(v)}>
-                      <SelectTrigger id="duw-project-status" className="w-full">
-                        <SelectValue placeholder="Select the project's current status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PROJECT_STATUS_OPTIONS.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <p className="text-xs text-muted-foreground">What is &quot;{projectName}&quot;&apos;s status as of today?</p>
-                {errors.projectStatus && <p className="text-xs text-destructive">{errors.projectStatus.message}</p>}
-              </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="duw-summary">Today&apos;s Work</Label>
@@ -360,7 +325,11 @@ export function DailyUpdatePanel({
                 <div key={u.id} className="pt-3 first:pt-0">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-medium text-foreground">
-                      {formatDate(u.submittedAt, { hour: "numeric", minute: "2-digit" })}
+                      {formatDate(u.date)}
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        Submitted {formatTime(u.submittedAt)}
+                        {u.editedAt && ` · Edited ${formatTime(u.editedAt)}`}
+                      </span>
                     </span>
                     <span className={`flex items-center gap-1.5 text-xs ${meta.className}`}>
                       <Icon className="size-3.5" />
@@ -368,8 +337,7 @@ export function DailyUpdatePanel({
                     </span>
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {task ? task.title : "Project-level"}
-                    {u.projectStatus && ` · Project Status: ${u.projectStatus}`} · {u.workSummary}
+                    {task ? task.title : "Project-level"} · {u.workSummary}
                     {u.evidence.length > 0 && ` · ${u.evidence.length} evidence item${u.evidence.length === 1 ? "" : "s"}`}
                   </p>
                   {u.reviewerComment && <p className="mt-0.5 text-xs text-foreground">&quot;{u.reviewerComment}&quot;</p>}
@@ -578,11 +546,7 @@ function ReadOnlyUpdate({ update, tasks }: { update: DailyWorkUpdate; tasks: Tas
   const task = update.taskId ? tasks.find((t) => t.id === update.taskId) : null;
   return (
     <div className="space-y-3 text-sm">
-      <p className="text-xs text-muted-foreground">
-        {task && <>Task: {task.title} · </>}
-        Submitted {formatDate(update.submittedAt, { hour: "numeric", minute: "2-digit" })}
-        {update.projectStatus && <> · Project Status: {update.projectStatus}</>}
-      </p>
+      {task && <p className="text-xs text-muted-foreground">Task: {task.title}</p>}
       <div>
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Today&apos;s Work</p>
         <p className="mt-1 text-foreground">{update.workSummary}</p>

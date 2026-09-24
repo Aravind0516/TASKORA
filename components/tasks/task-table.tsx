@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react";
+import { Eye, MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -38,9 +38,20 @@ interface TaskTableProps {
   onEdit?: (task: Task) => void;
   onDelete?: (task: Task) => void;
   emptyMessage?: string;
+  /**
+   * Per-task check for whether the viewer has real edit rights on that task
+   * (mirrors firestore.rules' tasks update rule — admin/super_admin or the
+   * task's project manager). Omit for callers where every row is already
+   * scoped to full-edit viewers only (e.g. a project's Tasks tab, which is
+   * gated to canManageProject). When it returns false for a row, the row
+   * still opens the same dialog via onEdit (TaskFormDialog locks fields
+   * itself), but is labeled "View" instead of "Edit" so it doesn't read as
+   * a generic edit affordance for viewers who can't actually edit.
+   */
+  canEditTask?: (task: Task) => boolean;
 }
 
-export function TaskTable({ tasks, onEdit, onDelete, emptyMessage = "No tasks yet." }: TaskTableProps) {
+export function TaskTable({ tasks, onEdit, onDelete, emptyMessage = "No tasks yet.", canEditTask }: TaskTableProps) {
   const { getProjectById } = useWorkspace();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<TaskStatus | "all">("all");
@@ -120,6 +131,7 @@ export function TaskTable({ tasks, onEdit, onDelete, emptyMessage = "No tasks ye
             {filtered.map((task) => {
               const project = getProjectById(task.projectId);
               const overdue = isOverdue(task.dueDate, task.status === "Completed");
+              const canEdit = canEditTask ? canEditTask(task) : true;
 
               return (
                 <TableRow
@@ -159,8 +171,17 @@ export function TaskTable({ tasks, onEdit, onDelete, emptyMessage = "No tasks ye
                         <DropdownMenuContent align="end">
                           {onEdit && (
                             <DropdownMenuItem onClick={() => onEdit(task)}>
-                              <Pencil />
-                              Edit
+                              {canEdit ? (
+                                <>
+                                  <Pencil />
+                                  Edit
+                                </>
+                              ) : (
+                                <>
+                                  <Eye />
+                                  View
+                                </>
+                              )}
                             </DropdownMenuItem>
                           )}
                           {onDelete && (

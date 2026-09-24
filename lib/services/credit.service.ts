@@ -21,6 +21,7 @@ import {
   type CreditSourceType,
   type CreditTransaction,
   type LeaderboardEntry,
+  creditEntryTypeForAmount,
 } from "@/types/credit";
 
 function creditRulesFromDoc(organizationId: string, data: Record<string, unknown> | undefined): CreditRules {
@@ -69,6 +70,7 @@ function transactionFromDoc(docSnap: QueryDocumentSnapshot): CreditTransaction {
     candidateId: data.candidateId ?? null,
     category: data.category,
     credits: data.credits,
+    entryType: data.entryType === "DEDUCTION" || data.entryType === "AWARD" ? data.entryType : creditEntryTypeForAmount(data.credits),
     status: data.status ?? "VERIFIED",
     sourceType: data.sourceType,
     sourceId: data.sourceId ?? null,
@@ -140,6 +142,8 @@ export interface AwardCreditInput {
   action: string;
   reason: string;
   awardedBy: string;
+  /** Idempotency key for this one submission — reuse it when retrying the same submission, generate a new one for the next. */
+  requestId: string;
 }
 
 /**
@@ -167,6 +171,7 @@ export async function awardCredit(input: AwardCreditInput): Promise<void> {
       credits: input.credits,
       sourceId: input.sourceId,
       reason: input.reason,
+      requestId: input.requestId,
     }),
   });
 }

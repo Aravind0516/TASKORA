@@ -31,6 +31,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { initials } from "@/lib/format";
 import type { Project, ProjectPriority, ProjectStatus } from "@/types/project";
+import { selectItems } from "@/lib/select-items";
 
 const STATUSES: ProjectStatus[] = ["Planning", "Active", "On Hold", "Completed"];
 const PRIORITIES: ProjectPriority[] = ["Low", "Medium", "High", "Critical"];
@@ -233,7 +234,11 @@ export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: Proj
               control={control}
               name="teamId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => field.onChange(value ?? "")}
+                  items={selectItems(teams, (t) => t.id, (t) => t.name, { value: field.value, unresolvedLabel: "Unknown team" })}
+                >
                   <SelectTrigger id="team" className="w-full">
                     <SelectValue placeholder="Select a team" />
                   </SelectTrigger>
@@ -267,7 +272,15 @@ export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: Proj
                 control={control}
                 name="managerId"
                 render={({ field }) => (
-                  <Select value={field.value || NO_MANAGER} onValueChange={(value) => field.onChange(value === NO_MANAGER ? undefined : value)}>
+                  <Select
+                    value={field.value || NO_MANAGER}
+                    onValueChange={(value) => field.onChange(value === NO_MANAGER ? undefined : value)}
+                    items={selectItems(members, (m) => m.id, (m) => m.name, {
+                      extra: { [NO_MANAGER]: "No manager assigned" },
+                      value: field.value,
+                      unresolvedLabel: "Unknown user",
+                    })}
+                  >
                     <SelectTrigger id="manager" className="w-full">
                       <SelectValue placeholder="Select a manager" />
                     </SelectTrigger>

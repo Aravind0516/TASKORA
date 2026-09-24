@@ -18,10 +18,7 @@ export type NotificationType =
   | "daily_update_submitted"
   | "daily_update_reviewed"
   | "credit_awarded"
-  | "credit_deducted"
-  | "project_assigned"
-  | "project_requirements_updated"
-  | "meeting_cancelled";
+  | "credit_deducted";
 
 export interface AppNotification {
   id: string;

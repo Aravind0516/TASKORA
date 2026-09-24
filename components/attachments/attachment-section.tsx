@@ -20,6 +20,13 @@ interface AttachmentSectionProps {
   target: AttachmentTarget;
   /** Compact = inside a dialog alongside other fields (smaller heading, tighter spacing). Default = a standalone tab/section. */
   variant?: "default" | "compact";
+  /**
+   * false = view/download existing files only: no Upload button or file
+   * input, and nothing is rendered at all when there are no files. Used where
+   * upload is deliberately not part of the workflow (Project View, whose
+   * requirements are plain text) without hiding files already stored.
+   */
+  allowUpload?: boolean;
 }
 
 /**
@@ -34,7 +41,7 @@ interface AttachmentSectionProps {
  * firestore.rules' broader permission, just not from this UI, for the same
  * reason CommentSection doesn't surface that either.
  */
-export function AttachmentSection({ organizationId, currentUserId, getUploaderName, target, variant = "default" }: AttachmentSectionProps) {
+export function AttachmentSection({ organizationId, currentUserId, getUploaderName, target, variant = "default", allowUpload = true }: AttachmentSectionProps) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -129,6 +136,8 @@ export function AttachmentSection({ organizationId, currentUserId, getUploaderNa
     }
   }
 
+  if (!allowUpload && loaded && !listError && attachments.length === 0) return null;
+
   const heading = variant === "compact" ? "text-sm font-medium text-foreground" : "text-base font-semibold tracking-tight text-foreground";
 
   return (
@@ -138,11 +147,15 @@ export function AttachmentSection({ organizationId, currentUserId, getUploaderNa
           <Paperclip className="size-4 text-muted-foreground" />
           <span className={heading}>Attachments{attachments.length > 0 ? ` (${attachments.length})` : ""}</span>
         </div>
-        <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-          {uploading ? <Loader2 className="animate-spin" /> : <Upload />}
-          {uploading ? `Uploading… ${uploadProgress}%` : "Upload"}
-        </Button>
-        <input ref={fileInputRef} type="file" className="hidden" accept={ATTACHMENT_INPUT_ACCEPT} onChange={handleFileSelected} />
+        {allowUpload && (
+          <>
+            <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+              {uploading ? <Loader2 className="animate-spin" /> : <Upload />}
+              {uploading ? `Uploading… ${uploadProgress}%` : "Upload"}
+            </Button>
+            <input ref={fileInputRef} type="file" className="hidden" accept={ATTACHMENT_INPUT_ACCEPT} onChange={handleFileSelected} />
+          </>
+        )}
       </div>
 
       {uploading && <Progress value={uploadProgress} />}

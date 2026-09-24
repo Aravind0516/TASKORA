@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { updateNotificationPreferences } from "@/lib/services/user.service";
-import { NOTIFICATION_CATEGORIES as NOTIFICATION_ITEMS, SOUND_PREFERENCE_KEY } from "@/lib/notifications/categories";
+import { NOTIFICATION_CATEGORIES as NOTIFICATION_ITEMS } from "@/lib/notifications/categories";
 
 // Personal profile editing (name, title, phone, academic/professional
 // details) lives ONLY at /profile (components/candidate/my-profile-view.tsx)
@@ -53,8 +53,6 @@ export function SettingsView() {
     }
   }
 
-  const soundEnabled = notifPrefs[SOUND_PREFERENCE_KEY] !== false;
-
   return (
     <Tabs defaultValue="notifications">
       <TabsList>
@@ -62,31 +60,7 @@ export function SettingsView() {
         <TabsTrigger value="appearance">Appearance</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="notifications" className="mt-4 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Notification Sound</CardTitle>
-            <CardDescription>Play a short sound when a new notification arrives</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label htmlFor="notification-sound" className="text-sm font-medium text-foreground">
-                  Notification sound
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Turning this off still shows popups and keeps every notification in your Notification Center — only the sound is muted.
-                </p>
-              </div>
-              <Switch
-                id="notification-sound"
-                checked={soundEnabled}
-                onCheckedChange={(checked) => handleNotifPrefChange(SOUND_PREFERENCE_KEY, Boolean(checked))}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
+      <TabsContent value="notifications" className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle>Notifications</CardTitle>

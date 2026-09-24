@@ -1,4 +1,4 @@
-import { Mail, MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -63,14 +63,6 @@ export function MemberCard({ member, onSelect, onRemove }: MemberCardProps) {
             {member.functionalRole && <Badge variant="outline">{member.functionalRole}</Badge>}
           </div>
         </div>
-        <a
-          href={`mailto:${member.email}`}
-          onClick={(e) => e.stopPropagation()}
-          className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-          aria-label={`Email ${member.name}`}
-        >
-          <Mail className="size-4" />
-        </a>
         {onRemove && (
           <DropdownMenu>
             <DropdownMenuTrigger

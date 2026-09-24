@@ -20,16 +20,6 @@ export interface NotificationCategory {
   description: string;
 }
 
-/**
- * A special key inside the SAME notificationPreferences map (never a
- * separate field/collection) — whether the centralized notification popup
- * plays a sound. Deliberately NOT a notification category: muting it never
- * disables any actual notification, only the chime that accompanies it (see
- * lib/notifications/sound.ts / NotificationExperienceProvider). Absent =
- * enabled, matching this app's existing "unset = default on" rule.
- */
-export const SOUND_PREFERENCE_KEY = "sound";
-
 export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   { id: "task-assigned", title: "Task assigned to me", description: "Get notified when a task is assigned to you." },
   { id: "task-status-changed", title: "Task status updates", description: "Get notified when a task you're involved in changes status." },
@@ -68,7 +58,6 @@ export function categoryForNotificationType(type: NotificationType): string | nu
       return "project-updates";
     case "meeting_created":
     case "meeting_updated":
-    case "meeting_cancelled":
       return "meetings";
     case "daily_update_submitted":
     case "daily_update_reviewed":
@@ -84,8 +73,5 @@ export function categoryForNotificationType(type: NotificationType): string | nu
     case "credit_awarded":
     case "credit_deducted":
       return "credits";
-    case "project_assigned":
-    case "project_requirements_updated":
-      return "project-updates";
   }
 }

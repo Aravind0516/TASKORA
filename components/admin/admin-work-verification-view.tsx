@@ -43,6 +43,7 @@ import * as dailyWorkUpdateService from "@/lib/services/daily-work-update.servic
 import * as notificationService from "@/lib/services/notification.service";
 import type { DailyWorkUpdate, DailyUpdateStatus } from "@/types/daily-work-update";
 import { formatDate } from "@/lib/format";
+import { selectItems } from "@/lib/select-items";
 
 const STATUS_OPTIONS: DailyUpdateStatus[] = ["SUBMITTED", "VERIFIED", "PARTIALLY_VERIFIED", "NEEDS_CLARIFICATION"];
 const STATUS_LABELS: Record<DailyUpdateStatus, string> = {
@@ -159,11 +160,7 @@ export function AdminWorkVerificationView() {
         const haystack = `${person?.name ?? ""} ${person?.userId ?? ""} ${projectName} ${taskTitle}`.toLowerCase();
         return haystack.includes(q);
       })
-      // Sort by the real submission INSTANT (submittedAt), not the coarser
-      // calendar-day `date` field — two updates on the same day (different
-      // projects/tasks) must still order by actual submission time, so the
-      // most-recently-submitted one is always shown first.
-      .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+      .sort((a, b) => b.date.localeCompare(a.date));
   }
   const rows = computeRows();
 
@@ -235,7 +232,11 @@ export function AdminWorkVerificationView() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Select value={projectFilter} onValueChange={(v) => setProjectFilter(v ?? "all")}>
+        <Select
+          value={projectFilter}
+          onValueChange={(v) => setProjectFilter(v ?? "all")}
+          items={selectItems(projects, (p) => p.id, (p) => p.name, { extra: { all: "All projects" } })}
+        >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Project" />
           </SelectTrigger>
@@ -248,7 +249,11 @@ export function AdminWorkVerificationView() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={teamFilter} onValueChange={(v) => setTeamFilter(v ?? "all")}>
+        <Select
+          value={teamFilter}
+          onValueChange={(v) => setTeamFilter(v ?? "all")}
+          items={selectItems(teams, (t) => t.id, (t) => t.name, { extra: { all: "All teams" } })}
+        >
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="Team" />
           </SelectTrigger>
@@ -261,7 +266,11 @@ export function AdminWorkVerificationView() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={candidateFilter} onValueChange={(v) => setCandidateFilter(v ?? "all")}>
+        <Select
+          value={candidateFilter}
+          onValueChange={(v) => setCandidateFilter(v ?? "all")}
+          items={selectItems(users, (u) => u.id, (u) => u.name, { extra: { all: "All candidates" } })}
+        >
           <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Candidate" />
           </SelectTrigger>
@@ -325,9 +334,8 @@ export function AdminWorkVerificationView() {
                     <TableHead>Candidate</TableHead>
                     <TableHead>Project</TableHead>
                     <TableHead>Task</TableHead>
-                    <TableHead>Project Status</TableHead>
                     <TableHead>Submitted</TableHead>
-                    <TableHead>Review Status</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Reviewer</TableHead>
                     <TableHead>Evidence</TableHead>
                     <TableHead className="w-16" />
@@ -348,9 +356,11 @@ export function AdminWorkVerificationView() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">{projectNameById.get(update.projectId) ?? "Unknown project"}</TableCell>
                         <TableCell className="text-muted-foreground">{task?.title ?? "Project-level"}</TableCell>
-                        <TableCell className="text-muted-foreground">{update.projectStatus ?? "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">
                           {formatDate(update.submittedAt, { hour: "numeric", minute: "2-digit" })}
+                          {update.editedAt && (
+                            <span className="block text-xs">Edited {formatDate(update.editedAt, { hour: "numeric", minute: "2-digit" })}</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TONE[update.status]}`}>
@@ -406,10 +416,9 @@ export function AdminWorkVerificationView() {
                   <div>
                     <p className="text-xs text-muted-foreground">Submitted</p>
                     <p className="text-foreground">{formatDate(detailTarget.submittedAt, { hour: "numeric", minute: "2-digit" })}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Project Status</p>
-                    <p className="text-foreground">{detailTarget.projectStatus ?? "—"}</p>
+                    {detailTarget.editedAt && (
+                      <p className="text-xs text-muted-foreground">Last edited {formatDate(detailTarget.editedAt, { hour: "numeric", minute: "2-digit" })}</p>
+                    )}
                   </div>
                 </div>
 

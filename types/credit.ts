@@ -45,6 +45,13 @@ export interface CreditRules {
 
 export type CreditTransactionStatus = "VERIFIED" | "REVERSED";
 
+/** Whether a ledger row added or removed credits. Stored explicitly on every row written since the award/deduction ledger fix; older rows are classified by the sign of `credits`. */
+export type CreditEntryType = "AWARD" | "DEDUCTION";
+
+export function creditEntryTypeForAmount(credits: number): CreditEntryType {
+  return credits < 0 ? "DEDUCTION" : "AWARD";
+}
+
 /** What a transaction's credits are evidence FOR — free-form enough to point at any existing collection without inventing a parallel reference system. */
 export type CreditSourceType = "LINKEDIN_EVIDENCE" | "PROJECT" | "TASK" | "DOCUMENT_ATTACHMENT" | "MEETING" | "MANUAL";
 
@@ -56,8 +63,9 @@ export interface CreditTransaction {
   /** Denormalized for display without a candidateProfiles lookup per row. */
   candidateId: string | null;
   category: CreditCategory;
-  /** Positive to award, negative only for an explicit, reasoned reversal — never silently edited. */
+  /** Positive to award, negative for a deduction — never silently edited. */
   credits: number;
+  entryType: CreditEntryType;
   status: CreditTransactionStatus;
   sourceType: CreditSourceType;
   /** e.g. a projects/{id}, tasks/{id}, meetings/{id}, or attachments/{id} id — null for a purely manual award. */
@@ -94,4 +102,17 @@ export interface LeaderboardEntry {
   /** "YYYY-MM" for the month this monthly total is for. */
   monthKey: string;
   updatedAt: string;
+}
+
+/** "+100" / "-50" — the sign always comes from the ledger amount itself. */
+export function formatCreditAmount(credits: number): string {
+  return credits > 0 ? `+${credits}` : String(credits);
+}
+
+/** Display labels for a history row: whether it was awarded or deducted, and whether an admin entered it by hand (an "Adjustment") rather than it being awarded automatically (e.g. on project submission). */
+export function creditEntryLabels(transaction: Pick<CreditTransaction, "entryType" | "sourceType">): { kind: "Awarded" | "Deducted"; isAdjustment: boolean } {
+  return {
+    kind: transaction.entryType === "DEDUCTION" ? "Deducted" : "Awarded",
+    isAdjustment: transaction.sourceType === "MANUAL",
+  };
 }

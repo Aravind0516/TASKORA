@@ -7,11 +7,10 @@ interface ProjectRequirementsTextSectionProps {
 
 /**
  * Read-only display of a project's plain-text requirements (types/project.ts's
- * `requirements`) — distinct from ProjectRequirementSection below it, which
- * handles the PDF/DOC upload. There is deliberately no edit affordance here
- * for anyone, including Admin/manager: editing happens through the existing
- * Edit Project dialog (already gated to canManageProject), so this component
- * never needs its own permission check to keep Employees/Interns read-only.
+ * `requirements`). There is deliberately no edit affordance here for anyone,
+ * including Admin/manager: editing happens through the existing Edit Project
+ * dialog (already gated to canManageProject), so this component never needs
+ * its own permission check to keep Employees/Interns read-only.
  *
  * "Last updated" reuses the project's own `updatedAt` rather than a new
  * dedicated timestamp — it reflects the project's last edit in general, not

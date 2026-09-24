@@ -1,89 +1,55 @@
-"use client";
+// Notification chime, synthesized with the Web Audio API (no audio asset to
+// ship or load). Browsers block audio until the user has interacted with the
+// page, so the AudioContext is only ever created from a real user gesture
+// (unlockNotificationSound, wired to the first pointer/key event by
+// components/layout/notification-alerts.tsx). Until then — or if audio is
+// unavailable/blocked for any reason — playNotificationChime() is a silent
+// no-op: the popup and unread badge never depend on sound succeeding.
 
-// TASKORA's ONE centralized notification sound — a short, synthesized
-// two-note chime via the Web Audio API, not a bundled audio file (no asset
-// to source/license, and it stays a single ~1KB implementation instead of a
-// binary dependency). Every other part of the app must call
-// playNotificationSound() from here — never `new Audio(...).play()` inline
-// in a component (see the notification-popup spec this implements).
-//
-// One shared AudioContext for the whole app, created lazily. Browsers block
-// audio playback before the user has interacted with the page at all
-// (autoplay policy) — unlockNotificationAudio() resumes the shared context
-// and must be called once from a real user gesture (see
-// NotificationExperienceProvider, which wires this to the first
-// click/keydown after the shell mounts). Every function here is
-// fail-silent: a blocked or unsupported AudioContext must never throw or
-// surface an error anywhere else in the app — the popup/notification itself
-// always works regardless of whether sound does.
+type AudioContextConstructor = typeof AudioContext;
 
-let audioContext: AudioContext | null = null;
+let context: AudioContext | null = null;
 
-function getAudioContext(): AudioContext | null {
+function audioContextConstructor(): AudioContextConstructor | null {
   if (typeof window === "undefined") return null;
-  const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Ctor) return null;
-  if (!audioContext) {
-    try {
-      audioContext = new Ctor();
-    } catch {
-      return null;
-    }
-  }
-  return audioContext;
+  const legacy = (window as Window & { webkitAudioContext?: AudioContextConstructor }).webkitAudioContext;
+  return window.AudioContext ?? legacy ?? null;
 }
 
-/**
- * Call once from a genuine user gesture (click/keydown) — resumes the
- * shared AudioContext so later, programmatically-triggered
- * playNotificationSound() calls (arriving from a live Firestore listener,
- * not a click) aren't silently blocked by the browser's autoplay policy.
- * Safe to call repeatedly/redundantly.
- */
-export function unlockNotificationAudio(): void {
-  const ctx = getAudioContext();
-  if (!ctx || ctx.state !== "suspended") return;
-  ctx.resume().catch(() => {
-    // Still blocked — playNotificationSound() will just no-op later too.
-  });
-}
-
-function playTone(ctx: AudioContext, startAt: number, frequency: number, duration: number, peakGain: number): void {
-  const oscillator = ctx.createOscillator();
-  const gain = ctx.createGain();
-  oscillator.type = "sine";
-  oscillator.frequency.value = frequency;
-  // Soft envelope — quick fade in, gentle exponential fade out. A "ding,"
-  // not a beep; deliberately quiet and short (see Part 11/26 of the
-  // notification-popup spec: professional, subtle, not annoying).
-  gain.gain.setValueAtTime(0.0001, startAt);
-  gain.gain.linearRampToValueAtTime(peakGain, startAt + 0.015);
-  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
-  oscillator.connect(gain);
-  gain.connect(ctx.destination);
-  oscillator.start(startAt);
-  oscillator.stop(startAt + duration + 0.02);
-}
-
-/**
- * Plays the one centralized notification chime — a rising two-note interval
- * (~220ms total), clearly distinguishable from a harsher/lower error tone
- * (this app never plays an error sound at all, so there's no collision).
- * Never throws: if Web Audio is unavailable or still autoplay-blocked, this
- * silently does nothing — callers never need to wrap this in try/catch.
- */
-export function playNotificationSound(): void {
+/** Call from a user-gesture handler only. Safe to call repeatedly. */
+export function unlockNotificationSound(): void {
   try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
-      if (ctx.state === "suspended") return;
+    if (!context) {
+      const Ctor = audioContextConstructor();
+      if (!Ctor) return;
+      context = new Ctor();
     }
-    const now = ctx.currentTime;
-    playTone(ctx, now, 880, 0.1, 0.11);
-    playTone(ctx, now + 0.08, 1175, 0.13, 0.1);
+    if (context.state === "suspended") void context.resume().catch(() => undefined);
   } catch {
-    // Fail silent — sound is never allowed to be the reason anything else breaks.
+    context = null;
+  }
+}
+
+/** Plays a short two-note chime if audio has been unlocked and is running; otherwise does nothing. Never throws. */
+export function playNotificationChime(): void {
+  try {
+    if (!context || context.state !== "running") return;
+    const start = context.currentTime;
+    const gain = context.createGain();
+    gain.connect(context.destination);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.08, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
+
+    [880, 1320].forEach((frequency, index) => {
+      const oscillator = context!.createOscillator();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, start + index * 0.12);
+      oscillator.connect(gain);
+      oscillator.start(start + index * 0.12);
+      oscillator.stop(start + 0.4);
+    });
+  } catch {
+    // Audio is a nicety — a failure here must never surface to the user.
   }
 }

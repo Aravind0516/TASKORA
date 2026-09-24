@@ -12,6 +12,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import * as creditService from "@/lib/services/credit.service";
 import { CREDIT_CATEGORIES, CREDIT_CATEGORY_LABELS, DEFAULT_CREDIT_WEIGHTS, type CreditRules, type CreditTransaction } from "@/types/credit";
 import { formatDate } from "@/lib/format";
+import { CreditAmount, CreditEntryBadges } from "@/components/credits/credit-entry";
 
 export function MyCreditsView() {
   const { user, organizationId } = useAuth();
@@ -31,7 +32,9 @@ export function MyCreditsView() {
 
   const weights = rules?.weights ?? DEFAULT_CREDIT_WEIGHTS;
   const total = Object.values(weights).reduce((sum, v) => sum + v, 0);
-  const totalEarned = (transactions ?? []).reduce((sum, t) => sum + t.credits, 0);
+  // Net ledger balance: every award and every deduction, exactly as stored —
+  // the same sum the server keeps in leaderboardStats.lifetimeCredits.
+  const balance = (transactions ?? []).reduce((sum, t) => sum + t.credits, 0);
 
   const earnedByCategory = CREDIT_CATEGORIES.reduce<Record<string, number>>((acc, category) => {
     acc[category] = (transactions ?? []).filter((t) => t.category === category).reduce((sum, t) => sum + t.credits, 0);
@@ -46,11 +49,11 @@ export function MyCreditsView() {
         <CardContent className="flex flex-col items-center gap-2 px-5 py-8 text-center">
           <Gauge className="size-7 text-primary" />
           <p className="text-4xl font-semibold tracking-tight text-foreground">
-            {totalEarned}
+            {balance}
             <span className="text-lg text-muted-foreground">/{total}</span>
           </p>
-          <p className="text-sm text-muted-foreground">Total credits earned</p>
-          <Progress value={total > 0 ? Math.min(100, Math.round((totalEarned / total) * 100)) : 0} className="mt-2 w-full max-w-xs" />
+          <p className="text-sm text-muted-foreground">Current credit balance</p>
+          <Progress value={total > 0 ? Math.max(0, Math.min(100, Math.round((balance / total) * 100))) : 0} className="mt-2 w-full max-w-xs" />
         </CardContent>
       </Card>
 
@@ -94,21 +97,25 @@ export function MyCreditsView() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Activity</TableHead>
-                  <TableHead>Credits</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Credits</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {transactions.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell>{formatDate(t.createdAt)}</TableCell>
-                    <TableCell>{t.action}</TableCell>
-                    <TableCell className={t.credits >= 0 ? "text-success" : "text-danger"}>
-                      {t.credits >= 0 ? "+" : ""}
-                      {t.credits}
+                    <TableCell>
+                      <CreditEntryBadges transaction={t} />
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{t.status === "VERIFIED" ? "Verified" : "Reversed"}</TableCell>
+                    <TableCell className="whitespace-normal">
+                      <p className="text-foreground">{t.action}</p>
+                      {t.reason && <p className="text-xs text-muted-foreground">{t.reason}</p>}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <CreditAmount credits={t.credits} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

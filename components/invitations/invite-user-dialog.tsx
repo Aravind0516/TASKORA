@@ -29,6 +29,7 @@ import { createInvitation, resendInvitation, checkUserIdAvailable } from "@/lib/
 import { DOMAIN_OPTIONS } from "@/types/candidate";
 import type { PlatformTeam, PlatformProject } from "@/types/platform";
 import { FUNCTIONAL_ROLES } from "@/types/user";
+import { selectItems } from "@/lib/select-items";
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -387,7 +388,15 @@ export function InviteUserDialog({ open, onOpenChange, organizationId, teams, pr
                       control={control}
                       name="teamId"
                       render={({ field }) => (
-                        <Select value={field.value || NO_TEAM} onValueChange={(value) => field.onChange(value ?? NO_TEAM)}>
+                        <Select
+                          value={field.value || NO_TEAM}
+                          onValueChange={(value) => field.onChange(value ?? NO_TEAM)}
+                          items={selectItems(teams, (t) => t.id, (t) => t.name, {
+                            extra: { [NO_TEAM]: "No team assigned" },
+                            value: field.value,
+                            unresolvedLabel: "Unknown team",
+                          })}
+                        >
                           <SelectTrigger id="invite-team" className="w-full">
                             <SelectValue placeholder="Select a team" />
                           </SelectTrigger>

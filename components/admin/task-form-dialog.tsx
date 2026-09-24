@@ -26,10 +26,12 @@ import { platformTaskFormSchema, type PlatformTaskFormValues } from "@/lib/valid
 import { PLATFORM_TASK_STATUSES, PLATFORM_PRIORITIES } from "@/lib/platform/constants";
 import { SubtaskChecklist } from "@/components/tasks/subtask-checklist";
 import { CommentSection } from "@/components/comments/comment-section";
+import { AttachmentSection } from "@/components/attachments/attachment-section";
 import { parseOptionalHours } from "@/lib/format";
 import { useAuth } from "@/components/auth/auth-provider";
 import { usePlatform } from "@/components/platform/platform-provider";
 import type { PlatformProject, PlatformTask, PlatformUser } from "@/types/platform";
+import { selectItems } from "@/lib/select-items";
 
 // Sentinel item value for "no reviewer assigned" — Select items can't use an
 // empty string as their value, same pattern as every other optional picker
@@ -39,7 +41,8 @@ const NO_REVIEWER = "none";
 interface TaskFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmitTask: (values: PlatformTaskFormValues) => void;
+  /** Must resolve only once the save has actually succeeded — the dialog stays open and shows the error if it rejects. */
+  onSubmitTask: (values: PlatformTaskFormValues) => Promise<void>;
   projects: PlatformProject[];
   users: PlatformUser[];
   task?: PlatformTask | null;
@@ -84,6 +87,7 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
     control,
     reset,
     setValue,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<PlatformTaskFormValues>({
     resolver: zodResolver(platformTaskFormSchema),
@@ -123,9 +127,13 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
     onOpenChange(next);
   }
 
-  function onSubmit(values: PlatformTaskFormValues) {
-    onSubmitTask(values);
-    onOpenChange(false);
+  async function onSubmit(values: PlatformTaskFormValues) {
+    try {
+      await onSubmitTask(values);
+      onOpenChange(false);
+    } catch (error) {
+      setError("root", { message: error instanceof Error ? error.message : "Failed to save the task. Please try again." });
+    }
   }
 
   return (
@@ -137,6 +145,11 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
         </DialogHeader>
 
         <form id="platform-task-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {errors.root && (
+            <p role="alert" className="rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+              {errors.root.message}
+            </p>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="pt-title">Title</Label>
             <Input id="pt-title" placeholder="e.g. Finalize schema migration" {...register("title")} />
@@ -153,7 +166,11 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
               control={control}
               name="projectId"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={(value) => field.onChange(value ?? "")}>
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => field.onChange(value ?? "")}
+                  items={selectItems(projects, (p) => p.id, (p) => p.name, { value: field.value, unresolvedLabel: "Unknown project" })}
+                >
                   <SelectTrigger id="pt-project" className="w-full">
                     <SelectValue placeholder="Select a project" />
                   </SelectTrigger>
@@ -222,7 +239,12 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
                 control={control}
                 name="assigneeId"
                 render={({ field }) => (
-                  <Select value={field.value ?? ""} onValueChange={(value) => field.onChange(value || undefined)} disabled={!selectedProject}>
+                  <Select
+                    value={field.value ?? ""}
+                    onValueChange={(value) => field.onChange(value || undefined)}
+                    items={selectItems(users, (u) => u.id, (u) => u.name, { value: field.value, unresolvedLabel: "Unknown user" })}
+                    disabled={!selectedProject}
+                  >
                     <SelectTrigger id="pt-assignee" className="w-full">
                       <SelectValue placeholder={selectedProject ? "Unassigned" : "Select a project first"} />
                     </SelectTrigger>
@@ -254,7 +276,11 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
                 control={control}
                 name="reviewerId"
                 render={({ field }) => (
-                  <Select value={field.value || NO_REVIEWER} onValueChange={(value) => field.onChange(value === NO_REVIEWER ? undefined : value)}>
+                  <Select
+                    value={field.value || NO_REVIEWER}
+                    onValueChange={(value) => field.onChange(value === NO_REVIEWER ? undefined : value)}
+                    items={selectItems(users, (u) => u.id, (u) => u.name, { extra: { [NO_REVIEWER]: "No reviewer" }, value: field.value, unresolvedLabel: "Unknown user" })}
+                  >
                     <SelectTrigger id="pt-reviewer" className="w-full">
                       <SelectValue placeholder="No reviewer" />
                     </SelectTrigger>
@@ -298,6 +324,16 @@ export function TaskFormDialog({ open, onOpenChange, onSubmitTask, projects, use
         </form>
 
         {task && <SubtaskChecklist taskId={task.id} organizationId={task.organizationId} projectId={task.projectId} members={users} />}
+
+        {task && user && (
+          <AttachmentSection
+            organizationId={task.organizationId}
+            currentUserId={user.uid}
+            getUploaderName={(uploaderUid) => getUser(uploaderUid)?.name}
+            target={{ kind: "task", taskId: task.id, projectId: task.projectId }}
+            variant="compact"
+          />
+        )}
 
         {task && user && (
           <CommentSection

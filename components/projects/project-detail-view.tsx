@@ -36,8 +36,6 @@ import { ProjectMyTasksPanel } from "@/components/projects/project-my-tasks-pane
 import { StatusBadge } from "@/components/shared/status-badge";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { CommentSection } from "@/components/comments/comment-section";
-import { AttachmentSection } from "@/components/attachments/attachment-section";
-import { ProjectRequirementSection } from "@/components/projects/project-requirement-section";
 import { ProjectRequirementsTextSection } from "@/components/projects/project-requirements-text-section";
 import { DailyUpdatePanel } from "@/components/work-verification/daily-update-panel";
 import { ProjectVerificationDashboard } from "@/components/work-verification/project-verification-dashboard";
@@ -365,7 +363,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             <TabsTrigger value="my-tasks">My Tasks ({myTasks.length})</TabsTrigger>
           )}
           <TabsTrigger value="deliverables">Deliverables ({deliverables.length})</TabsTrigger>
-          <TabsTrigger value="files">Files &amp; Requirements</TabsTrigger>
+          <TabsTrigger value="requirements">Requirements</TabsTrigger>
           <TabsTrigger value="discussion">Discussion</TabsTrigger>
           {project.workVerificationEnabled && (
             <TabsTrigger value="work-verification">{canManageProject ? "Work Verification" : "Daily Updates"}</TabsTrigger>
@@ -442,15 +440,15 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             <Card>
               <CardHeader>
                 <CardTitle>Project Requirements</CardTitle>
-                <CardDescription>Requirement documents and reference files</CardDescription>
+                <CardDescription>Text requirements for this project</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="flex items-center gap-2 text-sm text-muted-foreground">
                   <FileText className="size-4 shrink-0" />
-                  Attached under Files &amp; Requirements
+                  See the Requirements tab for the full text
                 </p>
-                <Button size="sm" variant="outline" onClick={() => setActiveTab("files")}>
-                  View Requirements &amp; Files
+                <Button size="sm" variant="outline" onClick={() => setActiveTab("requirements")}>
+                  View Requirements
                 </Button>
               </CardContent>
             </Card>
@@ -510,25 +508,14 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="files" className="mt-4">
+        <TabsContent value="requirements" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Files &amp; Requirements</CardTitle>
-              <CardDescription>Project requirements and other files, visible to every assigned member</CardDescription>
+              <CardTitle>Requirements</CardTitle>
+              <CardDescription>Project requirements — edit from the Edit Project dialog</CardDescription>
             </CardHeader>
             <CardContent>
               <ProjectRequirementsTextSection requirements={project.requirements} updatedAt={project.updatedAt} />
-              {uid && organizationId && (
-                <ProjectRequirementSection project={project} getUploaderName={(uploaderUid) => getMemberById(uploaderUid)?.name} />
-              )}
-              {uid && organizationId && (
-                <AttachmentSection
-                  organizationId={organizationId}
-                  currentUserId={uid}
-                  getUploaderName={(uploaderUid) => getMemberById(uploaderUid)?.name}
-                  target={{ kind: "project", projectId: project.id }}
-                />
-              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -584,7 +571,6 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                     uid={uid}
                     userName={getMemberById(uid)?.name ?? user?.displayName ?? user?.email ?? "You"}
                     tasks={tasks}
-                    currentProjectStatus={project.status}
                     todayUpdate={todayUpdate}
                     recentUpdates={recentUpdates}
                     notifyRecipientIds={reviewRecipientIds}
@@ -635,6 +621,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
       />
 
       <TaskFormDialog
+        allowAttachmentUpload={false}
         key={openTask?.id ?? "none"}
         open={taskDialogOpen}
         onOpenChange={setTaskDialogOpen}

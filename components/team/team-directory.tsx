@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import type { TeamMember, UserRole } from "@/types/team";
+import { selectItems } from "@/lib/select-items";
 
 const ROLES: UserRole[] = ["Admin", "Team Member"];
 
@@ -72,7 +73,11 @@ export function TeamDirectory() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select value={teamFilter} onValueChange={(value) => setTeamFilter(value ?? "all")}>
+          <Select
+            value={teamFilter}
+            onValueChange={(value) => setTeamFilter(value ?? "all")}
+            items={selectItems(teams, (t) => t.id, (t) => t.name, { extra: { all: "All teams" } })}
+          >
             <SelectTrigger className="w-full sm:w-48" aria-label="Filter by team">
               <SelectValue placeholder="Team" />
             </SelectTrigger>

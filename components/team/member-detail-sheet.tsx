@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mail, FolderKanban } from "lucide-react";
+import { FolderKanban } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -58,13 +58,7 @@ export function MemberDetailSheet({ member, open, onOpenChange }: MemberDetailSh
             </div>
           </div>
 
-          <a
-            href={`mailto:${member.email}`}
-            className="mt-4 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <Mail className="size-4" />
-            {member.email}
-          </a>
+          <p className="mt-4 text-sm break-all text-muted-foreground">{member.email}</p>
 
           {teams.length > 0 && (
             <div className="mt-5">

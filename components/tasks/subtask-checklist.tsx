@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import * as subtaskService from "@/lib/services/subtask.service";
 import type { Subtask } from "@/types/subtask";
+import { selectItems } from "@/lib/select-items";
 
 // Sentinel item value for "unassigned" — Select items can't use an empty
 // string as their value, same pattern used throughout this codebase.
@@ -142,7 +143,11 @@ export function SubtaskChecklist({ taskId, organizationId, projectId, members }:
                 {subtask.title}
               </span>
               {members.length > 0 && (
-                <Select value={subtask.assigneeId ?? UNASSIGNED} onValueChange={(value) => handleAssign(subtask, value ?? UNASSIGNED)}>
+                <Select
+                  value={subtask.assigneeId ?? UNASSIGNED}
+                  onValueChange={(value) => handleAssign(subtask, value ?? UNASSIGNED)}
+                  items={selectItems(members, (m) => m.id, (m) => m.name, { extra: { [UNASSIGNED]: "Unassigned" }, value: subtask.assigneeId, unresolvedLabel: "Unknown user" })}
+                >
                   <SelectTrigger size="sm" className="w-32 shrink-0" aria-label={`Assignee for ${subtask.title}`}>
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>

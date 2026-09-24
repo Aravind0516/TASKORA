@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { showsGlobalSearch } from "@/lib/global-search";
 import { AlertTriangle, ChevronsLeft, ChevronsRight, IdCard, LogOut, Menu, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
 import { PlatformSidebarNav } from "@/components/platform/platform-sidebar-nav";
 import { GlobalSearch } from "@/components/layout/global-search";
 import { NotificationsMenu } from "@/components/layout/notifications-menu";
+import { NotificationAlerts } from "@/components/layout/notification-alerts";
 import { AboutTaskoraMenuItem, SidebarProductFooter } from "@/components/shared/product-branding";
 import { AccessGate } from "@/components/shared/access-gate";
 import { DemoRoleMenu } from "@/components/platform/demo-role-menu";
@@ -51,6 +53,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
   const { dataError, isPreviewMismatch, hasNoOrganization } = usePlatform();
   const { setDemoRole } = useDemoRole();
   const router = useRouter();
+  const pathname = usePathname();
   const [createOrgOpen, setCreateOrgOpen] = useState(false);
 
   const displayName = user?.displayName || user?.email || "Account";
@@ -122,11 +125,12 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
             {roleBadge}
           </Badge>
 
-          <GlobalSearch />
+          {showsGlobalSearch(pathname) && <GlobalSearch />}
 
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <DemoRoleMenu />
             <NotificationsMenu />
+            <NotificationAlerts />
 
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" className="gap-2 px-1.5" />}>

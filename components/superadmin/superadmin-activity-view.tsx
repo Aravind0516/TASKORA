@@ -18,6 +18,7 @@ import {
 import { initials, formatDate, timeAgo } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
 import type { PlatformActivityAction } from "@/types/platform";
+import { selectItems } from "@/lib/select-items";
 
 const ACTION_ICON: Partial<Record<PlatformActivityAction, typeof FolderPlus>> = {
   project_created: FolderPlus,
@@ -80,7 +81,11 @@ export function SuperAdminActivityView() {
         <div className="relative w-full sm:max-w-xs">
           <Input placeholder="Search activity..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <Select value={orgFilter} onValueChange={(v) => setOrgFilter(v ?? "all")}>
+        <Select
+          value={orgFilter}
+          onValueChange={(v) => setOrgFilter(v ?? "all")}
+          items={selectItems(organizations, (o) => o.id, (o) => o.name, { extra: { all: "All organizations" } })}
+        >
           <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Organization" />
           </SelectTrigger>

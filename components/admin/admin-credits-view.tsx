@@ -27,6 +27,7 @@ import { usePlatform } from "@/components/platform/platform-provider";
 import * as creditService from "@/lib/services/credit.service";
 import { CREDIT_CATEGORIES, CREDIT_CATEGORY_LABELS, type CreditTransaction, type LeaderboardEntry } from "@/types/credit";
 import { formatDate } from "@/lib/format";
+import { CreditAmount, CreditEntryBadges } from "@/components/credits/credit-entry";
 
 type DateFilter = "all" | "week" | "month";
 type SourceFilter = "all" | "automated" | "manual";
@@ -182,6 +183,7 @@ export function AdminCreditsView() {
                       <TableHead>Date</TableHead>
                       <TableHead>Candidate</TableHead>
                       <TableHead>Category</TableHead>
+                      <TableHead>Type</TableHead>
                       <TableHead>Credits</TableHead>
                       <TableHead>Source</TableHead>
                       <TableHead>Awarded By</TableHead>
@@ -202,9 +204,11 @@ export function AdminCreditsView() {
                             </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground">{CREDIT_CATEGORY_LABELS[t.category]}</TableCell>
-                          <TableCell className={t.credits >= 0 ? "font-medium text-success" : "font-medium text-danger"}>
-                            {t.credits >= 0 ? "+" : ""}
-                            {t.credits}
+                          <TableCell>
+                            <CreditEntryBadges transaction={t} showAdjustment={false} />
+                          </TableCell>
+                          <TableCell>
+                            <CreditAmount credits={t.credits} />
                           </TableCell>
                           <TableCell>
                             <span

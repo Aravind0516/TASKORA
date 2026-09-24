@@ -10,16 +10,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ProjectPriority, ProjectStatus } from "@/types/project";
+import type { ProjectPriority } from "@/types/project";
 
-const STATUSES: ProjectStatus[] = ["Planning", "Active", "On Hold", "Completed"];
 const PRIORITIES: ProjectPriority[] = ["Low", "Medium", "High", "Critical"];
 
 interface ProjectFiltersProps {
   search: string;
   onSearchChange: (value: string) => void;
-  status: ProjectStatus | "all";
-  onStatusChange: (value: ProjectStatus | "all") => void;
   priority: ProjectPriority | "all";
   onPriorityChange: (value: ProjectPriority | "all") => void;
   activeCount: number;
@@ -29,8 +26,6 @@ interface ProjectFiltersProps {
 export function ProjectFilters({
   search,
   onSearchChange,
-  status,
-  onStatusChange,
   priority,
   onPriorityChange,
   activeCount,
@@ -48,20 +43,6 @@ export function ProjectFilters({
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
-
-      <Select value={status} onValueChange={(value) => onStatusChange((value ?? "all") as ProjectStatus | "all")}>
-        <SelectTrigger className="w-full sm:w-40" aria-label="Filter by status">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All statuses</SelectItem>
-          {STATUSES.map((s) => (
-            <SelectItem key={s} value={s}>
-              {s}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
 
       <Select
         value={priority}

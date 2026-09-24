@@ -385,7 +385,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const createProject = useCallback(
     async (input: CreateProjectInput) => {
       if (!uid || !organizationId) throw new Error("You must be logged in.");
-      const memberIds = input.memberIds.includes(uid) ? input.memberIds : [uid, ...input.memberIds];
       const id = await projectService.createProject({
         organizationId,
         teamId: input.teamId,
@@ -397,7 +396,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         dueDate: input.dueDate,
         ownerId: uid,
         managerId: input.managerId ?? null,
-        memberIds,
+        memberIds: input.memberIds.includes(uid) ? input.memberIds : [uid, ...input.memberIds],
         requirements: input.requirements ?? "",
       });
       await activityService.logActivity({
@@ -410,19 +409,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         entityName: input.name,
         projectId: id,
       });
-      notificationService
-        .notifyUsers({
-          organizationId,
-          actorId: uid,
-          recipientIds: memberIds,
-          type: "project_assigned",
-          title: "Added to project",
-          message: `You have been assigned to the "${input.name}" project.`,
-          href: `/projects/${id}`,
-          projectId: id,
-          getPreferences: (memberUid) => getMemberById(memberUid)?.notificationPreferences,
-        })
-        .catch((e) => console.error("createProject: notifyUsers failed", e));
       const now = new Date().toISOString();
       return {
         id,
@@ -455,13 +441,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         updatedAt: now,
       } satisfies Project;
     },
-    [uid, organizationId, actorName, getMemberById]
+    [uid, organizationId, actorName]
   );
 
   const updateProject = useCallback(
     async (id: string, input: CreateProjectInput) => {
       if (!uid || !organizationId) throw new Error("You must be logged in.");
-      const before = projects.find((p) => p.id === id);
       await projectService.updateProject(id, input);
       await activityService.logActivity({
         organizationId,
@@ -473,41 +458,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         entityName: input.name,
         projectId: id,
       });
-      if (before) {
-        const newlyAdded = input.memberIds.filter((memberId) => !before.memberIds.includes(memberId));
-        if (newlyAdded.length > 0) {
-          notificationService
-            .notifyUsers({
-              organizationId,
-              actorId: uid,
-              recipientIds: newlyAdded,
-              type: "project_assigned",
-              title: "Added to project",
-              message: `You have been assigned to the "${input.name}" project.`,
-              href: `/projects/${id}`,
-              projectId: id,
-              getPreferences: (memberUid) => getMemberById(memberUid)?.notificationPreferences,
-            })
-            .catch((e) => console.error("updateProject: notifyUsers (project_assigned) failed", e));
-        }
-        if (input.requirements !== undefined && input.requirements !== before.requirements) {
-          notificationService
-            .notifyUsers({
-              organizationId,
-              actorId: uid,
-              recipientIds: before.memberIds,
-              type: "project_requirements_updated",
-              title: "Project requirements updated",
-              message: `Project requirements updated for "${before.name}".`,
-              href: `/projects/${id}?tab=files`,
-              projectId: id,
-              getPreferences: (memberUid) => getMemberById(memberUid)?.notificationPreferences,
-            })
-            .catch((e) => console.error("updateProject: notifyUsers (project_requirements_updated) failed", e));
-        }
-      }
     },
-    [uid, organizationId, actorName, projects, getMemberById]
+    [uid, organizationId, actorName]
   );
 
   const updateProjectStatus = useCallback(
@@ -566,20 +518,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         entityName: input.title,
         projectId: input.projectId,
       });
-      if (input.assignedTo) {
-        await notificationService.notifyUsers({
-          organizationId,
-          actorId: uid,
-          recipientIds: [input.assignedTo],
-          type: "task_assigned",
-          title: "New task assigned",
-          message: `You were assigned a new task: "${input.title}"`,
-          href: "/tasks",
-          projectId: input.projectId,
-          taskId: id,
-          getPreferences: (memberUid) => getMemberById(memberUid)?.notificationPreferences,
-        });
-      }
+      if (input.assignedTo) await notificationService.notifyTaskAssigned(id);
       const now = new Date().toISOString();
       return {
         id,
@@ -595,19 +534,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         reviewerId: input.reviewerId ?? null,
         estimatedHours: input.estimatedHours ?? null,
         actualHours: input.actualHours ?? null,
+        assignmentVersion: input.assignedTo ? 1 : 0,
         dueDate: input.dueDate,
         labels: [],
         createdAt: now,
         updatedAt: now,
       } satisfies Task;
     },
-    [uid, organizationId, actorName, projects, getMemberById]
+    [uid, organizationId, actorName, projects]
   );
 
   const updateTask = useCallback(
     async (id: string, input: CreateTaskInput) => {
       if (!uid || !organizationId) throw new Error("You must be logged in.");
       const existing = tasks.find((t) => t.id === id);
+      // Only a real change of assignee is a new assignment event — re-saving
+      // the same assignee, or any unrelated edit, leaves assignmentVersion
+      // (and therefore the notification identity) untouched.
+      const assignmentChanged = Boolean(existing) && existing!.assignedTo !== input.assignedTo;
       await taskService.updateTask(id, {
         organizationId,
         teamId: existing?.teamId ?? "",
@@ -622,6 +566,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         estimatedHours: input.estimatedHours ?? null,
         actualHours: input.actualHours ?? null,
         dueDate: input.dueDate,
+        assignmentVersion: assignmentChanged ? (existing?.assignmentVersion ?? 0) + 1 : undefined,
       });
       await activityService.logActivity({
         organizationId,
@@ -634,20 +579,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         projectId: input.projectId,
       });
       const getPreferences = (memberUid: string) => getMemberById(memberUid)?.notificationPreferences;
-      if (existing && existing.assignedTo !== input.assignedTo) {
-        await notificationService.notifyUsers({
-          organizationId,
-          actorId: uid,
-          recipientIds: [input.assignedTo],
-          type: "task_assigned",
-          title: "New task assigned",
-          message: `You were assigned a new task: "${input.title}"`,
-          href: "/tasks",
-          projectId: input.projectId,
-          taskId: id,
-          getPreferences,
-        });
-      }
+      if (assignmentChanged && input.assignedTo) await notificationService.notifyTaskAssigned(id);
       if (existing && existing.status !== input.status) {
         const recipients = [input.assignedTo];
         if (input.status === "In Review" && input.reviewerId) recipients.push(input.reviewerId);
@@ -774,28 +706,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     await meetingService.updateMeeting(id, { status });
   }, []);
 
-  const deleteMeeting = useCallback(
-    async (id: string) => {
-      const meeting = meetings.find((m) => m.id === id);
-      await meetingService.deleteMeeting(id);
-      if (uid && organizationId && meeting) {
-        notificationService
-          .notifyUsers({
-            organizationId,
-            actorId: uid,
-            recipientIds: meeting.participantIds,
-            type: "meeting_cancelled",
-            title: "Meeting cancelled",
-            message: `Meeting cancelled: "${meeting.title}".`,
-            href: "/meetings",
-            projectId: meeting.projectId,
-            getPreferences: (memberUid) => getMemberById(memberUid)?.notificationPreferences,
-          })
-          .catch((e) => console.error("deleteMeeting: notifyUsers failed", e));
-      }
-    },
-    [uid, organizationId, meetings, getMemberById]
-  );
+  const deleteMeeting = useCallback(async (id: string) => {
+    await meetingService.deleteMeeting(id);
+  }, []);
 
   const markNotificationRead = useCallback(async (id: string) => {
     await notificationService.markNotificationRead(id);

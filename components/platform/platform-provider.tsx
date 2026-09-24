@@ -484,21 +484,6 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         entityName: input.name,
         projectId: id,
       });
-      if (uid) {
-        notificationService
-          .notifyUsers({
-            organizationId: input.organizationId,
-            actorId: uid,
-            recipientIds: input.memberIds,
-            type: "project_assigned",
-            title: "Added to project",
-            message: `You have been assigned to the "${input.name}" project.`,
-            href: `/projects/${id}`,
-            projectId: id,
-            getPreferences: getMemberPreferences,
-          })
-          .catch((e) => console.error("createProject: notifyUsers failed", e));
-      }
       return {
         ...input,
         id,
@@ -510,59 +495,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         updatedAt: nowIso(),
       };
     },
-    [uid, actorName, getMemberPreferences]
+    [uid, actorName]
   );
 
-  const updateProject = useCallback<PlatformContextValue["updateProject"]>(
-    async (id, patch) => {
-      const before = rawProjects.find((p) => p.id === id);
-      await projectService.updateProject(id, patch as Partial<projectService.ProjectInput> & { progress?: number; archived?: boolean });
-      if (!uid || !before) return;
-
-      // Only the NEWLY added members — not everyone already on the project —
-      // matching "notify the assigned user," never re-notifying existing
-      // members on every unrelated edit.
-      if (patch.memberIds) {
-        const newlyAdded = patch.memberIds.filter((memberId) => !before.memberIds.includes(memberId));
-        if (newlyAdded.length > 0) {
-          notificationService
-            .notifyUsers({
-              organizationId: before.organizationId,
-              actorId: uid,
-              recipientIds: newlyAdded,
-              type: "project_assigned",
-              title: "Added to project",
-              message: `You have been assigned to the "${before.name}" project.`,
-              href: `/projects/${id}`,
-              projectId: id,
-              getPreferences: getMemberPreferences,
-            })
-            .catch((e) => console.error("updateProject: notifyUsers (project_assigned) failed", e));
-        }
-      }
-
-      // Requirements text actually changed — notify already-assigned
-      // members without including the requirement text itself in the
-      // notification (project privacy: the message never repeats content,
-      // only points back to the project).
-      if (patch.requirements !== undefined && patch.requirements !== before.requirements) {
-        notificationService
-          .notifyUsers({
-            organizationId: before.organizationId,
-            actorId: uid,
-            recipientIds: before.memberIds,
-            type: "project_requirements_updated",
-            title: "Project requirements updated",
-            message: `Project requirements updated for "${before.name}".`,
-            href: `/projects/${id}?tab=files`,
-            projectId: id,
-            getPreferences: getMemberPreferences,
-          })
-          .catch((e) => console.error("updateProject: notifyUsers (project_requirements_updated) failed", e));
-      }
-    },
-    [uid, rawProjects, getMemberPreferences]
-  );
+  const updateProject = useCallback<PlatformContextValue["updateProject"]>(async (id, patch) => {
+    await projectService.updateProject(id, patch as Partial<projectService.ProjectInput> & { progress?: number; archived?: boolean });
+  }, []);
 
   const deleteProject = useCallback(async (id: string) => {
     const projectTasks = tasks.filter((t) => t.projectId === id);
@@ -598,92 +536,102 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           entityName: input.title,
           projectId: input.projectId,
         });
-        await notificationService.notifyUsers({
-          organizationId: input.organizationId,
-          actorId: uid,
-          recipientIds: [input.assigneeId],
-          type: "task_assigned",
-          title: "New task assigned",
-          message: `You were assigned a new task: "${input.title}"`,
-          href: "/admin/tasks",
-          projectId: input.projectId,
-          taskId: id,
-          getPreferences: getMemberPreferences,
-        });
+        await notificationService.notifyTaskAssigned(id);
       }
       return { ...input, id, ownerId: uid, createdAt: nowIso(), updatedAt: nowIso() };
     },
-    [uid, actorName, rawProjects, getMemberPreferences]
+    [uid, actorName, rawProjects]
   );
 
   const updateTask = useCallback<PlatformContextValue["updateTask"]>(
     async (id, patch) => {
       const existing = rawTasks.find((t) => t.id === id);
-      if (!existing) return;
-      if (patch.status && patch.status !== existing.status) {
-        await taskService.updateTaskStatus(id, patch.status as TaskStatus);
+      if (!existing) throw new Error("This task no longer exists. It may have been deleted.");
+
+      // Resolve the COMPLETE next state first, then write it once. An earlier
+      // version handled a status change in its own branch and returned early,
+      // so saving the edit dialog with a new status silently discarded every
+      // other edited field (title, assignee, due date, ...) and the
+      // reassignment notification along with it.
+      const nextStatus = (patch.status as TaskStatus | undefined) ?? existing.status;
+      const nextAssignee = patch.assigneeId !== undefined ? (patch.assigneeId ?? "") : existing.assignedTo;
+      const nextProjectId = patch.projectId ?? existing.projectId;
+      const nextTitle = patch.title ?? existing.title;
+      const statusChanged = nextStatus !== existing.status;
+      const assignmentChanged = nextAssignee !== existing.assignedTo;
+      const statusOnly = Object.keys(patch).every((key) => key === "status");
+
+      if (statusOnly) {
+        // Quick actions (e.g. "Mark completed") touch only status/updatedAt.
+        if (statusChanged) await taskService.updateTaskStatus(id, nextStatus);
+      } else {
+        await taskService.updateTask(id, {
+          organizationId: existing.organizationId,
+          teamId: rawProjects.find((p) => p.id === nextProjectId)?.teamId ?? existing.teamId,
+          projectId: nextProjectId,
+          ownerId: existing.ownerId,
+          title: nextTitle,
+          description: patch.description ?? existing.description,
+          status: nextStatus,
+          priority: (patch.priority as TaskPriority | undefined) ?? existing.priority,
+          assignedTo: nextAssignee,
+          // `!== undefined` (not `??`) — an explicit null here means "clear
+          // it," which `??` would wrongly treat the same as "not touched" and
+          // silently keep the old value, making it impossible to ever unset a
+          // reviewer/hours field once set.
+          reviewerId: patch.reviewerId !== undefined ? patch.reviewerId : existing.reviewerId,
+          estimatedHours: patch.estimatedHours !== undefined ? patch.estimatedHours : existing.estimatedHours,
+          actualHours: patch.actualHours !== undefined ? patch.actualHours : existing.actualHours,
+          dueDate: patch.dueDate ?? existing.dueDate,
+          // Bumped only on a real reassignment — the identity of the
+          // assignment notification (see lib/server/task-assignment.ts).
+          assignmentVersion: assignmentChanged ? existing.assignmentVersion + 1 : undefined,
+        });
+      }
+
+      if (statusChanged) {
         await activityService.logActivity({
           organizationId: existing.organizationId,
           actorId: uid,
           actorName,
-          action: patch.status === "Completed" ? "task_completed" : "task_status_changed",
+          action: nextStatus === "Completed" ? "task_completed" : "task_status_changed",
           entityType: "task",
           entityId: id,
-          entityName: existing.title,
-          projectId: existing.projectId,
+          entityName: nextTitle,
+          projectId: nextProjectId,
         });
-        const statusRecipients = [existing.assignedTo];
-        if (patch.status === "In Review" && existing.reviewerId) statusRecipients.push(existing.reviewerId);
+        const statusRecipients = [nextAssignee];
+        const nextReviewer = patch.reviewerId !== undefined ? patch.reviewerId : existing.reviewerId;
+        if (nextStatus === "In Review" && nextReviewer) statusRecipients.push(nextReviewer);
         await notificationService.notifyUsers({
           organizationId: existing.organizationId,
           actorId: uid,
           recipientIds: statusRecipients,
-          type: patch.status === "Completed" ? "task_completed" : "task_status_changed",
-          title: patch.status === "Completed" ? "Task completed" : "Status changed",
-          message: `Task "${existing.title}" moved to ${patch.status}.`,
-          href: "/admin/tasks",
-          projectId: existing.projectId,
+          type: nextStatus === "Completed" ? "task_completed" : "task_status_changed",
+          title: nextStatus === "Completed" ? "Task completed" : "Status changed",
+          message: `Task "${nextTitle}" moved to ${nextStatus}.`,
+          href: "/tasks",
+          projectId: nextProjectId,
           taskId: id,
           getPreferences: getMemberPreferences,
         });
-        return;
       }
-      const nextAssignee = patch.assigneeId !== undefined ? patch.assigneeId : existing.assignedTo;
-      await taskService.updateTask(id, {
-        organizationId: existing.organizationId,
-        teamId: existing.teamId,
-        projectId: patch.projectId ?? existing.projectId,
-        ownerId: existing.ownerId,
-        title: patch.title ?? existing.title,
-        description: patch.description ?? existing.description,
-        status: (patch.status as TaskStatus) ?? existing.status,
-        priority: (patch.priority as TaskPriority) ?? existing.priority,
-        assignedTo: nextAssignee ?? "",
-        // `!== undefined` (not `??`) — an explicit null here means "clear
-        // it," which `??` would wrongly treat the same as "not touched" and
-        // silently keep the old value, making it impossible to ever unset a
-        // reviewer/hours field once set.
-        reviewerId: patch.reviewerId !== undefined ? patch.reviewerId : existing.reviewerId,
-        estimatedHours: patch.estimatedHours !== undefined ? patch.estimatedHours : existing.estimatedHours,
-        actualHours: patch.actualHours !== undefined ? patch.actualHours : existing.actualHours,
-        dueDate: patch.dueDate ?? existing.dueDate,
-      });
-      if (nextAssignee && nextAssignee !== existing.assignedTo) {
-        await notificationService.notifyUsers({
+
+      if (assignmentChanged && nextAssignee) {
+        await activityService.logActivity({
           organizationId: existing.organizationId,
           actorId: uid,
-          recipientIds: [nextAssignee],
-          type: "task_assigned",
-          title: "New task assigned",
-          message: `You were assigned a new task: "${patch.title ?? existing.title}"`,
-          href: "/admin/tasks",
-          projectId: patch.projectId ?? existing.projectId,
-          taskId: id,
-          getPreferences: getMemberPreferences,
+          actorName,
+          action: "task_assigned" satisfies ActivityType,
+          entityType: "task",
+          entityId: id,
+          entityName: nextTitle,
+          projectId: nextProjectId,
         });
+        await notificationService.notifyTaskAssigned(id);
       }
     },
-    [rawTasks, uid, actorName, getMemberPreferences]
+    [rawTasks, rawProjects, uid, actorName, getMemberPreferences]
   );
 
   const deleteTask = useCallback(async (id: string) => {
