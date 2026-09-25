@@ -5,7 +5,6 @@ import { Activity, CheckCircle2, FolderPlus, ListPlus, ShieldOff, UserPlus, User
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -19,6 +18,7 @@ import { initials, formatDate, timeAgo } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
 import type { PlatformActivityAction } from "@/types/platform";
 import { selectItems } from "@/lib/select-items";
+import { SearchInput } from "@/components/shared/search-input";
 
 const ACTION_ICON: Partial<Record<PlatformActivityAction, typeof FolderPlus>> = {
   project_created: FolderPlus,
@@ -78,15 +78,13 @@ export function SuperAdminActivityView() {
       <PageHeader title="Platform Activity" description="An audit trail of everything happening across every organization" />
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Input placeholder="Search activity..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
+        <SearchInput className="sm:max-w-xs" aria-label="Search activity" placeholder="Search activity..." value={search} onValueChange={setSearch} />
         <Select
           value={orgFilter}
           onValueChange={(v) => setOrgFilter(v ?? "all")}
           items={selectItems(organizations, (o) => o.id, (o) => o.name, { extra: { all: "All organizations" } })}
         >
-          <SelectTrigger className="w-full sm:w-52">
+          <SelectTrigger className="w-full sm:w-52 data-[size=default]:h-10">
             <SelectValue placeholder="Organization" />
           </SelectTrigger>
           <SelectContent>
@@ -98,8 +96,8 @@ export function SuperAdminActivityView() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={actionFilter} onValueChange={(v) => setActionFilter((v ?? "all") as PlatformActivityAction | "all")}>
-          <SelectTrigger className="w-full sm:w-56">
+        <Select value={actionFilter} onValueChange={(v) => setActionFilter((v ?? "all") as PlatformActivityAction | "all")} items={{ all: "All actions", ...ACTION_LABELS }}>
+          <SelectTrigger className="w-full sm:w-56 data-[size=default]:h-10">
             <SelectValue placeholder="Action" />
           </SelectTrigger>
           <SelectContent>

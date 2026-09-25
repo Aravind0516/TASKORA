@@ -166,7 +166,7 @@ export function AwardCreditDialog({ organizationId, candidate, open, onOpenChang
 
           <div className="space-y-1.5">
             <Label>Category</Label>
-            <Select value={category} onValueChange={(v) => handleCategoryChange((v ?? "PROJECT_SUBMISSION") as CreditCategory)}>
+            <Select value={category} onValueChange={(v) => handleCategoryChange((v ?? "PROJECT_SUBMISSION") as CreditCategory)} items={CREDIT_CATEGORY_LABELS}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>

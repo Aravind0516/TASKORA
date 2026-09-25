@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { usePlatform } from "@/components/platform/platform-provider";
+import { TaskoraGuide } from "@/components/settings/taskora-guide";
 
 const NOTIFICATION_ITEMS = [
   { id: "new-org", title: "New organization onboarded", description: "Get notified whenever a new organization joins the platform." },
@@ -28,6 +29,7 @@ export function SuperAdminSettingsView() {
         <TabsTrigger value="notifications">Notifications</TabsTrigger>
         <TabsTrigger value="security">Security</TabsTrigger>
         <TabsTrigger value="preferences">Preferences</TabsTrigger>
+        <TabsTrigger value="guide">TASKORA Guide</TabsTrigger>
       </TabsList>
 
       <TabsContent value="platform" className="mt-4">
@@ -101,6 +103,10 @@ export function SuperAdminSettingsView() {
             TASKORA currently follows a light, premium theme. Theme switching will be available in a future update.
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="guide" className="mt-4">
+        <TaskoraGuide />
       </TabsContent>
     </Tabs>
   );

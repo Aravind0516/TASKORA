@@ -229,7 +229,6 @@ export function CommentSection({
                         onChange={(e) => setEditValue(e.target.value)}
                         rows={3}
                         autoFocus
-                        maxLength={2000}
                       />
                       <div className="flex items-center gap-2">
                         <Button type="button" size="sm" onClick={() => saveEdit(comment)} disabled={!editValue.trim()}>
@@ -285,7 +284,7 @@ export function CommentSection({
           <AvatarFallback>{initials(currentUserName)}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1 space-y-1.5">
-          <Textarea placeholder="Add a comment..." rows={2} maxLength={2000} {...register("content")} />
+          <Textarea placeholder="Add a comment..." rows={2} {...register("content")} />
           {errors.content && <p className="text-xs text-destructive">{errors.content.message}</p>}
           <Button type="submit" size="sm" disabled={isSubmitting}>
             {isSubmitting ? "Posting..." : "Comment"}

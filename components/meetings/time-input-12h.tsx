@@ -44,7 +44,7 @@ export function TimeInput12h({ id, value, onChange, ...aria }: TimeInput12hProps
 
   return (
     <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={aria["aria-label"]}>
-      <Select value={String(hour12)} onValueChange={(v) => v && update({ hour12: Number(v) })}>
+      <Select value={String(hour12)} onValueChange={(v) => v && update({ hour12: Number(v) })} items={Object.fromEntries(HOURS_12.map((h) => [String(h), String(h).padStart(2, "0")]))}>
         <SelectTrigger id={id} className="w-[4.25rem]" aria-label="Hour">
           <SelectValue />
         </SelectTrigger>

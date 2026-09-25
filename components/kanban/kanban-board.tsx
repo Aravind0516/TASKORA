@@ -9,6 +9,13 @@ import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { TASK_STATUSES, type Task, type TaskStatus } from "@/types/task";
 
+// Stages flow into as many rows as the available width needs (e.g. 3 + 3 on a
+// desktop, 2 + 2 + 2 on a tablet, one per row on a phone) instead of a single
+// strip of fixed-width columns scrolling sideways past a mostly empty page.
+// The count comes from the grid itself, not a hard-coded 3 + 3, so it adapts
+// to however many statuses TASK_STATUSES defines.
+const BOARD_GRID = "grid items-stretch gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,17rem),1fr))]";
+
 export function KanbanBoard() {
   const { uid, tasks, projects, loaded, errors, retry, updateTaskStatus } = useWorkspace();
   const [openTask, setOpenTask] = useState<Task | null>(null);
@@ -45,9 +52,9 @@ export function KanbanBoard() {
 
   if (!loaded.tasks) {
     return (
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      <div className={BOARD_GRID}>
         {TASK_STATUSES.map((status) => (
-          <Skeleton key={status} className="h-96 w-72 shrink-0 rounded-xl" />
+          <Skeleton key={status} className="h-56 rounded-xl" />
         ))}
       </div>
     );
@@ -61,7 +68,7 @@ export function KanbanBoard() {
     <>
       <KanbanToolbar filters={filters} onChange={setFilters} projects={projects} visibleCount={visibleTasks.length} totalCount={tasks.length} />
 
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      <div className={BOARD_GRID}>
         {TASK_STATUSES.map((status) => (
           <KanbanColumn
             key={status}

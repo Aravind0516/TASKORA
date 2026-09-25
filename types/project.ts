@@ -47,6 +47,8 @@ export interface Project {
   /** Evidence context only (e.g. shown next to an intern's GITHUB_* evidence links) — never used for automatic verification. Optional; absent on every project created before this field existed. */
   repositoryUrl: string | null;
   repositoryProvider: RepositoryProvider;
+  /** Per-assignee counter, bumped only when that person is newly assigned (as member or manager). The deterministic identity of their project-assignment notification — see lib/server/project-assignment.ts. Absent on projects created before this field existed. */
+  memberAssignmentVersions: Record<string, number>;
   /**
    * Work Verification (Daily Work Updates) — see types/daily-work-update.ts.
    * Off by default so every existing project's behavior is completely

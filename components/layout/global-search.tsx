@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, FolderKanban, ListChecks, Search, Users } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { CalendarClock, FolderKanban, ListChecks, Users } from "lucide-react";
+import { SearchInput } from "@/components/shared/search-input";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { useAuth } from "@/components/auth/auth-provider";
 
@@ -84,15 +84,12 @@ export function GlobalSearch() {
 
   return (
     <div ref={containerRef} className="relative min-w-0 w-full max-w-sm">
-      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        type="search"
+      <SearchInput
         placeholder="Search projects, tasks, people..."
-        className="pl-9"
         value={query}
         onFocus={() => setOpen(true)}
-        onChange={(e) => {
-          setQuery(e.target.value);
+        onValueChange={(value) => {
+          setQuery(value);
           setOpen(true);
         }}
         onKeyDown={(e) => {
@@ -100,11 +97,15 @@ export function GlobalSearch() {
         }}
         role="combobox"
         aria-expanded={open && Boolean(results)}
+        aria-controls="global-search-results"
         aria-label="Global search"
       />
 
       {open && results && (
-        <div className="absolute top-full left-0 z-50 mt-1.5 max-h-96 w-full overflow-y-auto rounded-lg bg-popover p-1.5 text-popover-foreground shadow-md ring-1 ring-foreground/10">
+        <div
+          id="global-search-results"
+          className="absolute top-full left-0 z-50 mt-1.5 max-h-[min(24rem,calc(100dvh-6rem))] w-full overflow-y-auto rounded-lg bg-popover p-1.5 text-popover-foreground shadow-lg ring-1 ring-foreground/10"
+        >
           {!hasResults && (
             <p className="px-2.5 py-4 text-center text-sm text-muted-foreground">
               No results for &ldquo;{query}&rdquo;

@@ -171,6 +171,24 @@ export async function notifyTaskAssigned(taskId: string): Promise<void> {
   }
 }
 
+/**
+ * Asks the server to notify the people a project save just assigned (members
+ * or manager). Call only after the project write succeeded, with only the
+ * newly assigned ids. The server verifies each is really assigned and dedupes
+ * by assignment version (see lib/server/project-assignment.ts). Never throws.
+ */
+export async function notifyProjectAssigned(projectId: string, recipientIds: string[]): Promise<void> {
+  if (recipientIds.length === 0) return;
+  try {
+    await apiFetch(`/api/projects/${encodeURIComponent(projectId)}/assignment-notifications`, {
+      method: "POST",
+      body: JSON.stringify({ recipientIds }),
+    });
+  } catch (error) {
+    console.error(`notifyProjectAssigned: failed for project ${projectId}`, error);
+  }
+}
+
 export async function markNotificationRead(notificationId: string): Promise<void> {
   try {
     await updateDoc(doc(db, "notifications", notificationId), { read: true });

@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, UsersRound } from "lucide-react";
+import { UsersRound } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { usePlatform } from "@/components/platform/platform-provider";
 import { selectItems } from "@/lib/select-items";
+import { SearchInput } from "@/components/shared/search-input";
 
 export function SuperAdminTeamsView() {
   const [loading, setLoading] = useState(true);
@@ -59,16 +59,19 @@ export function SuperAdminTeamsView() {
       <PageHeader title="Teams" description="Every team across every organization on the platform" />
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search teams..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
+        <SearchInput
+          className="w-full sm:max-w-xs"
+          aria-label="Search teams"
+          placeholder="Search teams..."
+          value={search}
+          onValueChange={setSearch}
+        />
         <Select
           value={orgFilter}
           onValueChange={(v) => setOrgFilter(v ?? "all")}
           items={selectItems(organizations, (o) => o.id, (o) => o.name, { extra: { all: "All organizations" } })}
         >
-          <SelectTrigger className="w-full sm:w-52">
+          <SelectTrigger className="w-full sm:w-52 data-[size=default]:h-10">
             <SelectValue placeholder="Organization" />
           </SelectTrigger>
           <SelectContent>

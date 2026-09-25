@@ -26,7 +26,7 @@ export function ProjectRequirementsTextSection({ requirements, updatedAt }: Proj
       <p className="text-sm font-semibold text-foreground">Project Requirements</p>
       {trimmed ? (
         <>
-          <p className="max-h-96 overflow-y-auto text-sm whitespace-pre-wrap text-foreground">{requirements}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">{requirements}</p>
           <p className="text-xs text-muted-foreground">Last updated: {formatDate(updatedAt)}</p>
         </>
       ) : (

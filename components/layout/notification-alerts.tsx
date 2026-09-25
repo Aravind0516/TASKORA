@@ -6,11 +6,34 @@ import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { detectNewNotifications, hydrateDetection, type DetectionState } from "@/lib/notifications/new-notification-detection";
-import { playNotificationChime, unlockNotificationSound } from "@/lib/notifications/sound";
+import { notificationAlertBehavior } from "@/lib/notifications/categories";
+import { playNotificationChime } from "@/lib/notifications/sound";
 import type { AppNotification } from "@/types/notification";
 
 const POPUP_LIFETIME_MS = 6000;
 const MAX_VISIBLE_POPUPS = 3;
+const CHIME_CLAIMS_KEY = "taskora:chimed-notifications";
+const CHIME_CLAIM_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * With TASKORA open in several tabs, every tab's listener receives the same
+ * new notification — only the first tab to claim its id plays the chime.
+ * Best-effort (storage can be unavailable, e.g. private mode), in which case
+ * this tab simply chimes.
+ */
+function claimChime(notificationId: string): boolean {
+  try {
+    const now = Date.now();
+    const raw = window.localStorage.getItem(CHIME_CLAIMS_KEY);
+    const claims = (raw ? (JSON.parse(raw) as [string, number][]) : []).filter(([, at]) => now - at < CHIME_CLAIM_TTL_MS);
+    if (claims.some(([id]) => id === notificationId)) return false;
+    claims.push([notificationId, now]);
+    window.localStorage.setItem(CHIME_CLAIMS_KEY, JSON.stringify(claims.slice(-100)));
+    return true;
+  } catch {
+    return true;
+  }
+}
 
 /**
  * Popup + chime for notifications that arrive WHILE the app is open. Reads
@@ -35,30 +58,22 @@ export function NotificationAlerts() {
     } else {
       const { state, fresh } = detectNewNotifications(detection, notifications);
       if (state !== detection) setDetection(state);
-      if (fresh.length > 0) setPopups((current) => [...fresh, ...current].slice(0, MAX_VISIBLE_POPUPS));
+      const alerting = fresh.filter((n) => notificationAlertBehavior(n.type).popup);
+      if (alerting.length > 0) setPopups((current) => [...alerting, ...current].slice(0, MAX_VISIBLE_POPUPS));
     }
   }
 
-  // Audio may only start after a user gesture — unlock on the first one.
+  // At most one chime per batch of genuinely new popups — never per
+  // re-render, never for a type whose policy is popup-only, and never twice
+  // for the same notification (this component, or another open tab). Audio
+  // unlocking is app-wide (components/layout/notification-sound-unlock.tsx).
+  const handledIdsRef = useRef(new Set<string>());
   useEffect(() => {
-    function unlock() {
-      unlockNotificationSound();
-    }
-    window.addEventListener("pointerdown", unlock, { once: true });
-    window.addEventListener("keydown", unlock, { once: true });
-    return () => {
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
-    };
-  }, []);
-
-  // One chime per batch of genuinely new popups, never per re-render.
-  const chimedIdsRef = useRef(new Set<string>());
-  useEffect(() => {
-    const unchimed = popups.filter((p) => !chimedIdsRef.current.has(p.id));
-    if (unchimed.length === 0) return;
-    unchimed.forEach((p) => chimedIdsRef.current.add(p.id));
-    playNotificationChime();
+    const unhandled = popups.filter((p) => !handledIdsRef.current.has(p.id));
+    if (unhandled.length === 0) return;
+    unhandled.forEach((p) => handledIdsRef.current.add(p.id));
+    const chimeFor = unhandled.filter((p) => notificationAlertBehavior(p.type).sound && claimChime(p.id));
+    if (chimeFor.length > 0) playNotificationChime();
   }, [popups]);
 
   const dismiss = useCallback((id: string) => {

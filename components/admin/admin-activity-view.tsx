@@ -5,7 +5,6 @@ import { Activity, CheckCircle2, FolderPlus, ListPlus, UserPlus, UsersRound } fr
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -18,6 +17,7 @@ import {
 import { initials, formatDate, timeAgo } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
 import type { PlatformActivityAction } from "@/types/platform";
+import { SearchInput } from "@/components/shared/search-input";
 
 const ACTION_ICON: Partial<Record<PlatformActivityAction, typeof FolderPlus>> = {
   project_created: FolderPlus,
@@ -70,11 +70,9 @@ export function AdminActivityView() {
       <PageHeader title="Activity" description="A timeline of everything happening in your organization" />
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Input placeholder="Search activity..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <Select value={actionFilter} onValueChange={(v) => setActionFilter((v ?? "all") as PlatformActivityAction | "all")}>
-          <SelectTrigger className="w-full sm:w-56">
+        <SearchInput className="sm:max-w-xs" aria-label="Search activity" placeholder="Search activity..." value={search} onValueChange={setSearch} />
+        <Select value={actionFilter} onValueChange={(v) => setActionFilter((v ?? "all") as PlatformActivityAction | "all")} items={{ all: "All actions", ...ACTION_LABELS }}>
+          <SelectTrigger className="w-full sm:w-56 data-[size=default]:h-10">
             <SelectValue placeholder="Action" />
           </SelectTrigger>
           <SelectContent>

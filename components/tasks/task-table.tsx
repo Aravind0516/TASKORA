@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Eye, MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react";
+import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import {
   Table,
   TableHeader,
@@ -10,7 +10,6 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -30,6 +29,7 @@ import { PriorityBadge } from "@/components/shared/priority-badge";
 import { formatDate, isOverdue } from "@/lib/format";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { TASK_STATUSES, type Task, type TaskPriority, type TaskStatus } from "@/types/task";
+import { SearchInput } from "@/components/shared/search-input";
 
 const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High", "Critical"];
 
@@ -71,17 +71,15 @@ export function TaskTable({ tasks, onEdit, onDelete, emptyMessage = "No tasks ye
   return (
     <div>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search tasks..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus | "all")}>
-          <SelectTrigger className="w-full sm:w-40">
+        <SearchInput
+          className="w-full sm:max-w-xs"
+          aria-label="Search tasks"
+          placeholder="Search tasks..."
+          value={search}
+          onValueChange={setSearch}
+        />
+        <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus | "all")} items={{ all: "All statuses", ...Object.fromEntries(TASK_STATUSES.map((s) => [s, s])) }}>
+          <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -93,8 +91,8 @@ export function TaskTable({ tasks, onEdit, onDelete, emptyMessage = "No tasks ye
             ))}
           </SelectContent>
         </Select>
-        <Select value={priority} onValueChange={(value) => setPriority(value as TaskPriority | "all")}>
-          <SelectTrigger className="w-full sm:w-40">
+        <Select value={priority} onValueChange={(value) => setPriority(value as TaskPriority | "all")} items={{ all: "All priorities", ...Object.fromEntries(PRIORITIES.map((p) => [p, p])) }}>
+          <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>

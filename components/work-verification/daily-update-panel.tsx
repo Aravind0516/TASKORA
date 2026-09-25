@@ -461,6 +461,7 @@ function EvidenceRow({ control, index, register, setValue, errors, organizationI
                 setValue(`evidence.${index}.url`, "");
                 f.onChange(next);
               }}
+              items={Object.fromEntries(EVIDENCE_TYPES.map((t) => [t, EVIDENCE_TYPE_LABELS[t]]))}
             >
               <SelectTrigger className="w-48 shrink-0">
                 <SelectValue />

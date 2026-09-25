@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ListChecks, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, ListChecks, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -36,6 +35,7 @@ import { formatDate, isOverdue } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
 import type { PlatformPriority, PlatformTask } from "@/types/platform";
 import type { PlatformTaskFormValues } from "@/lib/validation/platform-task.schema";
+import { SearchInput } from "@/components/shared/search-input";
 
 type TabKey = "all" | "assigned" | "unassigned" | "overdue" | "completed" | "in_progress";
 
@@ -167,12 +167,15 @@ export function AdminTasksView() {
 
         <TabsContent value={tab} className="mt-0">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search tasks..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-            </div>
-            <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter((v ?? "all") as PlatformPriority | "all")}>
-              <SelectTrigger className="w-full sm:w-40">
+            <SearchInput
+              className="w-full sm:max-w-xs"
+              aria-label="Search tasks"
+              placeholder="Search tasks..."
+              value={search}
+              onValueChange={setSearch}
+            />
+            <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter((v ?? "all") as PlatformPriority | "all")} items={{ all: "All priorities", Low: "Low", Medium: "Medium", High: "High", Critical: "Critical" }}>
+              <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
               <SelectContent>

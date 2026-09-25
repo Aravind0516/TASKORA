@@ -104,7 +104,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
       </aside>
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/85 sm:px-6">
+        <header className="relative z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/85 sm:px-6">
           <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
             <Button
               variant="ghost"

@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, FolderKanban, ListChecks, Search } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FolderKanban, ListChecks } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiCard } from "@/components/dashboard/kpi-card";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -29,6 +28,7 @@ import { formatDate, isOverdue } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
 import type { PlatformProjectStatus } from "@/types/platform";
 import { selectItems } from "@/lib/select-items";
+import { SearchInput } from "@/components/shared/search-input";
 
 export function SuperAdminProjectsView() {
   const [loading, setLoading] = useState(true);
@@ -80,16 +80,19 @@ export function SuperAdminProjectsView() {
       </div>
 
       <div className="mt-6 mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search projects..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
+        <SearchInput
+          className="w-full sm:max-w-xs"
+          aria-label="Search projects"
+          placeholder="Search projects..."
+          value={search}
+          onValueChange={setSearch}
+        />
         <Select
           value={orgFilter}
           onValueChange={(v) => setOrgFilter(v ?? "all")}
           items={selectItems(organizations, (o) => o.id, (o) => o.name, { extra: { all: "All organizations" } })}
         >
-          <SelectTrigger className="w-full sm:w-52">
+          <SelectTrigger className="w-full sm:w-52 data-[size=default]:h-10">
             <SelectValue placeholder="Organization" />
           </SelectTrigger>
           <SelectContent>
@@ -101,8 +104,8 @@ export function SuperAdminProjectsView() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as PlatformProjectStatus | "all")}>
-          <SelectTrigger className="w-full sm:w-40">
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as PlatformProjectStatus | "all")} items={{ all: "All statuses", Planning: "Planning", Active: "Active", "On Hold": "On Hold", Completed: "Completed" }}>
+          <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>

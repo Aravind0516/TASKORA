@@ -169,7 +169,7 @@ export function EditProfileDialog({ open, onOpenChange, user, onSaved }: EditPro
                 control={control}
                 name="domain"
                 render={({ field }) => (
-                  <Select value={field.value || NO_DOMAIN} onValueChange={(v) => field.onChange(v === NO_DOMAIN ? "" : v)}>
+                  <Select value={field.value || NO_DOMAIN} onValueChange={(v) => field.onChange(v === NO_DOMAIN ? "" : v)} items={{ [NO_DOMAIN]: "Not set", ...Object.fromEntries(DOMAIN_OPTIONS.map((d) => [d.value, d.label])) }}>
                     <SelectTrigger id="edit-profile-domain" className="w-full">
                       <SelectValue placeholder="Select a domain" />
                     </SelectTrigger>

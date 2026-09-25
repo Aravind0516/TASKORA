@@ -4,6 +4,7 @@ import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { DemoRoleProvider } from "@/components/platform/demo-role-provider";
+import { NotificationSoundUnlock } from "@/components/layout/notification-sound-unlock";
 
 const geistSans = Geist({
   variable: "--font-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <NotificationSoundUnlock />
         <AuthProvider>
           <DemoRoleProvider>
             <TooltipProvider>{children}</TooltipProvider>

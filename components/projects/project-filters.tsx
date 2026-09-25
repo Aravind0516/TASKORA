@@ -1,7 +1,6 @@
 "use client";
 
-import { Search, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -11,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ProjectPriority } from "@/types/project";
+import { SearchInput } from "@/components/shared/search-input";
 
 const PRIORITIES: ProjectPriority[] = ["Low", "Medium", "High", "Critical"];
 
@@ -33,22 +33,20 @@ export function ProjectFilters({
 }: ProjectFiltersProps) {
   return (
     <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-      <div className="relative w-full sm:max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          aria-label="Search projects"
-          placeholder="Search projects..."
-          className="pl-9"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
-      </div>
+      <SearchInput
+        className="w-full sm:max-w-xs"
+        aria-label="Search projects"
+        placeholder="Search projects..."
+        value={search}
+        onValueChange={onSearchChange}
+      />
 
       <Select
         value={priority}
         onValueChange={(value) => onPriorityChange((value ?? "all") as ProjectPriority | "all")}
+        items={{ all: "All priorities", ...Object.fromEntries(PRIORITIES.map((p) => [p, p])) }}
       >
-        <SelectTrigger className="w-full sm:w-40" aria-label="Filter by priority">
+        <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10" aria-label="Filter by priority">
           <SelectValue placeholder="Priority" />
         </SelectTrigger>
         <SelectContent>

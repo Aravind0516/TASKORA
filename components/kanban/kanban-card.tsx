@@ -45,7 +45,9 @@ export function KanbanCard({ task, onStatusChange, onOpen }: KanbanCardProps) {
     >
       <CardContent className="px-3">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-xs font-medium text-muted-foreground">{project?.name}</p>
+          <p className="min-w-0 truncate pt-0.5 text-xs font-medium text-muted-foreground" title={project?.name}>
+            {project?.name}
+          </p>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon-xs" aria-label={`Move ${task.title}`} onClick={(e) => e.stopPropagation()} />}
@@ -65,19 +67,22 @@ export function KanbanCard({ task, onStatusChange, onOpen }: KanbanCardProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <p className="mt-1 text-sm font-medium text-foreground">{task.title}</p>
+        <p className="mt-1 line-clamp-2 text-sm leading-snug font-medium text-foreground" title={task.title}>
+          {task.title}
+        </p>
 
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-3 flex items-center gap-2">
           <PriorityBadge priority={task.priority} />
+          <span className={`min-w-0 flex-1 truncate text-[11px] ${overdue ? "font-medium text-danger" : "text-muted-foreground"}`}>
+            {overdue ? "Overdue · " : "Due "}
+            {formatDate(task.dueDate)}
+          </span>
           {assignee && (
-            <Avatar size="sm">
+            <Avatar size="sm" title={assignee.name}>
               <AvatarFallback>{initials(assignee.name)}</AvatarFallback>
             </Avatar>
           )}
         </div>
-        <p className={`mt-2 text-[11px] ${overdue ? "font-medium text-danger" : "text-muted-foreground"}`}>
-          Due {formatDate(task.dueDate)}
-        </p>
       </CardContent>
     </Card>
   );

@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { isValidRepositoryUrl, REPOSITORY_URL_INVALID_MESSAGE } from "@/lib/projects/assignment";
 
 export const projectFormSchema = z
   .object({
     name: z.string().trim().min(3, "Project name must be at least 3 characters").max(80),
-    description: z.string().trim().min(10, "Description must be at least 10 characters").max(500),
+    description: z.string().trim().min(10, "Description must be at least 10 characters"),
     status: z.enum(["Planning", "Active", "On Hold", "Completed"]),
     priority: z.enum(["Low", "Medium", "High", "Critical"]),
     startDate: z.string().min(1, "Start date is required"),
@@ -20,11 +21,18 @@ export const projectFormSchema = z
     // firestore.rules onlyChangingFields allow-list doesn't include it, so a
     // manager submitting a value here would just get permission-denied.
     workVerificationEnabled: z.boolean().optional(),
+    // Format-checked below; required whenever an intern is assigned (checked
+    // against the real roster by the form and the provider — see
+    // lib/projects/assignment.ts).
+    repositoryUrl: z.string().trim().optional(),
     // Plain-text project requirements — never mandatory, no Firebase Storage
-    // involved. Large but bounded (matches firestore.rules' isValidRequirements
-    // server-side backstop) so this stays a "sensible large text field," not
-    // an unbounded one.
-    requirements: z.string().max(20000, "Requirements text is too long (max 20,000 characters).").optional(),
+    // involved, and deliberately no length cap (detailed requirements are
+    // legitimate project documentation).
+    requirements: z.string().optional(),
+  })
+  .refine((data) => !data.repositoryUrl || isValidRepositoryUrl(data.repositoryUrl), {
+    message: REPOSITORY_URL_INVALID_MESSAGE,
+    path: ["repositoryUrl"],
   })
   .refine((data) => new Date(data.dueDate) >= new Date(data.startDate), {
     message: "Due date must be on or after the start date",

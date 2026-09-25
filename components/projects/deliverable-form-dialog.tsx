@@ -26,7 +26,7 @@ const NO_ASSIGNEE = "none";
 
 const deliverableSchema = z.object({
   title: z.string().trim().min(2, "Title must be at least 2 characters").max(120),
-  description: z.string().trim().max(2000).optional(),
+  description: z.string().trim().optional(),
   status: z.enum(["Pending", "Ready", "Delivered"]),
   dueDate: z.string().optional(),
   assignedTo: z.string().optional(),

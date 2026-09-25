@@ -17,6 +17,7 @@ import * as teamService from "@/lib/services/team.service";
 import * as notificationService from "@/lib/services/notification.service";
 import * as activityService from "@/lib/services/activity.service";
 import * as meetingService from "@/lib/services/meeting.service";
+import { bumpAssignmentVersions, newlyAssignedIds, projectAssigneeIds, repositoryUrlError } from "@/lib/projects/assignment";
 import type { AppNotification } from "@/lib/services/notification.service";
 import type { Project, ProjectPriority, ProjectStatus } from "@/types/project";
 import type { Task, TaskPriority, TaskStatus } from "@/types/task";
@@ -57,6 +58,8 @@ interface CreateProjectInput {
   memberIds: string[];
   managerId?: string | null;
   requirements?: string;
+  /** undefined = leave the stored value unchanged (a form without the field). */
+  repositoryUrl?: string | null;
 }
 
 interface CreateTaskInput {
@@ -87,6 +90,8 @@ interface WorkspaceContextValue {
   retry: () => void;
 
   getMemberById: (id: string) => TeamMember | undefined;
+  /** Whether this org member is an intern (employmentType INTERN) — drives the "repository URL required" project rule. */
+  isInternMember: (id: string) => boolean;
   getProjectById: (id: string) => Project | undefined;
   getTeamsForMember: (memberId: string) => Team[];
   getProjectsForMember: (memberId: string) => Project[];
@@ -382,9 +387,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const actorName = user?.displayName ?? user?.email ?? "Someone";
 
+  // Backs the "a project assigned to an intern must have a repository URL"
+  // rule (lib/projects/assignment.ts) with this shell's real roster.
+  const isInternUser = useCallback((memberUid: string) => rawUsers.some((u) => u.id === memberUid && u.employmentType === "INTERN"), [rawUsers]);
+
   const createProject = useCallback(
     async (input: CreateProjectInput) => {
       if (!uid || !organizationId) throw new Error("You must be logged in.");
+      const memberIds = input.memberIds.includes(uid) ? input.memberIds : [uid, ...input.memberIds];
+      const assigneeIds = projectAssigneeIds({ memberIds, managerId: input.managerId ?? null });
+      const repoError = repositoryUrlError({ repositoryUrl: input.repositoryUrl, assigneeIds, isIntern: isInternUser });
+      if (repoError) throw new Error(repoError);
+      const memberAssignmentVersions = bumpAssignmentVersions({}, assigneeIds);
       const id = await projectService.createProject({
         organizationId,
         teamId: input.teamId,
@@ -396,8 +410,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         dueDate: input.dueDate,
         ownerId: uid,
         managerId: input.managerId ?? null,
-        memberIds: input.memberIds.includes(uid) ? input.memberIds : [uid, ...input.memberIds],
+        memberIds,
         requirements: input.requirements ?? "",
+        repositoryUrl: input.repositoryUrl ?? null,
+        memberAssignmentVersions,
       });
       await activityService.logActivity({
         organizationId,
@@ -409,6 +425,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         entityName: input.name,
         projectId: id,
       });
+      await notificationService.notifyProjectAssigned(id, assigneeIds);
       const now = new Date().toISOString();
       return {
         id,
@@ -429,8 +446,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         // Verification settings (Admin-only, see components/admin/
         // project-form-dialog.tsx) — every project it creates starts with
         // the feature off, same as the real Firestore write already defaults to.
-        repositoryUrl: null,
-        repositoryProvider: "NONE",
+        repositoryUrl: input.repositoryUrl?.trim() || null,
+        repositoryProvider: projectService.inferRepositoryProvider(input.repositoryUrl),
+        memberAssignmentVersions,
         workVerificationEnabled: false,
         verificationFrequency: "DAILY",
         submissionStatus: "NONE",
@@ -441,13 +459,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         updatedAt: now,
       } satisfies Project;
     },
-    [uid, organizationId, actorName]
+    [uid, organizationId, actorName, isInternUser]
   );
 
   const updateProject = useCallback(
     async (id: string, input: CreateProjectInput) => {
       if (!uid || !organizationId) throw new Error("You must be logged in.");
-      await projectService.updateProject(id, input);
+      const existing = projects.find((p) => p.id === id);
+      const assigneeIds = projectAssigneeIds({ memberIds: input.memberIds, managerId: input.managerId ?? null });
+      const repositoryUrl = input.repositoryUrl !== undefined ? input.repositoryUrl : (existing?.repositoryUrl ?? null);
+      const repoError = repositoryUrlError({ repositoryUrl, assigneeIds, isIntern: isInternUser });
+      if (repoError) throw new Error(repoError);
+      const newlyAssigned = existing ? newlyAssignedIds(projectAssigneeIds(existing), assigneeIds) : [];
+      await projectService.updateProject(id, {
+        ...input,
+        ...(newlyAssigned.length > 0 ? { memberAssignmentVersions: bumpAssignmentVersions(existing?.memberAssignmentVersions, newlyAssigned) } : {}),
+      });
       await activityService.logActivity({
         organizationId,
         actorId: uid,
@@ -458,8 +485,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         entityName: input.name,
         projectId: id,
       });
+      await notificationService.notifyProjectAssigned(id, newlyAssigned);
     },
-    [uid, organizationId, actorName]
+    [uid, organizationId, actorName, projects, isInternUser]
   );
 
   const updateProjectStatus = useCallback(
@@ -735,6 +763,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       errors,
       retry,
       getMemberById,
+      isInternMember: isInternUser,
       getProjectById,
       getTeamsForMember,
       getProjectsForMember,
@@ -770,6 +799,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       errors,
       retry,
       getMemberById,
+      isInternUser,
       getProjectById,
       getTeamsForMember,
       getProjectsForMember,

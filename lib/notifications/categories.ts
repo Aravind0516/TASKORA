@@ -22,6 +22,7 @@ export interface NotificationCategory {
 
 export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   { id: "task-assigned", title: "Task assigned to me", description: "Get notified when a task is assigned to you." },
+  { id: "project-assigned", title: "Project assigned to me", description: "Get notified when you are added to a project or made its manager." },
   { id: "task-status-changed", title: "Task status updates", description: "Get notified when a task you're involved in changes status." },
   { id: "task-comments", title: "Comments on my tasks", description: "Get notified when someone comments on a task you're involved in." },
   { id: "project-comments", title: "Comments on my projects", description: "Get notified when someone comments on a project you're involved in." },
@@ -45,6 +46,8 @@ export function categoryForNotificationType(type: NotificationType): string | nu
   switch (type) {
     case "task_assigned":
       return "task-assigned";
+    case "project_assigned":
+      return "project-assigned";
     case "task_status_changed":
     case "task_completed":
       return "task-status-changed";
@@ -73,5 +76,48 @@ export function categoryForNotificationType(type: NotificationType): string | nu
     case "credit_awarded":
     case "credit_deducted":
       return "credits";
+  }
+}
+
+export interface NotificationAlertBehavior {
+  /** Show a pop-up when this arrives while the app is open. */
+  popup: boolean;
+  /** Also play the notification chime (see lib/notifications/sound.ts). */
+  sound: boolean;
+}
+
+/**
+ * How a NEW notification (one that arrives while TASKORA is open — never one
+ * merely loaded from history) announces itself. Every type pops up; the chime
+ * is reserved for events addressed to the recipient that ask for their
+ * attention — work assigned to them, a meeting they're invited to or that
+ * moved, a review of their work, a change to their credits — so routine
+ * status and discussion traffic doesn't turn into constant noise.
+ */
+export function notificationAlertBehavior(type: NotificationType): NotificationAlertBehavior {
+  switch (type) {
+    case "task_assigned":
+    case "project_assigned":
+    case "meeting_created":
+    case "meeting_updated":
+    case "daily_update_reviewed":
+    case "credit_awarded":
+    case "credit_deducted":
+      return { popup: true, sound: true };
+    case "task_status_changed":
+    case "task_completed":
+    case "task_commented":
+    case "project_commented":
+    case "task_due_soon":
+    case "project_updated":
+    case "daily_update_submitted":
+    case "invitation_accepted":
+    case "subscription_requested":
+    case "subscription_approved":
+    case "subscription_rejected":
+    case "organization_registration_submitted":
+    case "organization_registration_approved":
+    case "organization_registration_rejected":
+      return { popup: true, sound: false };
   }
 }

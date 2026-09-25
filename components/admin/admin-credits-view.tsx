@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Award, Gauge, Search, TrendingUp, BarChart3, Users } from "lucide-react";
+import { Award, Gauge, TrendingUp, BarChart3, Users } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -28,6 +27,7 @@ import * as creditService from "@/lib/services/credit.service";
 import { CREDIT_CATEGORIES, CREDIT_CATEGORY_LABELS, type CreditTransaction, type LeaderboardEntry } from "@/types/credit";
 import { formatDate } from "@/lib/format";
 import { CreditAmount, CreditEntryBadges } from "@/components/credits/credit-entry";
+import { SearchInput } from "@/components/shared/search-input";
 
 type DateFilter = "all" | "week" | "month";
 type SourceFilter = "all" | "automated" | "manual";
@@ -127,12 +127,15 @@ export function AdminCreditsView() {
           </Card>
 
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search by name or Candidate ID..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-            </div>
-            <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? "all")}>
-              <SelectTrigger className="w-full sm:w-52">
+            <SearchInput
+              className="w-full sm:max-w-xs"
+              aria-label="Search by name or Candidate ID"
+              placeholder="Search by name or Candidate ID..."
+              value={search}
+              onValueChange={setSearch}
+            />
+            <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? "all")} items={{ all: "All categories", ...Object.fromEntries(CREDIT_CATEGORIES.map((c) => [c, CREDIT_CATEGORY_LABELS[c]])) }}>
+              <SelectTrigger className="w-full sm:w-52 data-[size=default]:h-10">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -144,8 +147,8 @@ export function AdminCreditsView() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={sourceFilter} onValueChange={(v) => setSourceFilter((v ?? "all") as SourceFilter)}>
-              <SelectTrigger className="w-full sm:w-40">
+            <Select value={sourceFilter} onValueChange={(v) => setSourceFilter((v ?? "all") as SourceFilter)} items={{ all: "All sources", automated: "Automated", manual: "Manual" }}>
+              <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
                 <SelectValue placeholder="Source" />
               </SelectTrigger>
               <SelectContent>
@@ -154,8 +157,8 @@ export function AdminCreditsView() {
                 <SelectItem value="manual">Manual</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={dateFilter} onValueChange={(v) => setDateFilter((v ?? "all") as DateFilter)}>
-              <SelectTrigger className="w-full sm:w-40">
+            <Select value={dateFilter} onValueChange={(v) => setDateFilter((v ?? "all") as DateFilter)} items={{ all: "All time", week: "Last 7 days", month: "Last 30 days" }}>
+              <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
                 <SelectValue placeholder="Date" />
               </SelectTrigger>
               <SelectContent>

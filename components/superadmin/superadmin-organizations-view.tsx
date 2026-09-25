@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Building2, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Plus, Search, ShieldOff, ShieldCheck, Eye } from "lucide-react";
+import { Building2, CheckCircle2, ChevronLeft, ChevronRight, MoreHorizontal, Plus, ShieldOff, ShieldCheck, Eye } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,6 +35,7 @@ import { formatDate, timeAgo } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
 import type { Organization, OrgStatus } from "@/types/platform";
 import type { PlatformOrganizationFormValues } from "@/lib/validation/platform-organization.schema";
+import { SearchInput } from "@/components/shared/search-input";
 
 export function SuperAdminOrganizationsView() {
   const [loading, setLoading] = useState(true);
@@ -124,12 +124,15 @@ export function SuperAdminOrganizationsView() {
       />
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search organizations..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as OrgStatus | "all")}>
-          <SelectTrigger className="w-full sm:w-40">
+        <SearchInput
+          className="w-full sm:max-w-xs"
+          aria-label="Search organizations"
+          placeholder="Search organizations..."
+          value={search}
+          onValueChange={setSearch}
+        />
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as OrgStatus | "all")} items={{ all: "All statuses", Active: "Active", Suspended: "Suspended" }}>
+          <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>

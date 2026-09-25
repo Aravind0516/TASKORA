@@ -29,6 +29,7 @@ import { platformProjectFormSchema, type PlatformProjectFormValues } from "@/lib
 import { initials } from "@/lib/format";
 import type { PlatformProject, PlatformProjectStatus, PlatformPriority, PlatformTeam, PlatformUser } from "@/types/platform";
 import { selectItems } from "@/lib/select-items";
+import { projectAssigneeIds, repositoryUrlError } from "@/lib/projects/assignment";
 
 const STATUSES: PlatformProjectStatus[] = ["Planning", "Active", "On Hold", "Completed"];
 const PRIORITIES: PlatformPriority[] = ["Low", "Medium", "High", "Critical"];
@@ -36,7 +37,8 @@ const PRIORITIES: PlatformPriority[] = ["Low", "Medium", "High", "Critical"];
 interface ProjectFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmitProject: (values: PlatformProjectFormValues) => void;
+  /** Must resolve only once the save has actually succeeded — the dialog stays open and shows the error if it rejects. */
+  onSubmitProject: (values: PlatformProjectFormValues) => Promise<void>;
   teams: PlatformTeam[];
   users: PlatformUser[];
   project?: PlatformProject | null;
@@ -90,6 +92,7 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
     control,
     reset,
     setValue,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<PlatformProjectFormValues>({
     resolver: zodResolver(platformProjectFormSchema),
@@ -99,6 +102,14 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
   const selectedTeamId = useWatch({ control, name: "teamId" });
   const selectedTeam = teams.find((t) => t.id === selectedTeamId);
   const teamMembers = selectedTeam ? users.filter((u) => selectedTeam.memberIds.includes(u.id)) : [];
+  const selectedMemberIds = useWatch({ control, name: "memberIds" });
+  const selectedManagerId = useWatch({ control, name: "managerId" });
+  const isIntern = (uid: string) => users.some((u) => u.id === uid && u.employmentType === "INTERN");
+  const assigneeIds = projectAssigneeIds({
+    memberIds: selectedMemberIds ?? [],
+    managerId: selectedManagerId && selectedManagerId !== NO_MANAGER ? selectedManagerId : null,
+  });
+  const repositoryRequired = assigneeIds.some(isIntern);
 
   useEffect(() => {
     if (!open) return;
@@ -110,9 +121,23 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
     onOpenChange(next);
   }
 
-  function onSubmit(values: PlatformProjectFormValues) {
-    onSubmitProject({ ...values, managerId: values.managerId && values.managerId !== NO_MANAGER ? values.managerId : undefined });
-    onOpenChange(false);
+  async function onSubmit(values: PlatformProjectFormValues) {
+    const managerId = values.managerId && values.managerId !== NO_MANAGER ? values.managerId : undefined;
+    const repoError = repositoryUrlError({
+      repositoryUrl: values.repositoryUrl,
+      assigneeIds: projectAssigneeIds({ memberIds: values.memberIds ?? [], managerId: managerId ?? null }),
+      isIntern,
+    });
+    if (repoError) {
+      setError("repositoryUrl", { message: repoError }, { shouldFocus: true });
+      return;
+    }
+    try {
+      await onSubmitProject({ ...values, managerId });
+      onOpenChange(false);
+    } catch (error) {
+      setError("root", { message: error instanceof Error ? error.message : "Failed to save the project. Please try again." });
+    }
   }
 
   return (
@@ -123,7 +148,12 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
           <DialogDescription>{isEditing ? "Update this project's details." : "Set up a new project for your organization."}</DialogDescription>
         </DialogHeader>
 
-        <form id="platform-project-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form id="platform-project-form" noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {errors.root && (
+            <p role="alert" className="rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+              {errors.root.message}
+            </p>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="pp-name">Project name</Label>
             <Input id="pp-name" placeholder="e.g. Q4 Platform Migration" {...register("name")} />
@@ -131,7 +161,7 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="pp-description">Description</Label>
-            <Textarea id="pp-description" rows={3} placeholder="What is this project about?" {...register("description")} />
+            <Textarea id="pp-description" rows={3} className="max-h-72 overflow-y-auto" placeholder="What is this project about?" {...register("description")} />
             {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
           </div>
 
@@ -270,7 +300,7 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
             <Textarea
               id="pp-requirements"
               placeholder="Enter the project requirements, scope, deliverables, technologies, instructions, deadlines, and expectations..."
-              className="min-h-[200px]"
+              className="min-h-[200px] max-h-[28rem] overflow-y-auto"
               {...register("requirements")}
             />
             {errors.requirements && <p className="text-xs text-destructive">{errors.requirements.message}</p>}
@@ -350,9 +380,26 @@ export function ProjectFormDialog({ open, onOpenChange, onSubmitProject, teams, 
               </span>
             </label>
             <div className="space-y-1.5">
-              <Label htmlFor="pp-repo">Repository URL (optional)</Label>
-              <Input id="pp-repo" placeholder="https://github.com/org/repo" {...register("repositoryUrl")} />
-              <p className="text-xs text-muted-foreground">Shown as context next to submitted evidence — never fetched or verified automatically.</p>
+              <Label htmlFor="pp-repo">
+                Repository URL{" "}
+                <span className={repositoryRequired ? "text-destructive" : "font-normal text-muted-foreground"}>
+                  {repositoryRequired ? "(required — an intern is assigned)" : "(optional)"}
+                </span>
+              </Label>
+              <Input
+                id="pp-repo"
+                type="url"
+                inputMode="url"
+                placeholder="https://github.com/org/repo"
+                aria-invalid={Boolean(errors.repositoryUrl)}
+                aria-required={repositoryRequired}
+                {...register("repositoryUrl")}
+              />
+              {errors.repositoryUrl ? (
+                <p className="text-xs text-destructive">{errors.repositoryUrl.message}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Shown to everyone assigned to the project. Never fetched or verified automatically.</p>
+              )}
             </div>
           </div>
         </form>

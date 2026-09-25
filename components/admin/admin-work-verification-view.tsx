@@ -7,7 +7,6 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -44,6 +43,7 @@ import * as notificationService from "@/lib/services/notification.service";
 import type { DailyWorkUpdate, DailyUpdateStatus } from "@/types/daily-work-update";
 import { formatDate } from "@/lib/format";
 import { selectItems } from "@/lib/select-items";
+import { SearchInput } from "@/components/shared/search-input";
 
 const STATUS_OPTIONS: DailyUpdateStatus[] = ["SUBMITTED", "VERIFIED", "PARTIALLY_VERIFIED", "NEEDS_CLARIFICATION"];
 const STATUS_LABELS: Record<DailyUpdateStatus, string> = {
@@ -223,21 +223,19 @@ export function AdminWorkVerificationView() {
       <PageHeader title="Work Verification" description="Every Daily Work Update across your organization's projects." />
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, Candidate ID, project, or task..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchInput
+          className="w-full sm:max-w-xs"
+          aria-label="Search by name, Candidate ID, project, or task"
+          placeholder="Search by name, Candidate ID, project, or task..."
+          value={search}
+          onValueChange={setSearch}
+        />
         <Select
           value={projectFilter}
           onValueChange={(v) => setProjectFilter(v ?? "all")}
           items={selectItems(projects, (p) => p.id, (p) => p.name, { extra: { all: "All projects" } })}
         >
-          <SelectTrigger className="w-full sm:w-48">
+          <SelectTrigger className="w-full sm:w-48 data-[size=default]:h-10">
             <SelectValue placeholder="Project" />
           </SelectTrigger>
           <SelectContent>
@@ -254,7 +252,7 @@ export function AdminWorkVerificationView() {
           onValueChange={(v) => setTeamFilter(v ?? "all")}
           items={selectItems(teams, (t) => t.id, (t) => t.name, { extra: { all: "All teams" } })}
         >
-          <SelectTrigger className="w-full sm:w-40">
+          <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
             <SelectValue placeholder="Team" />
           </SelectTrigger>
           <SelectContent>
@@ -271,7 +269,7 @@ export function AdminWorkVerificationView() {
           onValueChange={(v) => setCandidateFilter(v ?? "all")}
           items={selectItems(users, (u) => u.id, (u) => u.name, { extra: { all: "All candidates" } })}
         >
-          <SelectTrigger className="w-full sm:w-44">
+          <SelectTrigger className="w-full sm:w-44 data-[size=default]:h-10">
             <SelectValue placeholder="Candidate" />
           </SelectTrigger>
           <SelectContent>
@@ -283,8 +281,8 @@ export function AdminWorkVerificationView() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as DailyUpdateStatus | "all")}>
-          <SelectTrigger className="w-full sm:w-44">
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as DailyUpdateStatus | "all")} items={{ all: "All statuses", ...Object.fromEntries(STATUS_OPTIONS.map((s) => [s, STATUS_LABELS[s]])) }}>
+          <SelectTrigger className="w-full sm:w-44 data-[size=default]:h-10">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -296,8 +294,8 @@ export function AdminWorkVerificationView() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={dateFilter} onValueChange={(v) => setDateFilter((v ?? "all") as DateFilter)}>
-          <SelectTrigger className="w-full sm:w-36">
+        <Select value={dateFilter} onValueChange={(v) => setDateFilter((v ?? "all") as DateFilter)} items={{ all: "All time", today: "Today", yesterday: "Yesterday", week: "This week" }}>
+          <SelectTrigger className="w-full sm:w-36 data-[size=default]:h-10">
             <SelectValue placeholder="Date" />
           </SelectTrigger>
           <SelectContent>

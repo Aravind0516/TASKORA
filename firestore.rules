@@ -123,11 +123,27 @@ service cloud.firestore {
     }
     // Server-side backstop for the client's Zod validation on the plain-text
     // project requirements field — rejects an object/array/number injected
-    // by a client bypassing the form, and caps size independently of the
-    // client-side max (matches lib/validation/project.schema.ts's limit).
-    // null/absent is always valid (no requirements written yet).
+    // by a client bypassing the form. Deliberately no length cap: detailed
+    // requirements are legitimate project documentation, and Firestore's own
+    // 1 MiB document limit is the only real ceiling. null/absent is always
+    // valid (no requirements written yet).
     function isValidRequirements(value) {
-      return value == null || (value is string && value.size() <= 20000);
+      return value == null || value is string;
+    }
+    // Project repository link: absent/null, or an absolute http(s) URL with a
+    // host and no spaces. No length cap. Whether it is REQUIRED (any intern
+    // assigned) depends on each assignee's employment type, which a rule
+    // can't iterate over a variable-length memberIds list to check — that
+    // part is enforced by both clients' write paths (lib/projects/
+    // assignment.ts); this rule guarantees nothing malformed is ever stored.
+    function isValidRepositoryUrl(value) {
+      return value == null || (value is string && value.matches('^https?://[^ /]+[^ ]*$'));
+    }
+    // Update-time form: only re-validated when the link actually changes, so
+    // an unrelated edit to an older project is never blocked by a legacy value.
+    function isValidRepositoryUrlChange() {
+      return request.resource.data.get("repositoryUrl", null) == resource.data.get("repositoryUrl", null)
+        || isValidRepositoryUrl(request.resource.data.get("repositoryUrl", null));
     }
     // Work Verification review outcomes — VERIFIED needs no explanation, but
     // PARTIALLY_VERIFIED/NEEDS_CLARIFICATION must carry an actual, non-empty
@@ -272,15 +288,23 @@ service cloud.firestore {
             && (resource.data.managerId == request.auth.uid || request.auth.uid in resource.data.memberIds));
       allow create: if isAdminOfOrg(request.resource.data.organizationId)
         && request.resource.data.ownerId == request.auth.uid
-        && isValidRequirements(request.resource.data.get("requirements", null));
+        && isValidRequirements(request.resource.data.get("requirements", null))
+        && isValidRepositoryUrl(request.resource.data.get("repositoryUrl", null));
       allow update: if isSuperAdmin()
         || (isAdminOfOrg(resource.data.organizationId)
             && request.resource.data.organizationId == resource.data.organizationId
             && request.resource.data.ownerId == resource.data.ownerId
-            && isValidRequirements(request.resource.data.get("requirements", null)))
+            && isValidRequirements(request.resource.data.get("requirements", null))
+            && isValidRepositoryUrlChange())
         || (isMemberOfOrg(resource.data.organizationId) && resource.data.managerId == request.auth.uid
             && isValidRequirements(request.resource.data.get("requirements", null))
-            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "requirementDocument", "requirements", "updatedAt"]));
+            && isValidRepositoryUrlChange()
+            // repositoryUrl (+ its derived provider label) because a manager can
+            // add interns as members, and a project with interns must carry a
+            // repository link; memberAssignmentVersions is the per-person
+            // counter the same save bumps for anyone it newly assigns.
+            && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "requirementDocument", "requirements",
+                                   "repositoryUrl", "repositoryProvider", "memberAssignmentVersions", "updatedAt"]));
       allow delete: if isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();
     }
 

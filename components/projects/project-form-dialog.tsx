@@ -32,6 +32,7 @@ import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { initials } from "@/lib/format";
 import type { Project, ProjectPriority, ProjectStatus } from "@/types/project";
 import { selectItems } from "@/lib/select-items";
+import { projectAssigneeIds, repositoryUrlError } from "@/lib/projects/assignment";
 
 const STATUSES: ProjectStatus[] = ["Planning", "Active", "On Hold", "Completed"];
 const PRIORITIES: ProjectPriority[] = ["Low", "Medium", "High", "Critical"];
@@ -59,6 +60,7 @@ const defaultValues: ProjectFormValues = {
   memberIds: [],
   managerId: undefined,
   workVerificationEnabled: false,
+  repositoryUrl: "",
   requirements: "",
 };
 
@@ -74,13 +76,14 @@ function projectToFormValues(project: Project): ProjectFormValues {
     memberIds: project.memberIds,
     managerId: project.managerId ?? undefined,
     workVerificationEnabled: project.workVerificationEnabled,
+    repositoryUrl: project.repositoryUrl ?? "",
     requirements: project.requirements ?? "",
   };
 }
 
 export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: ProjectFormDialogProps) {
   const { user, role } = useAuth();
-  const { members, teams, uid, getMemberById, createProject, updateProject } = useWorkspace();
+  const { members, teams, uid, getMemberById, isInternMember, createProject, updateProject } = useWorkspace();
   const isEditing = Boolean(project);
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Only an Admin's write path is unrestricted enough to change this field —
@@ -98,6 +101,7 @@ export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: Proj
     handleSubmit,
     control,
     reset,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
@@ -105,6 +109,11 @@ export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: Proj
   });
 
   const selectedMemberIds = useWatch({ control, name: "memberIds" });
+  const selectedManagerId = useWatch({ control, name: "managerId" });
+  const repositoryRequired = projectAssigneeIds({
+    memberIds: selectedMemberIds ?? [],
+    managerId: selectedManagerId && selectedManagerId !== NO_MANAGER ? selectedManagerId : null,
+  }).some(isInternMember);
 
   function handleOpenChange(next: boolean) {
     if (!next) {
@@ -119,13 +128,19 @@ export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: Proj
     if (!uid) return;
     const memberIds = values.memberIds.includes(uid) ? values.memberIds : [uid, ...values.memberIds];
     const managerId = values.managerId && values.managerId !== NO_MANAGER ? values.managerId : null;
+    const repositoryUrl = values.repositoryUrl?.trim() || null;
+    const repoError = repositoryUrlError({ repositoryUrl, assigneeIds: projectAssigneeIds({ memberIds, managerId }), isIntern: isInternMember });
+    if (repoError) {
+      setError("repositoryUrl", { message: repoError }, { shouldFocus: true });
+      return;
+    }
 
     try {
       if (isEditing && project) {
-        await updateProject(project.id, { ...values, memberIds, managerId });
-        onSaved({ ...project, ...values, memberIds, managerId });
+        await updateProject(project.id, { ...values, memberIds, managerId, repositoryUrl });
+        onSaved({ ...project, ...values, memberIds, managerId, repositoryUrl });
       } else {
-        const created = await createProject({ ...values, memberIds, managerId });
+        const created = await createProject({ ...values, memberIds, managerId, repositoryUrl });
         onSaved(created);
       }
       onOpenChange(false);
@@ -144,7 +159,7 @@ export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: Proj
           </DialogDescription>
         </DialogHeader>
 
-        <form id="create-project-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form id="create-project-form" noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {submitError && (
             <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
               <AlertCircle className="mt-0.5 size-4 shrink-0" />
@@ -164,6 +179,7 @@ export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: Proj
               id="project-description"
               placeholder="What is this project about?"
               rows={3}
+              className="max-h-72 overflow-y-auto"
               {...register("description")}
             />
             {errors.description && <p className="text-xs text-destructive">{errors.description.message}</p>}
@@ -338,10 +354,33 @@ export function ProjectFormDialog({ open, onOpenChange, onSaved, project }: Proj
             <Textarea
               id="project-requirements"
               placeholder="Enter the project requirements, scope, deliverables, technologies, instructions, deadlines, and expectations..."
-              className="min-h-[200px]"
+              className="min-h-[200px] max-h-[28rem] overflow-y-auto"
               {...register("requirements")}
             />
             {errors.requirements && <p className="text-xs text-destructive">{errors.requirements.message}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="project-repository">
+              Repository URL{" "}
+              <span className={repositoryRequired ? "text-destructive" : "font-normal text-muted-foreground"}>
+                {repositoryRequired ? "(required — an intern is assigned)" : "(optional)"}
+              </span>
+            </Label>
+            <Input
+              id="project-repository"
+              type="url"
+              inputMode="url"
+              placeholder="https://github.com/org/repo"
+              aria-invalid={Boolean(errors.repositoryUrl)}
+              aria-required={repositoryRequired}
+              {...register("repositoryUrl")}
+            />
+            {errors.repositoryUrl ? (
+              <p className="text-xs text-destructive">{errors.repositoryUrl.message}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Shown to everyone assigned to the project.</p>
+            )}
           </div>
 
           {canConfigureWorkVerification && (

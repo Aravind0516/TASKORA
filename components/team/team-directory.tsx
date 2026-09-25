@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { Search, Users } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -18,6 +17,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import type { TeamMember, UserRole } from "@/types/team";
 import { selectItems } from "@/lib/select-items";
+import { SearchInput } from "@/components/shared/search-input";
 
 const ROLES: UserRole[] = ["Admin", "Team Member"];
 
@@ -63,22 +63,19 @@ export function TeamDirectory() {
     <div>
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:max-w-xs">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              aria-label="Search team members"
-              placeholder="Search team members..."
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchInput
+            className="w-full sm:max-w-xs"
+            aria-label="Search team members"
+            placeholder="Search team members..."
+            value={search}
+            onValueChange={setSearch}
+          />
           <Select
             value={teamFilter}
             onValueChange={(value) => setTeamFilter(value ?? "all")}
             items={selectItems(teams, (t) => t.id, (t) => t.name, { extra: { all: "All teams" } })}
           >
-            <SelectTrigger className="w-full sm:w-48" aria-label="Filter by team">
+            <SelectTrigger className="w-full sm:w-48 data-[size=default]:h-10" aria-label="Filter by team">
               <SelectValue placeholder="Team" />
             </SelectTrigger>
             <SelectContent>
@@ -90,8 +87,8 @@ export function TeamDirectory() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={roleFilter} onValueChange={(value) => setRoleFilter((value ?? "all") as UserRole | "all")}>
-            <SelectTrigger className="w-full sm:w-44" aria-label="Filter by role">
+          <Select value={roleFilter} onValueChange={(value) => setRoleFilter((value ?? "all") as UserRole | "all")} items={{ all: "All roles", ...Object.fromEntries(ROLES.map((role) => [role, role])) }}>
+            <SelectTrigger className="w-full sm:w-44 data-[size=default]:h-10" aria-label="Filter by role">
               <SelectValue placeholder="Role" />
             </SelectTrigger>
             <SelectContent>

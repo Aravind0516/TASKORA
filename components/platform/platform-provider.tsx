@@ -11,6 +11,7 @@ import * as taskService from "@/lib/services/task.service";
 import * as activityService from "@/lib/services/activity.service";
 import * as invitationService from "@/lib/services/invitation.service";
 import * as notificationService from "@/lib/services/notification.service";
+import { bumpAssignmentVersions, newlyAssignedIds, projectAssigneeIds, repositoryUrlError } from "@/lib/projects/assignment";
 import { apiFetch } from "@/lib/api-client";
 import { nowIso } from "@/lib/format";
 import { systemServices as seedSystemServices } from "@/lib/mock-data/platform-data";
@@ -471,9 +472,17 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     await teamService.deleteTeam(id);
   }, []);
 
+  // Backs the "a project assigned to an intern must have a repository URL"
+  // rule (lib/projects/assignment.ts) with this console's real roster.
+  const isInternUser = useCallback((memberUid: string) => rawUsers.some((u) => u.id === memberUid && u.employmentType === "INTERN"), [rawUsers]);
+
   const createProject = useCallback<PlatformContextValue["createProject"]>(
     async (input) => {
-      const id = await projectService.createProject(input);
+      const assigneeIds = projectAssigneeIds({ memberIds: input.memberIds, managerId: input.managerId });
+      const repoError = repositoryUrlError({ repositoryUrl: input.repositoryUrl, assigneeIds, isIntern: isInternUser });
+      if (repoError) throw new Error(repoError);
+      const memberAssignmentVersions = bumpAssignmentVersions({}, assigneeIds);
+      const id = await projectService.createProject({ ...input, memberAssignmentVersions });
       await activityService.logActivity({
         organizationId: input.organizationId,
         actorId: uid,
@@ -484,23 +493,46 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         entityName: input.name,
         projectId: id,
       });
+      await notificationService.notifyProjectAssigned(id, assigneeIds);
       return {
         ...input,
         id,
         progress: input.status === "Completed" ? 100 : (input.progress ?? 0),
         archived: false,
-        repositoryProvider: input.repositoryUrl && /(^|\/\/)(www\.)?github\.com\//i.test(input.repositoryUrl) ? "GITHUB" : "NONE",
+        repositoryProvider: projectService.inferRepositoryProvider(input.repositoryUrl),
         verificationFrequency: "DAILY",
         createdAt: nowIso(),
         updatedAt: nowIso(),
       };
     },
-    [uid, actorName]
+    [uid, actorName, isInternUser]
   );
 
-  const updateProject = useCallback<PlatformContextValue["updateProject"]>(async (id, patch) => {
-    await projectService.updateProject(id, patch as Partial<projectService.ProjectInput> & { progress?: number; archived?: boolean });
-  }, []);
+  const updateProject = useCallback<PlatformContextValue["updateProject"]>(
+    async (id, patch) => {
+      const existing = rawProjects.find((p) => p.id === id);
+      if (!existing) throw new Error("This project no longer exists. It may have been deleted.");
+      const next = {
+        memberIds: patch.memberIds ?? existing.memberIds,
+        managerId: patch.managerId !== undefined ? patch.managerId : existing.managerId,
+        repositoryUrl: patch.repositoryUrl !== undefined ? patch.repositoryUrl : existing.repositoryUrl,
+      };
+      const assigneeIds = projectAssigneeIds(next);
+      // Checked on every save that touches assignment or the repository —
+      // an archive/progress-only patch leaves both unchanged and can't break it.
+      if (patch.memberIds !== undefined || patch.managerId !== undefined || patch.repositoryUrl !== undefined) {
+        const repoError = repositoryUrlError({ repositoryUrl: next.repositoryUrl, assigneeIds, isIntern: isInternUser });
+        if (repoError) throw new Error(repoError);
+      }
+      const newlyAssigned = newlyAssignedIds(projectAssigneeIds(existing), assigneeIds);
+      await projectService.updateProject(id, {
+        ...(patch as Partial<projectService.ProjectInput> & { progress?: number; archived?: boolean }),
+        ...(newlyAssigned.length > 0 ? { memberAssignmentVersions: bumpAssignmentVersions(existing.memberAssignmentVersions, newlyAssigned) } : {}),
+      });
+      await notificationService.notifyProjectAssigned(id, newlyAssigned);
+    },
+    [rawProjects, isInternUser]
+  );
 
   const deleteProject = useCallback(async (id: string) => {
     const projectTasks = tasks.filter((t) => t.projectId === id);

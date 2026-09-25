@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Eye, KeyRound, MoreHorizontal, Plus, Search, ShieldCheck, ShieldOff, ShieldX } from "lucide-react";
+import { CheckCircle2, Eye, KeyRound, MoreHorizontal, Plus, ShieldCheck, ShieldOff, ShieldX } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -29,6 +28,7 @@ import { initials, timeAgo } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
 import { resetPassword } from "@/lib/services/auth.service";
 import type { PlatformAdmin } from "@/types/platform";
+import { SearchInput } from "@/components/shared/search-input";
 
 export function SuperAdminAdminsView() {
   const [loading, setLoading] = useState(true);
@@ -87,10 +87,7 @@ export function SuperAdminAdminsView() {
         }
       />
 
-      <div className="mb-5 relative w-full sm:max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search administrators..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
+      <SearchInput className="mb-5 sm:max-w-xs" aria-label="Search administrators" placeholder="Search administrators..." value={search} onValueChange={setSearch} />
 
       {successMessage && (
         <div className="mb-5 flex items-center gap-2 rounded-lg bg-success/10 px-4 py-2.5 text-sm text-success">

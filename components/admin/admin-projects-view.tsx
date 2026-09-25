@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, CheckCircle2, FolderKanban, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, CheckCircle2, FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
@@ -32,6 +31,7 @@ import { usePlatform } from "@/components/platform/platform-provider";
 import { useAuth } from "@/components/auth/auth-provider";
 import type { PlatformProject } from "@/types/platform";
 import type { PlatformProjectFormValues } from "@/lib/validation/platform-project.schema";
+import { SearchInput } from "@/components/shared/search-input";
 
 export function AdminProjectsView() {
   const [loading, setLoading] = useState(true);
@@ -78,24 +78,24 @@ export function AdminProjectsView() {
     setFormOpen(true);
   }
 
-  function handleSubmit(values: PlatformProjectFormValues) {
-    if (!currentOrganizationId || !user) return;
+  async function handleSubmit(values: PlatformProjectFormValues) {
+    if (!currentOrganizationId || !user) throw new Error("You must be logged in.");
     const memberIds = values.memberIds ?? [];
     const managerId = values.managerId ?? null;
-    const repositoryUrl = values.repositoryUrl || null;
+    const repositoryUrl = values.repositoryUrl?.trim() || null;
     const workVerificationEnabled = Boolean(values.workVerificationEnabled);
     const requirements = values.requirements ?? "";
     if (editingProject) {
       // Owner is intentionally excluded from this patch — it's read-only
       // once a project exists (see PROJECT OWNER fix).
-      updateProject(editingProject.id, { ...values, memberIds, managerId, repositoryUrl, workVerificationEnabled, requirements, organizationId: currentOrganizationId });
+      await updateProject(editingProject.id, { ...values, memberIds, managerId, repositoryUrl, workVerificationEnabled, requirements, organizationId: currentOrganizationId });
       setSuccessMessage(`"${values.name}" was updated.`);
     } else {
       // ownerId is NEVER taken from the form — it's always the authenticated
       // Admin creating the project, derived from the verified Firebase
       // session (also enforced server-side by firestore.rules: a project's
       // ownerId must equal request.auth.uid on create).
-      createProject({ organizationId: currentOrganizationId, ...values, memberIds, managerId, repositoryUrl, workVerificationEnabled, requirements, ownerId: user.uid });
+      await createProject({ organizationId: currentOrganizationId, ...values, memberIds, managerId, repositoryUrl, workVerificationEnabled, requirements, ownerId: user.uid });
       setSuccessMessage(`"${values.name}" was created.`);
     }
   }
@@ -126,10 +126,13 @@ export function AdminProjectsView() {
       />
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search projects..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
+        <SearchInput
+          className="w-full sm:max-w-xs"
+          aria-label="Search projects"
+          placeholder="Search projects..."
+          value={search}
+          onValueChange={setSearch}
+        />
         <Button variant={showArchived ? "secondary" : "outline"} size="sm" onClick={() => setShowArchived((v) => !v)}>
           {showArchived ? "Showing Archived" : "Show Archived"}
         </Button>

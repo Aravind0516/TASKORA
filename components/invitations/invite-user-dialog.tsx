@@ -30,6 +30,7 @@ import { DOMAIN_OPTIONS } from "@/types/candidate";
 import type { PlatformTeam, PlatformProject } from "@/types/platform";
 import { FUNCTIONAL_ROLES } from "@/types/user";
 import { selectItems } from "@/lib/select-items";
+import { SearchInput } from "@/components/shared/search-input";
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -332,7 +333,7 @@ export function InviteUserDialog({ open, onOpenChange, organizationId, teams, pr
                     control={control}
                     name="employmentType"
                     render={({ field }) => (
-                      <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "EMPLOYEE")}>
+                      <Select value={field.value} onValueChange={(v) => field.onChange(v ?? "EMPLOYEE")} items={{ EMPLOYEE: "Employee", INTERN: "Intern" }}>
                         <SelectTrigger id="invite-employment-type" className="w-full">
                           <SelectValue />
                         </SelectTrigger>
@@ -350,7 +351,7 @@ export function InviteUserDialog({ open, onOpenChange, organizationId, teams, pr
                     control={control}
                     name="role"
                     render={({ field }) => (
-                      <Select value={field.value} onValueChange={() => field.onChange("user")}>
+                      <Select value={field.value} onValueChange={() => field.onChange("user")} items={{ user: "User" }}>
                         <SelectTrigger id="invite-role" className="w-full">
                           <SelectValue placeholder="Role" />
                         </SelectTrigger>
@@ -465,11 +466,12 @@ export function InviteUserDialog({ open, onOpenChange, organizationId, teams, pr
                       return (
                         <>
                           {projects.length > 5 && (
-                            <Input
+                            <SearchInput
+                              className="mb-1.5"
+                              aria-label="Search projects"
                               placeholder="Search projects..."
                               value={projectSearch}
-                              onChange={(e) => setProjectSearch(e.target.value)}
-                              className="mb-1.5"
+                              onValueChange={setProjectSearch}
                             />
                           )}
                           <div className="max-h-32 space-y-1.5 overflow-y-auto rounded-md border border-border p-2.5">
@@ -533,7 +535,7 @@ export function InviteUserDialog({ open, onOpenChange, organizationId, teams, pr
                         control={control}
                         name="domain"
                         render={({ field }) => (
-                          <Select value={field.value || NO_DOMAIN} onValueChange={(v) => field.onChange(v === NO_DOMAIN ? "" : v)}>
+                          <Select value={field.value || NO_DOMAIN} onValueChange={(v) => field.onChange(v === NO_DOMAIN ? "" : v)} items={{ [NO_DOMAIN]: "Select a domain", ...Object.fromEntries(DOMAIN_OPTIONS.map((d) => [d.value, d.label])) }}>
                             <SelectTrigger id="invite-domain" className="w-full">
                               <SelectValue placeholder="Select a domain" />
                             </SelectTrigger>
@@ -556,7 +558,7 @@ export function InviteUserDialog({ open, onOpenChange, organizationId, teams, pr
                         control={control}
                         name="secondaryDomain"
                         render={({ field }) => (
-                          <Select value={field.value || NO_DOMAIN} onValueChange={(v) => field.onChange(v === NO_DOMAIN ? "" : v)}>
+                          <Select value={field.value || NO_DOMAIN} onValueChange={(v) => field.onChange(v === NO_DOMAIN ? "" : v)} items={{ [NO_DOMAIN]: "Not set", ...Object.fromEntries(DOMAIN_OPTIONS.map((d) => [d.value, d.label])) }}>
                             <SelectTrigger id="invite-secondary-domain" className="w-full">
                               <SelectValue placeholder="Optional" />
                             </SelectTrigger>

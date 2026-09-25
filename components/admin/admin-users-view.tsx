@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Award, CheckCircle2, Eye, MoreHorizontal, Pencil, Plus, Search, ShieldOff, ShieldCheck, Users } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -46,6 +45,7 @@ import type { PlatformUserFormValues } from "@/lib/validation/platform-user.sche
 import type { PlatformInvitation } from "@/types/invitation";
 import type { LeaderboardEntry } from "@/types/credit";
 import { selectItems } from "@/lib/select-items";
+import { SearchInput } from "@/components/shared/search-input";
 
 const EMAIL_SENT_MESSAGE = "Invitation email sent successfully.";
 const EMAIL_UNAVAILABLE_MESSAGE = "Invitation could not be sent. Please try again.";
@@ -163,12 +163,15 @@ export function AdminUsersView() {
       <h2 className="mb-3 text-sm font-semibold tracking-tight text-foreground">Active Users</h2>
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search by name, email, or Candidate ID..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <Select value={employmentFilter} onValueChange={(v) => setEmploymentFilter(v ?? "all")}>
-          <SelectTrigger className="w-full sm:w-36">
+        <SearchInput
+          className="w-full sm:max-w-xs"
+          aria-label="Search by name, email, or Candidate ID"
+          placeholder="Search by name, email, or Candidate ID..."
+          value={search}
+          onValueChange={setSearch}
+        />
+        <Select value={employmentFilter} onValueChange={(v) => setEmploymentFilter(v ?? "all")} items={{ all: "All roles", EMPLOYEE: "Employee", INTERN: "Intern" }}>
+          <SelectTrigger className="w-full sm:w-36 data-[size=default]:h-10">
             <SelectValue placeholder="Role" />
           </SelectTrigger>
           <SelectContent>
@@ -182,7 +185,7 @@ export function AdminUsersView() {
           onValueChange={(v) => setTeamFilter(v ?? "all")}
           items={selectItems(teams, (t) => t.id, (t) => t.name, { extra: { all: "All teams" } })}
         >
-          <SelectTrigger className="w-full sm:w-40">
+          <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
             <SelectValue placeholder="Team" />
           </SelectTrigger>
           <SelectContent>
@@ -194,8 +197,8 @@ export function AdminUsersView() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as PersonStatus | "all")}>
-          <SelectTrigger className="w-full sm:w-40">
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as PersonStatus | "all")} items={{ all: "All statuses", Active: "Active", Invited: "Invited", Suspended: "Suspended" }}>
+          <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>

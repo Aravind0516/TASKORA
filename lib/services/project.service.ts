@@ -39,6 +39,7 @@ function projectFromDoc(docSnap: QueryDocumentSnapshot): Project {
     // completely unchanged until an Admin deliberately opts it in.
     repositoryUrl: data.repositoryUrl ?? null,
     repositoryProvider: data.repositoryProvider ?? "NONE",
+    memberAssignmentVersions: (data.memberAssignmentVersions as Record<string, number> | undefined) ?? {},
     workVerificationEnabled: Boolean(data.workVerificationEnabled),
     verificationFrequency: data.verificationFrequency ?? "DAILY",
     submissionStatus: data.submissionStatus === "SUBMITTED" ? "SUBMITTED" : "NONE",
@@ -156,13 +157,15 @@ export interface ProjectInput {
   managerId: string | null;
   memberIds: string[];
   repositoryUrl?: string | null;
+  /** See types/project.ts — pass only when the save newly assigns someone. */
+  memberAssignmentVersions?: Record<string, number>;
   workVerificationEnabled?: boolean;
   /** Plain-text project requirements — see types/project.ts's `requirements`. */
   requirements?: string;
 }
 
 /** github.com/... vs. anything else — evidence-context labeling only, never used to decide what TASKORA trusts. */
-function inferRepositoryProvider(repositoryUrl: string | null | undefined): RepositoryProvider {
+export function inferRepositoryProvider(repositoryUrl: string | null | undefined): RepositoryProvider {
   return repositoryUrl && /(^|\/\/)(www\.)?github\.com\//i.test(repositoryUrl) ? "GITHUB" : "NONE";
 }
 

@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MoreHorizontal, Pencil, Search, ShieldCheck, ShieldOff, Users, CheckCircle2 } from "lucide-react";
+import { MoreHorizontal, Pencil, ShieldCheck, ShieldOff, Users, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -37,6 +36,7 @@ import { usePlatform } from "@/components/platform/platform-provider";
 import type { PersonStatus, PlatformUser } from "@/types/platform";
 import type { PlatformUserFormValues } from "@/lib/validation/platform-user.schema";
 import { selectItems } from "@/lib/select-items";
+import { SearchInput } from "@/components/shared/search-input";
 
 export function SuperAdminUsersView() {
   const [loading, setLoading] = useState(true);
@@ -93,16 +93,19 @@ export function SuperAdminUsersView() {
       <PageHeader title="Users" description="Every user across every organization on the platform" />
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search users..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
+        <SearchInput
+          className="w-full sm:max-w-xs"
+          aria-label="Search users"
+          placeholder="Search users..."
+          value={search}
+          onValueChange={setSearch}
+        />
         <Select
           value={orgFilter}
           onValueChange={(v) => setOrgFilter(v ?? "all")}
           items={selectItems(organizations, (o) => o.id, (o) => o.name, { extra: { all: "All organizations" } })}
         >
-          <SelectTrigger className="w-full sm:w-52">
+          <SelectTrigger className="w-full sm:w-52 data-[size=default]:h-10">
             <SelectValue placeholder="Organization" />
           </SelectTrigger>
           <SelectContent>
@@ -114,8 +117,8 @@ export function SuperAdminUsersView() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as PersonStatus | "all")}>
-          <SelectTrigger className="w-full sm:w-40">
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter((v ?? "all") as PersonStatus | "all")} items={{ all: "All statuses", Active: "Active", Invited: "Invited", Suspended: "Suspended" }}>
+          <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>

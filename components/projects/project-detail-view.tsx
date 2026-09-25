@@ -37,6 +37,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { CommentSection } from "@/components/comments/comment-section";
 import { ProjectRequirementsTextSection } from "@/components/projects/project-requirements-text-section";
+import { ProjectRepositoryCard } from "@/components/projects/project-repository-card";
 import { DailyUpdatePanel } from "@/components/work-verification/daily-update-panel";
 import { ProjectVerificationDashboard } from "@/components/work-verification/project-verification-dashboard";
 import { ProjectHealthExplanation } from "@/components/shared/project-health-badge";
@@ -288,7 +289,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">{project.name}</h1>
             <PriorityBadge priority={project.priority} />
           </div>
-          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{project.description}</p>
+          <p className="mt-1.5 max-w-3xl text-sm whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">{project.description}</p>
           <p className="mt-1.5 text-xs text-muted-foreground">
             Owned by <span className="font-medium text-foreground">{getMemberById(project.ownerId)?.name}</span>
           </p>
@@ -452,6 +453,8 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                 </Button>
               </CardContent>
             </Card>
+
+            <ProjectRepositoryCard project={project} canEdit={canManageProject} className="lg:col-span-3" />
           </div>
         </TabsContent>
 
@@ -508,7 +511,8 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="requirements" className="mt-4">
+        <TabsContent value="requirements" className="mt-4 space-y-4">
+          <ProjectRepositoryCard project={project} canEdit={canManageProject} />
           <Card>
             <CardHeader>
               <CardTitle>Requirements</CardTitle>

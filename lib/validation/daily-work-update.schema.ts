@@ -29,7 +29,7 @@ const evidenceSchema = z
     type: z.enum(EVIDENCE_TYPES),
     url: z.string().trim().max(2000),
     title: z.string().trim().max(120),
-    description: z.string().trim().max(300),
+    description: z.string().trim(),
     attachmentId: z.string().optional(),
     fileName: z.string().optional(),
     fileSize: z.number().optional(),
@@ -48,10 +48,10 @@ const evidenceSchema = z
 
 export const dailyWorkUpdateFormSchema = z.object({
   taskId: z.string().optional(),
-  workSummary: z.string().trim().min(10, "Describe today's work in at least 10 characters").max(2000),
-  completedWork: z.string().trim().min(5, "List what you completed in at least 5 characters").max(2000),
-  blockers: z.string().trim().max(1000),
-  tomorrowPlan: z.string().trim().max(1000),
+  workSummary: z.string().trim().min(10, "Describe today's work in at least 10 characters"),
+  completedWork: z.string().trim().min(5, "List what you completed in at least 5 characters"),
+  blockers: z.string().trim(),
+  tomorrowPlan: z.string().trim(),
   evidence: z.array(evidenceSchema).max(20, "That's a lot of evidence — keep it to the most relevant links."),
 });
 
@@ -60,7 +60,7 @@ export type DailyWorkUpdateFormValues = z.infer<typeof dailyWorkUpdateFormSchema
 export const reviewFormSchema = z
   .object({
     status: z.enum(["VERIFIED", "PARTIALLY_VERIFIED", "NEEDS_CLARIFICATION"]),
-    reviewerComment: z.string().trim().max(1000).optional().default(""),
+    reviewerComment: z.string().trim().optional().default(""),
   })
   .refine((data) => data.status === "VERIFIED" || data.reviewerComment.length > 0, {
     message: "A comment is required for Partially Verified or Needs Clarification.",

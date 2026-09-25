@@ -1,12 +1,12 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { selectItems } from "@/lib/select-items";
 import type { Project } from "@/types/project";
 import type { TaskPriority } from "@/types/task";
+import { SearchInput } from "@/components/shared/search-input";
 
 export type KanbanAssigneeFilter = "all" | "me" | "unassigned";
 
@@ -45,16 +45,13 @@ export function KanbanToolbar({
 
   return (
     <div className="mb-5 space-y-3">
-      <div className="relative w-full max-w-xl">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          aria-label="Search tasks on the board"
-          placeholder="Search tasks..."
-          className="pl-9"
-          value={filters.search}
-          onChange={(e) => onChange({ ...filters, search: e.target.value })}
-        />
-      </div>
+      <SearchInput
+        className="w-full max-w-xl"
+        aria-label="Search tasks on the board"
+        placeholder="Search tasks..."
+        value={filters.search}
+        onValueChange={(value) => onChange({ ...filters, search: value })}
+      />
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select
@@ -62,7 +59,7 @@ export function KanbanToolbar({
           onValueChange={(value) => onChange({ ...filters, projectId: value ?? "all" })}
           items={selectItems(projects, (p) => p.id, (p) => p.name, { extra: { all: "All projects" } })}
         >
-          <SelectTrigger className="w-full sm:w-52" aria-label="Filter by project">
+          <SelectTrigger className="w-full sm:w-52 data-[size=default]:h-10" aria-label="Filter by project">
             <SelectValue placeholder="Project" />
           </SelectTrigger>
           <SelectContent>
@@ -80,7 +77,7 @@ export function KanbanToolbar({
           onValueChange={(value) => onChange({ ...filters, priority: (value ?? "all") as TaskPriority | "all" })}
           items={{ all: "All priorities", ...Object.fromEntries(PRIORITIES.map((p) => [p, p])) }}
         >
-          <SelectTrigger className="w-full sm:w-40" aria-label="Filter by priority">
+          <SelectTrigger className="w-full sm:w-40 data-[size=default]:h-10" aria-label="Filter by priority">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
@@ -98,7 +95,7 @@ export function KanbanToolbar({
           onValueChange={(value) => onChange({ ...filters, assignee: (value ?? "all") as KanbanAssigneeFilter })}
           items={ASSIGNEE_LABELS}
         >
-          <SelectTrigger className="w-full sm:w-44" aria-label="Filter by assignee">
+          <SelectTrigger className="w-full sm:w-44 data-[size=default]:h-10" aria-label="Filter by assignee">
             <SelectValue placeholder="Assignee" />
           </SelectTrigger>
           <SelectContent>

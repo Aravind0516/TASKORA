@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { usePlatform } from "@/components/platform/platform-provider";
 import { SubscriptionStatusBadge } from "@/components/shared/subscription-status-badge";
 import { getEffectiveSubscriptionStatus } from "@/lib/access-control";
+import { TaskoraGuide } from "@/components/settings/taskora-guide";
 
 const NOTIFICATION_ITEMS = [
   { id: "new-user", title: "New member joins", description: "Get notified when someone joins your organization." },
@@ -37,6 +38,7 @@ export function AdminSettingsView() {
         <TabsTrigger value="notifications">Notifications</TabsTrigger>
         <TabsTrigger value="security">Security</TabsTrigger>
         <TabsTrigger value="preferences">Preferences</TabsTrigger>
+        <TabsTrigger value="guide">TASKORA Guide</TabsTrigger>
       </TabsList>
 
       <TabsContent value="organization" className="mt-4">
@@ -128,6 +130,10 @@ export function AdminSettingsView() {
             TASKORA currently follows a light, premium theme. Theme switching will be available in a future update.
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="guide" className="mt-4">
+        <TaskoraGuide />
       </TabsContent>
     </Tabs>
   );

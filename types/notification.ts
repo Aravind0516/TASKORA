@@ -1,5 +1,6 @@
 export type NotificationType =
   | "task_assigned"
+  | "project_assigned"
   | "task_status_changed"
   | "task_commented"
   | "project_commented"

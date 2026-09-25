@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { updateNotificationPreferences } from "@/lib/services/user.service";
 import { NOTIFICATION_CATEGORIES as NOTIFICATION_ITEMS } from "@/lib/notifications/categories";
+import { TaskoraGuide } from "@/components/settings/taskora-guide";
 
 // Personal profile editing (name, title, phone, academic/professional
 // details) lives ONLY at /profile (components/candidate/my-profile-view.tsx)
@@ -55,9 +56,10 @@ export function SettingsView() {
 
   return (
     <Tabs defaultValue="notifications">
-      <TabsList>
+      <TabsList className="flex-wrap">
         <TabsTrigger value="notifications">Notifications</TabsTrigger>
         <TabsTrigger value="appearance">Appearance</TabsTrigger>
+        <TabsTrigger value="guide">TASKORA Guide</TabsTrigger>
       </TabsList>
 
       <TabsContent value="notifications" className="mt-4">
@@ -104,6 +106,10 @@ export function SettingsView() {
             </p>
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="guide" className="mt-4">
+        <TaskoraGuide />
       </TabsContent>
     </Tabs>
   );

@@ -8,7 +8,7 @@ import { z } from "zod";
 // components/comments/comment-section.tsx) — no rich-text editor, matching
 // "do not over-engineer" for this phase.
 export const commentFormSchema = z.object({
-  content: z.string().trim().min(1, "Comment cannot be empty").max(2000, "Comment is too long (2000 characters max)"),
+  content: z.string().trim().min(1, "Comment cannot be empty"),
 });
 
 export type CommentFormValues = z.infer<typeof commentFormSchema>;
