@@ -43,6 +43,7 @@ import type { DailyWorkUpdate, EvidenceType } from "@/types/daily-work-update";
 import type { Attachment } from "@/types/attachment";
 import type { Task } from "@/types/task";
 import { selectItems } from "@/lib/select-items";
+import { cn } from "@/lib/utils";
 
 const NO_TASK = "none";
 
@@ -113,6 +114,17 @@ export function DailyUpdatePanel({
   });
   const { fields, append, remove } = useFieldArray({ control, name: "evidence" });
 
+  // "Whole project" vs "A specific task" — an update doesn't have to be about
+  // a task (members are often not assigned one, or are reporting on the
+  // project as a whole). Derived from the form's own taskId so it always
+  // matches a loaded/preselected update; `wantsTask` only covers the moment
+  // after choosing "A specific task" and before picking one.
+  const selectedTaskId = useWatch({ control, name: "taskId" });
+  const [wantsTask, setWantsTask] = useState(false);
+  const scope: "project" | "task" = (selectedTaskId && selectedTaskId !== NO_TASK) || wantsTask ? "task" : "project";
+  // The member's own tasks first — the ones they're most likely reporting on.
+  const orderedTasks = [...tasks].sort((a, b) => Number(b.assignedTo === uid) - Number(a.assignedTo === uid) || a.title.localeCompare(b.title));
+
   useEffect(() => {
     if (todayUpdate) {
       reset({
@@ -151,6 +163,10 @@ export function DailyUpdatePanel({
   }
 
   async function onSubmit(values: DailyWorkUpdateFormValues) {
+    if (scope === "task" && !(values.taskId && values.taskId !== NO_TASK)) {
+      setError('Choose the task this update is about, or switch to "Whole project".');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     const taskId = values.taskId && values.taskId !== NO_TASK ? values.taskId : null;
@@ -260,26 +276,68 @@ export function DailyUpdatePanel({
                 </div>
               )}
 
-              {tasks.length > 0 && (
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-foreground">This update is about</legend>
+                <div role="radiogroup" aria-label="This update is about" className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      ["project", "Whole project", "General progress on the project"],
+                      ["task", "A specific task", "Progress on one task"],
+                    ] as const
+                  ).map(([value, label, hint]) => {
+                    const active = scope === value;
+                    const disabled = value === "task" && tasks.length === 0;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        disabled={disabled}
+                        onClick={() => {
+                          if (value === "project") {
+                            setWantsTask(false);
+                            setValue("taskId", undefined);
+                          } else {
+                            setWantsTask(true);
+                          }
+                        }}
+                        className={cn(
+                          "rounded-lg border px-3 py-2 text-left transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+                          active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                        )}
+                      >
+                        <span className="block text-sm font-medium text-foreground">{label}</span>
+                        <span className="block text-xs text-muted-foreground">{hint}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {tasks.length === 0 && (
+                  <p className="text-xs text-muted-foreground">This project has no tasks yet — your update will be recorded for the whole project.</p>
+                )}
+              </fieldset>
+
+              {scope === "task" && tasks.length > 0 && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="duw-task">Task (optional)</Label>
+                  <Label htmlFor="duw-task">Task</Label>
                   <Controller
                     control={control}
                     name="taskId"
                     render={({ field }) => (
                       <Select
-                        value={field.value || NO_TASK}
-                        onValueChange={(v) => field.onChange(v === NO_TASK ? undefined : v)}
-                        items={selectItems(tasks, (t) => t.id, (t) => t.title, { extra: { [NO_TASK]: "Project-level update" }, value: field.value, unresolvedLabel: "Unknown task" })}
+                        value={field.value && field.value !== NO_TASK ? field.value : ""}
+                        onValueChange={(v) => field.onChange(v || undefined)}
+                        items={selectItems(orderedTasks, (t) => t.id, (t) => t.title, { value: field.value, unresolvedLabel: "Unknown task" })}
                       >
                         <SelectTrigger id="duw-task" className="w-full">
-                          <SelectValue placeholder="Project-level update" />
+                          <SelectValue placeholder="Choose a task" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={NO_TASK}>Project-level update</SelectItem>
-                          {tasks.map((t) => (
+                          {orderedTasks.map((t) => (
                             <SelectItem key={t.id} value={t.id}>
                               {t.title}
+                              {t.assignedTo === uid ? " (yours)" : ""}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -376,7 +434,7 @@ export function DailyUpdatePanel({
                     </span>
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {task ? task.title : "Project-level"} · {u.workSummary}
+                    {task ? task.title : "Whole project"} · {u.workSummary}
                     {u.evidence.length > 0 && ` · ${u.evidence.length} evidence item${u.evidence.length === 1 ? "" : "s"}`}
                   </p>
                   {u.reviewerComment && <p className="mt-0.5 text-xs text-foreground">&quot;{u.reviewerComment}&quot;</p>}
@@ -586,7 +644,7 @@ function ReadOnlyUpdate({ update, tasks }: { update: DailyWorkUpdate; tasks: Tas
   const task = update.taskId ? tasks.find((t) => t.id === update.taskId) : null;
   return (
     <div className="space-y-3 text-sm">
-      {task && <p className="text-xs text-muted-foreground">Task: {task.title}</p>}
+      <p className="text-xs text-muted-foreground">{task ? `Task: ${task.title}` : "About: Whole project"}</p>
       <div>
         <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Today&apos;s Work</p>
         <p className="mt-1 text-foreground">{update.workSummary}</p>

@@ -176,7 +176,7 @@ export function ProjectVerificationDashboard({
                       <div>
                         <p className="text-sm font-medium text-foreground">{member?.name ?? "Unknown"}</p>
                         <p className="text-xs text-muted-foreground">
-                          {task ? task.title : "Project-level"} · {formatDate(update.date)}
+                          {task ? task.title : "Whole project"} · {formatDate(update.date)}
                         </p>
                       </div>
                       <Badge variant="outline">SUBMITTED</Badge>

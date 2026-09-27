@@ -353,7 +353,7 @@ export function AdminWorkVerificationView() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{projectNameById.get(update.projectId) ?? "Unknown project"}</TableCell>
-                        <TableCell className="text-muted-foreground">{task?.title ?? "Project-level"}</TableCell>
+                        <TableCell className="text-muted-foreground">{task?.title ?? "Whole project"}</TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">
                           {formatDate(update.submittedAt, { hour: "numeric", minute: "2-digit" })}
                           {update.editedAt && (
@@ -408,7 +408,7 @@ export function AdminWorkVerificationView() {
                   <div>
                     <p className="text-xs text-muted-foreground">Task</p>
                     <p className="text-foreground">
-                      {detailTarget.taskId ? (taskById.get(detailTarget.taskId)?.title ?? "Unknown task") : "Project-level"}
+                      {detailTarget.taskId ? (taskById.get(detailTarget.taskId)?.title ?? "Unknown task") : "Whole project"}
                     </p>
                   </div>
                   <div>
