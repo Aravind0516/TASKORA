@@ -787,6 +787,28 @@ service cloud.firestore {
     // toward), writable only by that organization's Admin. Changing a
     // weight here never rewrites past creditTransactions — each transaction
     // permanently stores the credits it actually awarded.
+    // ── topPerformers/{organizationId}_{weekly|monthly} ─────────────────
+    // The organization's admin-published Weekly / Monthly Top Performer,
+    // shown on every member's dashboard. Readable by that organization's
+    // members only (never across organizations); written only by that
+    // organization's Admin, who must name themselves as publisher and can
+    // only feature someone who belongs to the same organization. The
+    // document id is pinned to organization + period, so one organization
+    // can never write into another's slot. See lib/services/
+    // top-performer.service.ts.
+    match /topPerformers/{docId} {
+      allow read: if isSuperAdmin() || isMemberOfOrg(resource.data.organizationId);
+      allow create, update: if isAdminOfOrg(request.resource.data.organizationId)
+        && request.resource.data.period in ["weekly", "monthly"]
+        && docId == request.resource.data.organizationId + "_" + request.resource.data.period
+        && request.resource.data.periodKey is string
+        && request.resource.data.publishedBy == request.auth.uid
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0
+        && request.resource.data.message is string && request.resource.data.message.size() <= 280
+        && get(/databases/$(database)/documents/users/$(request.resource.data.userId)).data.organizationId == request.resource.data.organizationId;
+      allow delete: if isSuperAdmin() || isAdminOfOrg(resource.data.organizationId);
+    }
+
     match /creditRules/{organizationId} {
       allow read: if isSuperAdmin() || isMemberOfOrg(organizationId);
       allow write: if isSuperAdmin() || isAdminOfOrg(organizationId);

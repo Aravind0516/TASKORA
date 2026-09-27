@@ -38,7 +38,7 @@ import { IMAGE_ATTACHMENT_TYPES, DOCUMENT_ATTACHMENT_TYPES, IMAGE_ATTACHMENT_INP
 import * as dailyUpdateService from "@/lib/services/daily-work-update.service";
 import * as attachmentService from "@/lib/services/attachment.service";
 import * as notificationService from "@/lib/services/notification.service";
-import { formatDate, formatFileSize, formatTime } from "@/lib/format";
+import { formatDate, formatFileSize, formatTime, nowIso } from "@/lib/format";
 import type { DailyWorkUpdate, EvidenceType } from "@/types/daily-work-update";
 import type { Attachment } from "@/types/attachment";
 import type { Task } from "@/types/task";
@@ -68,6 +68,8 @@ interface DailyUpdatePanelProps {
   getRecipientPreferences?: (uid: string) => Record<string, boolean> | undefined;
   /** Preselects the Task field — set when arriving here via a task's own "Daily Work Update" button, so the employee doesn't have to re-pick a task TASKORA already knows. Only applied to a fresh (not-yet-submitted) form; never overrides an existing todayUpdate's own taskId. */
   initialTaskId?: string | null;
+  /** Why this user's updates couldn't be loaded (e.g. a missing database index) — shown instead of silently looking like "nothing submitted yet". */
+  loadError?: string | null;
 }
 
 const emptyEvidence = { type: EVIDENCE_TYPES[0], url: "", title: "", description: "", attachmentId: undefined, fileName: undefined };
@@ -79,12 +81,18 @@ export function DailyUpdatePanel({
   uid,
   userName,
   tasks,
-  todayUpdate,
+  todayUpdate: loadedTodayUpdate,
   recentUpdates,
   notifyRecipientIds,
   getRecipientPreferences,
   initialTaskId,
+  loadError,
 }: DailyUpdatePanelProps) {
+  // What this form itself just submitted today. Used when the page's list of
+  // updates hasn't (or couldn't) come back with it, so the form still closes
+  // and any further submit is correctly treated as an edit of today's update.
+  const [localToday, setLocalToday] = useState<DailyWorkUpdate | null>(null);
+  const todayUpdate = loadedTodayUpdate ?? (localToday?.date === dailyUpdateService.todayDateKey() ? localToday : null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -158,19 +166,44 @@ export function DailyUpdatePanel({
           evidence,
         });
       } else {
-        await dailyUpdateService.createDailyUpdate({
+        const date = dailyUpdateService.todayDateKey();
+        const result = await dailyUpdateService.submitTodayDailyUpdate({
           organizationId,
           projectId,
           taskId,
           userId: uid,
-          date: dailyUpdateService.todayDateKey(),
+          date,
           workSummary: values.workSummary,
           completedWork: values.completedWork,
           blockers: values.blockers,
           tomorrowPlan: values.tomorrowPlan,
           evidence,
         });
-        if (notifyRecipientIds.length > 0) {
+        const now = nowIso();
+        setLocalToday({
+          id: dailyUpdateService.updateDocId(projectId, uid, date),
+          organizationId,
+          projectId,
+          taskId,
+          userId: uid,
+          date,
+          workSummary: values.workSummary,
+          completedWork: values.completedWork,
+          blockers: values.blockers,
+          tomorrowPlan: values.tomorrowPlan,
+          evidence,
+          status: "SUBMITTED",
+          submittedAt: now,
+          editedAt: result === "updated" ? now : null,
+          reviewedAt: null,
+          reviewedBy: null,
+          reviewerComment: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+        // Only a genuinely new submission notifies reviewers — a submission that
+        // turned out to be an edit of today's existing update doesn't re-notify.
+        if (result === "created" && notifyRecipientIds.length > 0) {
           notificationService
             .notifyUsers({
               organizationId,
@@ -199,6 +232,12 @@ export function DailyUpdatePanel({
         <CardHeader>
           <CardTitle>Daily Work Update</CardTitle>
           <CardDescription>Submit your work so your progress can be reviewed and recognized.</CardDescription>
+          {loadError && (
+            <p role="status" className="mt-2 flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              <span>Your earlier updates couldn&apos;t be loaded ({loadError}). You can still submit today&apos;s update.</span>
+            </p>
+          )}
         </CardHeader>
 
         {!showForm && todayUpdate ? (

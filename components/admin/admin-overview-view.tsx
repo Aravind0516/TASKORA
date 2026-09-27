@@ -29,6 +29,9 @@ import {
 } from "@/components/admin/admin-work-verification-view";
 import type { DailyWorkUpdate } from "@/types/daily-work-update";
 import { LeaderSpotlight } from "@/components/credits/leader-spotlight";
+import { TopPerformerBanner } from "@/components/credits/top-performer-banner";
+import { TopPerformerPublisher } from "@/components/admin/top-performer-publisher";
+import { useAuth } from "@/components/auth/auth-provider";
 
 interface SetupStep {
   label: string;
@@ -78,6 +81,7 @@ function SetupProgress({ steps }: { steps: SetupStep[] }) {
 export function AdminOverviewView() {
   const [loading, setLoading] = useState(true);
   const { currentOrganizationId, getOrganization, usersInOrg, teamsInOrg, projectsInOrg, tasksInOrg, activityInOrg, getUser, getTeam } = usePlatform();
+  const { user } = useAuth();
   const [dailyUpdates, setDailyUpdates] = useState<DailyWorkUpdate[] | null>(null);
 
   useEffect(() => {
@@ -236,7 +240,18 @@ export function AdminOverviewView() {
         </Link>
       </div>
 
+      {currentOrganizationId && <TopPerformerBanner organizationId={currentOrganizationId} className="mt-6 mb-0" />}
       {currentOrganizationId && <LeaderSpotlight organizationId={currentOrganizationId} className="mt-6" />}
+      {currentOrganizationId && user && (
+        <div className="mt-6">
+          <TopPerformerPublisher
+            organizationId={currentOrganizationId}
+            users={usersInOrg(currentOrganizationId)}
+            adminUid={user.uid}
+            adminName={getUser(user.uid)?.name ?? user.displayName ?? "Your admin"}
+          />
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

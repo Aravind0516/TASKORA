@@ -31,7 +31,7 @@ export function todayDateKey(): string {
 }
 
 /** Deterministic id — one update per user per project per day by construction, not by a duplicate-detection query. */
-function updateDocId(projectId: string, userId: string, date: string): string {
+export function updateDocId(projectId: string, userId: string, date: string): string {
   return `${projectId}_${userId}_${date}`;
 }
 
@@ -191,8 +191,55 @@ export interface DailyUpdateInput {
   evidence: WorkEvidence[];
 }
 
-/** First submission of the day — fails (permission-denied) if one already exists, by firestore.rules' create-time checks; the UI decides create vs. edit by whether today's update already loaded, same convention as every record-editing dialog in this app. */
-export async function createDailyUpdate(input: DailyUpdateInput): Promise<void> {
+export const DAILY_UPDATE_LOCKED_MESSAGE =
+  "Today's update can't be changed anymore — it has already been reviewed, or you're no longer assigned to this project.";
+
+function isPermissionDenied(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === "permission-denied";
+}
+
+/**
+ * Submit today's update for this project — the one call the Daily Work Update
+ * form uses for a new submission. There is exactly one update per user per
+ * project per day (deterministic id), so if one ALREADY exists, Firestore
+ * treats the create's setDoc as an update of it and the rules refuse it
+ * (only the text fields of an unreviewed update may change). That used to
+ * surface as "dailyWorkUpdates:create permission-denied" whenever the form
+ * didn't know about today's existing update (e.g. the page's list of updates
+ * failed to load, or a second submit after the first one succeeded). Such a
+ * submission is exactly an edit of today's update, so it is applied as one;
+ * only if THAT is refused too (already reviewed, or no longer assigned) does
+ * the user get an error — a clear one, not "Missing or insufficient
+ * permissions".
+ */
+export async function submitTodayDailyUpdate(input: DailyUpdateInput): Promise<"created" | "updated"> {
+  try {
+    await createDailyUpdate(input, { rethrowRaw: true });
+    return "created";
+  } catch (error) {
+    if (!isPermissionDenied(error)) throw new Error(getFirestoreErrorMessage(error, "dailyWorkUpdates:create"));
+  }
+  try {
+    const now = serverTimestamp();
+    await updateDoc(doc(db, "dailyWorkUpdates", updateDocId(input.projectId, input.userId, input.date)), {
+      taskId: input.taskId ?? null,
+      workSummary: input.workSummary,
+      completedWork: input.completedWork,
+      blockers: input.blockers ?? "",
+      tomorrowPlan: input.tomorrowPlan ?? "",
+      evidence: input.evidence,
+      editedAt: now,
+      updatedAt: now,
+    });
+    return "updated";
+  } catch (error) {
+    if (isPermissionDenied(error)) throw new Error(DAILY_UPDATE_LOCKED_MESSAGE);
+    throw new Error(getFirestoreErrorMessage(error, "dailyWorkUpdates:edit"));
+  }
+}
+
+/** First submission of the day — refused (permission-denied) if one already exists; prefer submitTodayDailyUpdate(), which handles that case. */
+export async function createDailyUpdate(input: DailyUpdateInput, options: { rethrowRaw?: boolean } = {}): Promise<void> {
   try {
     const ref = doc(db, "dailyWorkUpdates", updateDocId(input.projectId, input.userId, input.date));
     const now = serverTimestamp();
@@ -216,6 +263,7 @@ export async function createDailyUpdate(input: DailyUpdateInput): Promise<void> 
       updatedAt: now,
     });
   } catch (error) {
+    if (options.rethrowRaw) throw error;
     throw new Error(getFirestoreErrorMessage(error, "dailyWorkUpdates:create"));
   }
 }
@@ -229,6 +277,7 @@ export async function editOwnDailyUpdate(
     const now = serverTimestamp();
     await updateDoc(doc(db, "dailyWorkUpdates", updateId), { ...patch, editedAt: now, updatedAt: now });
   } catch (error) {
+    if (isPermissionDenied(error)) throw new Error(DAILY_UPDATE_LOCKED_MESSAGE);
     throw new Error(getFirestoreErrorMessage(error, "dailyWorkUpdates:edit"));
   }
 }

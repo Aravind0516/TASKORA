@@ -129,6 +129,10 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   // them (once `project` is guaranteed non-null).
   const canReviewWorkVerification = role === "admin" || role === "super_admin" || project?.managerId === uid;
   const [dailyUpdates, setDailyUpdates] = useState<DailyWorkUpdate[]>([]);
+  // Surfaced, not swallowed: when this list silently came back empty after a
+  // load error, the Daily Work Update form believed nothing was submitted
+  // today and re-sent a create over the existing update (permission-denied).
+  const [dailyUpdatesError, setDailyUpdatesError] = useState<string | null>(null);
   useEffect(() => {
     if (!project?.workVerificationEnabled || !organizationId || !uid) {
       // Deferred so this never calls setState synchronously inside the
@@ -142,9 +146,17 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
         cancelled = true;
       };
     }
+    const onData = (updates: DailyWorkUpdate[]) => {
+      setDailyUpdates(updates);
+      setDailyUpdatesError(null);
+    };
+    const onError = (message: string) => {
+      setDailyUpdates([]);
+      setDailyUpdatesError(message);
+    };
     const unsubscribe = canReviewWorkVerification
-      ? dailyUpdateService.subscribeToProjectDailyUpdates(organizationId, projectId, setDailyUpdates, () => setDailyUpdates([]))
-      : dailyUpdateService.subscribeToMyProjectDailyUpdates(organizationId, projectId, uid, setDailyUpdates, () => setDailyUpdates([]));
+      ? dailyUpdateService.subscribeToProjectDailyUpdates(organizationId, projectId, onData, onError)
+      : dailyUpdateService.subscribeToMyProjectDailyUpdates(organizationId, projectId, uid, onData, onError);
     return unsubscribe;
   }, [project?.workVerificationEnabled, organizationId, uid, projectId, canReviewWorkVerification]);
 
@@ -582,6 +594,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                     notifyRecipientIds={reviewRecipientIds}
                     getRecipientPreferences={(memberUid) => getMemberById(memberUid)?.notificationPreferences}
                     initialTaskId={preselectTaskId}
+                    loadError={dailyUpdatesError}
                   />
                   {canManageProject && (
                     <ProjectVerificationDashboard
