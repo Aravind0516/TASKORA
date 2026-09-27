@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isValidRepositoryUrl, REPOSITORY_URL_INVALID_MESSAGE } from "@/lib/projects/assignment";
+import { repositoryUrlError, requirementsError } from "@/lib/projects/assignment";
 
 export const platformProjectFormSchema = z
   .object({
@@ -17,20 +17,24 @@ export const platformProjectFormSchema = z
     priority: z.enum(["Low", "Medium", "High", "Critical"]),
     startDate: z.string().min(1, "Start date is required"),
     dueDate: z.string().min(1, "Due date is required"),
-    // Work Verification (Phase 1) — see types/daily-work-update.ts. The URL
-    // is format-checked below; whether it's REQUIRED depends on who is
-    // assigned (any intern -> required), which the form and the provider
-    // check against the real roster — see lib/projects/assignment.ts.
-    repositoryUrl: z.string().trim().optional(),
+    // Required http(s) link to the project's code (see the superRefine below
+    // and lib/projects/assignment.ts); also shown next to Work Verification
+    // evidence — see types/daily-work-update.ts.
+    repositoryUrl: z.string().trim(),
     workVerificationEnabled: z.boolean().optional(),
-    // Plain-text project requirements — never mandatory, no Firebase Storage
-    // involved, and deliberately no length cap (detailed requirements are
-    // legitimate project documentation).
-    requirements: z.string().optional(),
+    // Plain-text project requirements — required (see the superRefine below),
+    // no Firebase Storage involved, and deliberately no length cap (detailed
+    // requirements are legitimate project documentation).
+    requirements: z.string(),
   })
-  .refine((data) => !data.repositoryUrl || isValidRepositoryUrl(data.repositoryUrl), {
-    message: REPOSITORY_URL_INVALID_MESSAGE,
-    path: ["repositoryUrl"],
+  // Both are required on every project (see lib/projects/assignment.ts) —
+  // whitespace-only is empty, the URL must be http(s), and neither has a
+  // length cap.
+  .superRefine((data, ctx) => {
+    const requirementsIssue = requirementsError(data.requirements);
+    if (requirementsIssue) ctx.addIssue({ code: "custom", message: requirementsIssue, path: ["requirements"] });
+    const repositoryIssue = repositoryUrlError(data.repositoryUrl);
+    if (repositoryIssue) ctx.addIssue({ code: "custom", message: repositoryIssue, path: ["repositoryUrl"] });
   })
   .refine((data) => new Date(data.dueDate) >= new Date(data.startDate), {
     message: "Due date must be on or after the start date",

@@ -51,6 +51,7 @@ export async function notifyProjectAssignment(
   const versions = (project.memberAssignmentVersions as Record<string, number> | undefined) ?? {};
   const category = categoryForNotificationType("project_assigned");
   const created: string[] = [];
+  const actorName = ((await db.collection("users").doc(callerUid).get()).data()?.name as string | undefined)?.trim() || "an administrator";
 
   for (const uid of Array.from(new Set(recipientIds))) {
     if (uid === callerUid || !assigned.has(uid)) continue;
@@ -69,8 +70,10 @@ export async function notifyProjectAssignment(
         organizationId: project.organizationId,
         actorId: callerUid,
         type: "project_assigned",
-        title: isManager ? "You're managing a project" : "New project assigned",
-        message: isManager ? `You were made the manager of "${project.name}".` : `You were added to the project "${project.name}".`,
+        title: isManager ? "You're managing a project" : "Project assigned",
+        message: isManager
+          ? `You were made the manager of "${project.name}" by ${actorName}.`
+          : `"${project.name}" has been assigned to you by ${actorName}.`,
         href: `/projects/${projectId}`,
         projectId,
         taskId: null,

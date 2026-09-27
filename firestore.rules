@@ -130,20 +130,24 @@ service cloud.firestore {
     function isValidRequirements(value) {
       return value == null || value is string;
     }
-    // Project repository link: absent/null, or an absolute http(s) URL with a
-    // host and no spaces. No length cap. Whether it is REQUIRED (any intern
-    // assigned) depends on each assignee's employment type, which a rule
-    // can't iterate over a variable-length memberIds list to check — that
-    // part is enforced by both clients' write paths (lib/projects/
-    // assignment.ts); this rule guarantees nothing malformed is ever stored.
+    // Every project's "brief": written requirements (non-blank) and a
+    // repository link (absolute http(s) URL with a host, no spaces). No
+    // length cap on either. Mirrors lib/projects/assignment.ts, which both
+    // project forms and both clients' write paths also enforce.
     function isValidRepositoryUrl(value) {
-      return value == null || (value is string && value.matches('^https?://[^ /]+[^ ]*$'));
+      return value is string && value.matches('^https?://[^ /]+[^ ]*$');
     }
-    // Update-time form: only re-validated when the link actually changes, so
-    // an unrelated edit to an older project is never blocked by a legacy value.
-    function isValidRepositoryUrlChange() {
-      return request.resource.data.get("repositoryUrl", null) == resource.data.get("repositoryUrl", null)
-        || isValidRepositoryUrl(request.resource.data.get("repositoryUrl", null));
+    function hasProjectBrief(data) {
+      return data.get("requirements", null) is string
+        && data.get("requirements", "").trim().size() > 0
+        && isValidRepositoryUrl(data.get("repositoryUrl", null));
+    }
+    // Update-time form: enforced whenever a save sets the brief itself or
+    // changes who the project is assigned to, so an unrelated edit to an
+    // older project (status, progress, archiving) is never blocked by it.
+    function isValidProjectBriefChange() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["requirements", "repositoryUrl", "memberIds", "managerId"])
+        || hasProjectBrief(request.resource.data);
     }
     // Work Verification review outcomes — VERIFIED needs no explanation, but
     // PARTIALLY_VERIFIED/NEEDS_CLARIFICATION must carry an actual, non-empty
@@ -289,20 +293,20 @@ service cloud.firestore {
       allow create: if isAdminOfOrg(request.resource.data.organizationId)
         && request.resource.data.ownerId == request.auth.uid
         && isValidRequirements(request.resource.data.get("requirements", null))
-        && isValidRepositoryUrl(request.resource.data.get("repositoryUrl", null));
+        && hasProjectBrief(request.resource.data);
       allow update: if isSuperAdmin()
         || (isAdminOfOrg(resource.data.organizationId)
             && request.resource.data.organizationId == resource.data.organizationId
             && request.resource.data.ownerId == resource.data.ownerId
             && isValidRequirements(request.resource.data.get("requirements", null))
-            && isValidRepositoryUrlChange())
+            && isValidProjectBriefChange())
         || (isMemberOfOrg(resource.data.organizationId) && resource.data.managerId == request.auth.uid
             && isValidRequirements(request.resource.data.get("requirements", null))
-            && isValidRepositoryUrlChange()
-            // repositoryUrl (+ its derived provider label) because a manager can
-            // add interns as members, and a project with interns must carry a
-            // repository link; memberAssignmentVersions is the per-person
-            // counter the same save bumps for anyone it newly assigns.
+            && isValidProjectBriefChange()
+            // repositoryUrl (+ its derived provider label) because every
+            // project must carry a repository link and a manager maintains the
+            // project brief; memberAssignmentVersions is the per-person counter
+            // the same save bumps for anyone it newly assigns.
             && onlyChangingFields(["status", "priority", "progress", "memberIds", "description", "dueDate", "requirementDocument", "requirements",
                                    "repositoryUrl", "repositoryProvider", "memberAssignmentVersions", "updatedAt"]));
       allow delete: if isAdminOfOrg(resource.data.organizationId) || isSuperAdmin();

@@ -30,25 +30,29 @@ export function isValidRepositoryUrl(value: string | null | undefined): boolean 
   }
 }
 
-export const REPOSITORY_URL_REQUIRED_MESSAGE = "A repository URL is required when the project is assigned to an intern.";
+export const REPOSITORY_URL_REQUIRED_MESSAGE = "A repository URL is required.";
 export const REPOSITORY_URL_INVALID_MESSAGE = "Enter a full repository URL starting with http:// or https://.";
+export const REQUIREMENTS_REQUIRED_MESSAGE = "Project requirements are required.";
 
 /**
- * Business rule: a project assigned to at least one intern (as a member or as
- * its manager) must carry a valid repository URL, because interns do their
- * work — and submit their evidence — against that repository. Projects with
- * no intern assigned keep the repository optional, but anything entered must
- * still be a valid http(s) URL. Returns an error message, or null when valid.
+ * Every TASKORA project carries a repository link and written requirements:
+ * the people assigned to it — interns especially — build against that
+ * repository and work from those requirements, and daily updates are
+ * verified against both. Returns an error message, or null when valid.
  */
-export function repositoryUrlError(input: {
-  repositoryUrl: string | null | undefined;
-  assigneeIds: readonly string[];
-  isIntern: (uid: string) => boolean;
-}): string | null {
-  const hasValue = Boolean(input.repositoryUrl?.trim());
-  if (hasValue && !isValidRepositoryUrl(input.repositoryUrl)) return REPOSITORY_URL_INVALID_MESSAGE;
-  if (!hasValue && input.assigneeIds.some(input.isIntern)) return REPOSITORY_URL_REQUIRED_MESSAGE;
-  return null;
+export function repositoryUrlError(repositoryUrl: string | null | undefined): string | null {
+  if (!repositoryUrl?.trim()) return REPOSITORY_URL_REQUIRED_MESSAGE;
+  return isValidRepositoryUrl(repositoryUrl) ? null : REPOSITORY_URL_INVALID_MESSAGE;
+}
+
+/** Whitespace-only counts as empty. No length cap — detailed requirements are legitimate project documentation. */
+export function requirementsError(requirements: string | null | undefined): string | null {
+  return requirements?.trim() ? null : REQUIREMENTS_REQUIRED_MESSAGE;
+}
+
+/** The two workflow-required project fields, checked together — the provider write paths call this before every save that sets them. */
+export function projectBriefError(project: { repositoryUrl?: string | null; requirements?: string | null }): string | null {
+  return requirementsError(project.requirements) ?? repositoryUrlError(project.repositoryUrl);
 }
 
 /**

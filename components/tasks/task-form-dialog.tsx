@@ -35,6 +35,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { TASK_STATUSES, type Task, type TaskPriority, type TaskStatus } from "@/types/task";
 import { selectItems } from "@/lib/select-items";
+import { useShellHref } from "@/components/layout/use-shell-href";
 
 const PRIORITIES: TaskPriority[] = ["Low", "Medium", "High", "Critical"];
 
@@ -104,6 +105,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssigneeId, onOpenDailyUpdate, allowAttachmentUpload = true }: TaskFormDialogProps) {
   const { user, role } = useAuth();
   const { uid, members, projects, organizationId, getMemberById, createTask, updateTask, updateTaskStatus } = useWorkspace();
+  const shellHref = useShellHref();
   const isEditing = Boolean(task);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
@@ -497,7 +499,7 @@ export function TaskFormDialog({ open, onOpenChange, onSaved, task, defaultAssig
                 variant="outline"
                 className="w-full"
                 nativeButton={false}
-                render={<Link href={`/projects/${task.projectId}?tab=work-verification&task=${task.id}`} />}
+                render={<Link href={shellHref(`/projects/${task.projectId}?tab=work-verification&task=${task.id}`)} />}
               >
                 <ClipboardList />
                 Daily Work Update

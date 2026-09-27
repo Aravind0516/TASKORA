@@ -9,6 +9,7 @@ import { detectNewNotifications, hydrateDetection, type DetectionState } from "@
 import { notificationAlertBehavior } from "@/lib/notifications/categories";
 import { playNotificationChime } from "@/lib/notifications/sound";
 import type { AppNotification } from "@/types/notification";
+import { useShellHref } from "@/components/layout/use-shell-href";
 
 const POPUP_LIFETIME_MS = 6000;
 const MAX_VISIBLE_POPUPS = 3;
@@ -112,6 +113,7 @@ function NotificationPopup({
   onDismiss: (id: string) => void;
   onOpen: (id: string) => void;
 }) {
+  const shellHref = useShellHref();
   useEffect(() => {
     const timeout = setTimeout(() => onDismiss(notification.id), POPUP_LIFETIME_MS);
     return () => clearTimeout(timeout);
@@ -120,7 +122,7 @@ function NotificationPopup({
   return (
     <div role="status" className="pointer-events-auto flex gap-3 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg">
       <Bell className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-      <Link href={notification.href} onClick={() => onOpen(notification.id)} className="min-w-0 flex-1">
+      <Link href={shellHref(notification.href)} onClick={() => onOpen(notification.id)} className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground">{notification.title}</p>
         <p className="line-clamp-2 text-xs text-muted-foreground">{notification.message}</p>
       </Link>

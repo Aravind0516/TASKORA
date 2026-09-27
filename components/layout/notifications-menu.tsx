@@ -11,9 +11,11 @@ import {
 import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
+import { useShellHref } from "@/components/layout/use-shell-href";
 
 export function NotificationsMenu() {
   const { notifications, markNotificationRead, markAllNotificationsRead } = useWorkspace();
+  const shellHref = useShellHref();
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   function markRead(id: string) {
@@ -55,7 +57,7 @@ export function NotificationsMenu() {
             notifications.map((notification) => (
               <Link
                 key={notification.id}
-                href={notification.href}
+                href={shellHref(notification.href)}
                 onClick={() => markRead(notification.id)}
                 className="flex gap-2.5 px-3 py-2.5 hover:bg-muted"
               >

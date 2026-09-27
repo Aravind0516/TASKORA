@@ -6,6 +6,7 @@ import { CalendarClock, FolderKanban, ListChecks, Users } from "lucide-react";
 import { SearchInput } from "@/components/shared/search-input";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useShellHref } from "@/components/layout/use-shell-href";
 
 const MAX_RESULTS_PER_GROUP = 4;
 
@@ -36,6 +37,7 @@ export function GlobalSearch() {
   const isPrivilegedRole = role === "admin" || role === "super_admin";
   const taskResultHref = isPrivilegedRole ? "/admin/tasks" : "/tasks";
   const teamResultHref = isPrivilegedRole ? "/admin/teams" : "/team";
+  const shellHref = useShellHref();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -118,7 +120,7 @@ export function GlobalSearch() {
               {results.matchedProjects.map((project) => (
                 <Link
                   key={project.id}
-                  href={`/projects/${project.id}`}
+                  href={shellHref(`/projects/${project.id}`)}
                   onClick={closeAndReset}
                   className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm hover:bg-muted"
                 >
@@ -169,7 +171,7 @@ export function GlobalSearch() {
               {results.matchedMeetings.map((meeting) => (
                 <Link
                   key={meeting.id}
-                  href="/meetings"
+                  href={shellHref("/meetings")}
                   onClick={closeAndReset}
                   className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm hover:bg-muted"
                 >

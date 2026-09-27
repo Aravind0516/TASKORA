@@ -85,7 +85,15 @@ export function installNotificationSoundUnlock(): () => void {
  */
 export function playNotificationChime(): boolean {
   try {
-    if (!context || context.state !== "running") return false;
+    if (!context) return false;
+    if (context.state !== "running") {
+      // An unlocked context can later be suspended by the browser (long idle,
+      // a backgrounded mobile tab). The page already has user activation, so
+      // ONE resume attempt per new notification is allowed and usually works;
+      // this chime is skipped either way — never a retry loop.
+      void context.resume().catch(() => undefined);
+      return false;
+    }
     const start = context.currentTime;
     const gain = context.createGain();
     gain.connect(context.destination);

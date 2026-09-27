@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { writeNotification } from "@/lib/server/notifications";
 import { CREDIT_CATEGORY_LABELS, creditEntryTypeForAmount, type CreditCategory, type CreditSourceType } from "@/types/credit";
+import { monthKey, weekStartKey } from "@/lib/credits/periods";
 
 // THE centralized credit-award service (Phase 2/16 of this pass's request).
 // Runs exclusively via the Admin SDK — never callable from the browser with
@@ -55,19 +56,14 @@ export class DuplicateCreditAwardError extends Error {
   }
 }
 
-function mondayOf(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() + (day === 0 ? -6 : 1) - day);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+// Week/month buckets come from lib/credits/periods.ts — the same organization-
+// time-zone definition the browser uses, never this server's own clock (UTC on
+// Vercel), so an award always lands in the period members see it in.
 export function currentWeekStartKey(date = new Date()): string {
-  const m = mondayOf(date);
-  return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-${String(m.getDate()).padStart(2, "0")}`;
+  return weekStartKey(date);
 }
 export function currentMonthKey(date = new Date()): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return monthKey(date);
 }
 
 /**

@@ -24,6 +24,7 @@ import type { UserRecord } from "@/types/user";
 import type { Project } from "@/types/project";
 import type { Task } from "@/types/task";
 import type { DailyWorkUpdate } from "@/types/daily-work-update";
+import { rankLeaderboard } from "@/lib/credits/leaderboard";
 
 interface CandidateDashboardPanelProps {
   uid: string;
@@ -95,8 +96,10 @@ export function CandidateDashboardPanel({ uid, organizationId, projects, tasks }
 
   const completion = calculateProfileCompletion(user);
   const me = leaderboard?.find((entry) => entry.uid === uid) ?? null;
-  const weeklyRank = leaderboard ? [...leaderboard].sort((a, b) => b.weeklyCredits - a.weeklyCredits).findIndex((e) => e.uid === uid) + 1 : 0;
-  const monthlyRank = leaderboard ? [...leaderboard].sort((a, b) => b.monthlyCredits - a.monthlyCredits).findIndex((e) => e.uid === uid) + 1 : 0;
+  // Same ranking as the leaderboard page and spotlight (lib/credits/leaderboard.ts):
+  // only members active this period, tied scores share a rank. 0 = not ranked yet.
+  const weeklyRank = leaderboard ? (rankLeaderboard(leaderboard, "weekly").find((r) => r.entry.uid === uid)?.rank ?? 0) : 0;
+  const monthlyRank = leaderboard ? (rankLeaderboard(leaderboard, "monthly").find((r) => r.entry.uid === uid)?.rank ?? 0) : 0;
 
   const myTasks = tasks.filter((t) => t.assignedTo === uid);
   const myCompletedTasks = myTasks.filter((t) => t.status === "Completed");

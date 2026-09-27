@@ -6,32 +6,20 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { isIntentionalLogout } from "@/lib/logout-state";
 import { ROLE_HOME_PATH } from "@/lib/platform/constants";
+import { adminShellPath } from "@/lib/shell-routes";
 
-// A small set of (app)-shell routes that Admin/Super Admin ALSO reach
-// directly today (see components/platform/nav-config.ts's ADMIN_NAV/
-// SUPER_ADMIN_NAV, which deliberately link straight at these bare routes
-// rather than duplicating them under /admin — Meetings/Calendar/Leaderboard
-// have no admin-specific equivalent). Profile and Settings are DELIBERATELY
-// absent here: an administrator's own identity lives at /admin/account or
-// /superadmin/account (components/admin/admin-account-view.tsx), and their
-// settings at /admin/settings or /superadmin/settings — both already exist,
-// so a privileged role visiting the candidate-shaped /profile or the
-// generic /settings must be redirected away, not shown it. Everything else
-// under (app) — /overview, /tasks, /kanban, /team, /projects (the bare
-// list), /credits, /performance, /analytics — is the individual-contributor
-// "workspace" experience: exactly the "User Dashboard" an ORG_ADMIN/
-// SUPER_ADMIN must never be left resting in, even by direct URL entry.
-// /projects/{id} is its own exception (see below): the shared project
-// detail page, reached e.g. from the admin Work Verification list
-// (components/admin/admin-work-verification-view.tsx).
-const SHARED_WORKSPACE_ROUTES = new Set(["/meetings", "/calendar", "/leaderboard"]);
-
-function isAllowedForPrivilegedRole(pathname: string): boolean {
-  if (SHARED_WORKSPACE_ROUTES.has(pathname)) return true;
-  if (/^\/projects\/[^/]+/.test(pathname)) return true; // project detail only, never the bare /projects list
-  return false;
-}
-
+// The member workspace (app/(app)/*) is the individual-contributor
+// experience — its sidebar is personal (My Profile, My Credits, My
+// Performance). Organization Admins and Super Admins never render inside it.
+// This used to whitelist /meetings, /calendar, /leaderboard and
+// /projects/{id} for admins because the admin sidebar linked straight at
+// those member routes, which put an admin into the member shell the moment
+// they opened Meetings. Those pages now also exist inside the admin console
+// (app/admin/meetings, /calendar, /leaderboard, /projects/[id]), so instead
+// an admin who reaches ANY member route — sidebar, stored notification link,
+// search result, typed URL, refresh or back/forward — is sent to that page's
+// admin-console equivalent (lib/shell-routes.ts), query string included.
+// Super Admin has no organization workspace at all and goes to its console.
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, role, loading } = useAuth();
   const router = useRouter();
@@ -43,8 +31,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   // applied in the other direction: a privileged role must not be able to
   // rest in the individual-contributor workspace any more than a plain
   // member can reach the admin console.
-  const isPrivilegedRole = role === "admin" || role === "super_admin";
-  const mustLeaveWorkspace = isPrivilegedRole && !isAllowedForPrivilegedRole(pathname);
+  const mustLeaveWorkspace = role === "admin" || role === "super_admin";
 
   useEffect(() => {
     // A deliberate logout also flips `user` to null — its own handler
@@ -55,9 +42,10 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
       return;
     }
     if (!loading && user && mustLeaveWorkspace && role) {
-      router.replace(ROLE_HOME_PATH[role]);
+      const requested = `${pathname}${window.location.search}`;
+      router.replace(role === "admin" ? (adminShellPath(requested) ?? ROLE_HOME_PATH.admin) : ROLE_HOME_PATH[role]);
     }
-  }, [loading, user, mustLeaveWorkspace, role, router]);
+  }, [loading, user, mustLeaveWorkspace, role, router, pathname]);
 
   if (loading || !user || mustLeaveWorkspace) {
     return (

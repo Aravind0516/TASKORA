@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { dateKey, dueDateKey, shiftAnchor, startOfWeek, type CalendarViewMode } from "@/lib/calendar";
+import { useShellHref } from "@/components/layout/use-shell-href";
 
 
 interface DayEntry {
@@ -29,6 +30,7 @@ interface DayEntry {
  */
 export function CalendarView() {
   const { tasks, projects, meetings, loaded, errors } = useWorkspace();
+  const shellHref = useShellHref();
   const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
   const [anchor, setAnchor] = useState(() => new Date());
 
@@ -186,7 +188,7 @@ export function CalendarView() {
                 {visibleEntries.map((entry) => (
                   <Link
                     key={entry.key}
-                    href={entry.href}
+                    href={shellHref(entry.href)}
                     className={cn(
                       "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[11px] hover:opacity-80",
                       entry.overdue

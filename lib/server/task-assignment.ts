@@ -71,6 +71,7 @@ export async function notifyTaskAssignment(
   const version = typeof task.assignmentVersion === "number" ? task.assignmentVersion : 0;
   const notificationId = taskAssignmentNotificationId(taskId, assigneeId, version);
   const assigneeIsPrivileged = assignee.role === "admin" || assignee.role === "super_admin";
+  const actorName = ((await db.collection("users").doc(callerUid).get()).data()?.name as string | undefined)?.trim() || "an administrator";
 
   try {
     await db
@@ -82,7 +83,7 @@ export async function notifyTaskAssignment(
         actorId: callerUid,
         type: "task_assigned",
         title: "New task assigned",
-        message: `You were assigned a new task: "${task.title}"`,
+        message: `"${task.title}" has been assigned to you by ${actorName}.`,
         href: assigneeIsPrivileged ? "/admin/tasks" : "/tasks",
         projectId: task.projectId ?? null,
         taskId,

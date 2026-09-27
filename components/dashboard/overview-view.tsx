@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { useAuth } from "@/components/auth/auth-provider";
 import { isOverdue, daysUntil } from "@/lib/format";
+import { LeaderSpotlight } from "@/components/credits/leader-spotlight";
 
 export function OverviewView() {
   const { user } = useAuth();
@@ -90,6 +91,8 @@ export function OverviewView() {
         title="Overview"
         description={`Welcome back, ${firstName} — here's what's happening across your projects.`}
       />
+
+      {organizationId && <LeaderSpotlight organizationId={organizationId} />}
 
       {uid && organizationId && <CandidateDashboardPanel uid={uid} organizationId={organizationId} projects={projects} tasks={tasks} />}
 

@@ -23,6 +23,7 @@ import {
   type LeaderboardEntry,
   creditEntryTypeForAmount,
 } from "@/types/credit";
+import { monthKey, weekStartKey } from "@/lib/credits/periods";
 
 function creditRulesFromDoc(organizationId: string, data: Record<string, unknown> | undefined): CreditRules {
   const weights = (data?.weights as Record<CreditCategory, number> | undefined) ?? DEFAULT_CREDIT_WEIGHTS;
@@ -109,23 +110,14 @@ export function subscribeToOrgCreditTransactions(
   );
 }
 
-function mondayOf(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1) - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-/** "YYYY-MM-DD" of the Monday starting the current week, in the caller's local time — same "caller-local, not a stored org timezone" convention lib/services/daily-work-update.service.ts's todayDateKey() already established; no organizations.timezone field exists to read instead. */
+/** "YYYY-MM-DD" of the Monday starting the current week — in the organization's time zone, identical to the server's bucketing (lib/credits/periods.ts). */
 export function currentWeekStartKey(date = new Date()): string {
-  const monday = mondayOf(date);
-  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+  return weekStartKey(date);
 }
 
+/** "YYYY-MM" of the current month — in the organization's time zone (lib/credits/periods.ts). */
 export function currentMonthKey(date = new Date()): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  return monthKey(date);
 }
 
 export interface AwardCreditInput {

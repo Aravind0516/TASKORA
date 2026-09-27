@@ -42,7 +42,11 @@ export function PlatformSidebarNav({ navItems, brandLabel, collapsed = false, on
 
       <nav className="flex-1 space-y-1 px-3 py-2">
         {navItems.map((item, index) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          // A shell's root item ("/admin", "/superadmin") is active only on
+          // the dashboard itself — as a prefix it matched every console page,
+          // highlighting it alongside the real section.
+          const isShellRoot = item.href.split("/").filter(Boolean).length === 1;
+          const isActive = pathname === item.href || (!isShellRoot && pathname.startsWith(`${item.href}/`));
           const Icon = item.icon;
           const linkClassName = cn(
             "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, CheckCircle2, FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Archive, ArchiveRestore, CheckCircle2, Eye, FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -199,6 +200,10 @@ export function AdminProjectsView() {
                           <MoreHorizontal />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem render={<Link href={`/admin/projects/${project.id}`} />}>
+                            <Eye />
+                            View project
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEdit(project)}>
                             <Pencil />
                             Edit

@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BarChart3 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import * as creditService from "@/lib/services/credit.service";
-import type { LeaderboardEntry } from "@/types/credit";
+import { useOrgLeaderboard } from "@/components/credits/use-org-leaderboard";
+import { rankLeaderboard } from "@/lib/credits/leaderboard";
 import { cn } from "@/lib/utils";
 
 interface ScrollingLeaderboardWidgetProps {
@@ -23,18 +22,10 @@ interface ScrollingLeaderboardWidgetProps {
  * full profile), and credits — nothing sensitive.
  */
 export function ScrollingLeaderboardWidget({ organizationId, uid, period = "weekly" }: ScrollingLeaderboardWidgetProps) {
-  const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = creditService.subscribeToLeaderboard(organizationId, setEntries, setError);
-    return unsubscribe;
-  }, [organizationId]);
-
-  const ranked = (entries ?? [])
-    .slice()
-    .sort((a, b) => (period === "weekly" ? b.weeklyCredits - a.weeklyCredits : b.monthlyCredits - a.monthlyCredits))
-    .slice(0, 8);
+  const { entries, error } = useOrgLeaderboard(organizationId);
+  // Same ranking as the full leaderboard and the leader spotlight (net
+  // credits, members active this period, deterministic ties).
+  const ranked = rankLeaderboard(entries ?? [], period).slice(0, 8);
 
   return (
     <Card>
@@ -55,12 +46,11 @@ export function ScrollingLeaderboardWidget({ organizationId, uid, period = "week
         ) : entries === null ? (
           <p className="text-sm text-muted-foreground">Loading...</p>
         ) : ranked.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No credits awarded yet — check back soon.</p>
+          <p className="text-sm text-muted-foreground">No {period === "weekly" ? "weekly" : "monthly"} activity yet — check back soon.</p>
         ) : (
           <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
-            {ranked.map((entry, index) => {
+            {ranked.map(({ entry, score, rank }) => {
               const isMe = entry.uid === uid;
-              const credits = period === "weekly" ? entry.weeklyCredits : entry.monthlyCredits;
               return (
                 <div
                   key={entry.uid}
@@ -70,12 +60,12 @@ export function ScrollingLeaderboardWidget({ organizationId, uid, period = "week
                   )}
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="w-5 shrink-0 text-center text-xs font-semibold text-muted-foreground">#{index + 1}</span>
+                    <span className="w-5 shrink-0 text-center text-xs font-semibold text-muted-foreground">#{rank}</span>
                     <span className={cn("truncate", isMe ? "font-semibold text-primary" : "text-foreground")}>
                       {isMe ? `${entry.displayName} (You)` : entry.displayName}
                     </span>
                   </div>
-                  <span className="shrink-0 text-xs font-medium text-muted-foreground">{credits} credits</span>
+                  <span className="shrink-0 text-xs font-medium text-muted-foreground tabular-nums">{score.toLocaleString()} credits</span>
                 </div>
               );
             })}

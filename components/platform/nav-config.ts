@@ -38,11 +38,11 @@ export const ADMIN_NAV: NavItem[] = [
   { label: "Projects", href: "/admin/projects", icon: FolderKanban, group: "Work Management" },
   { label: "Tasks", href: "/admin/tasks", icon: ListChecks, group: "Work Management" },
   { label: "Work Verification", href: "/admin/work-verification", icon: FileCheck2, group: "Work Management" },
-  { label: "Meetings", href: "/meetings", icon: CalendarClock, group: "Work Management" },
-  { label: "Calendar", href: "/calendar", icon: CalendarDays, group: "Work Management" },
+  { label: "Meetings", href: "/admin/meetings", icon: CalendarClock, group: "Work Management" },
+  { label: "Calendar", href: "/admin/calendar", icon: CalendarDays, group: "Work Management" },
 
   { label: "Credits", href: "/admin/credits", icon: Coins, group: "People & Performance" },
-  { label: "Leaderboard", href: "/leaderboard", icon: Trophy, group: "People & Performance" },
+  { label: "Leaderboard", href: "/admin/leaderboard", icon: Trophy, group: "People & Performance" },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3, group: "People & Performance" },
 
   { label: "Billing", href: "/admin/billing", icon: CreditCard, group: "Administration" },

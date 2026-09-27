@@ -21,6 +21,7 @@ import { useWorkspace } from "@/components/workspace/workspace-provider";
 import { useAuth } from "@/components/auth/auth-provider";
 import { initials, isOverdue } from "@/lib/format";
 import type { Meeting } from "@/types/meeting";
+import { useShellHref } from "@/components/layout/use-shell-href";
 
 function isPastMeeting(meeting: Meeting): boolean {
   return meeting.status === "Cancelled" || isOverdue(meeting.endAt, false);
@@ -37,6 +38,7 @@ function formatMeetingTime(meeting: Meeting): string {
 export function MeetingsView() {
   const { role } = useAuth();
   const { uid, projects, meetings, getMemberById, getProjectById, loaded, errors, retry, deleteMeeting, updateMeetingStatus } = useWorkspace();
+  const shellHref = useShellHref();
   // Matches firestore.rules' meetings create rule exactly: Org Admin/Super
   // Admin, or a project's own assigned manager (scheduling within their
   // project) — never a plain employee. `projects` is already scoped to
@@ -103,7 +105,7 @@ export function MeetingsView() {
                 {formatMeetingTime(meeting)}
               </span>
               {project && (
-                <Link href={`/projects/${project.id}`} className="text-primary hover:underline">
+                <Link href={shellHref(`/projects/${project.id}`)} className="text-primary hover:underline">
                   {project.name}
                 </Link>
               )}

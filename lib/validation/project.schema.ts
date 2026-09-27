@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isValidRepositoryUrl, REPOSITORY_URL_INVALID_MESSAGE } from "@/lib/projects/assignment";
+import { repositoryUrlError, requirementsError } from "@/lib/projects/assignment";
 
 export const projectFormSchema = z
   .object({
@@ -21,18 +21,22 @@ export const projectFormSchema = z
     // firestore.rules onlyChangingFields allow-list doesn't include it, so a
     // manager submitting a value here would just get permission-denied.
     workVerificationEnabled: z.boolean().optional(),
-    // Format-checked below; required whenever an intern is assigned (checked
-    // against the real roster by the form and the provider — see
-    // lib/projects/assignment.ts).
-    repositoryUrl: z.string().trim().optional(),
-    // Plain-text project requirements — never mandatory, no Firebase Storage
-    // involved, and deliberately no length cap (detailed requirements are
-    // legitimate project documentation).
-    requirements: z.string().optional(),
+    // Required http(s) link to the project's code — see the superRefine below
+    // and lib/projects/assignment.ts.
+    repositoryUrl: z.string().trim(),
+    // Plain-text project requirements — required (see the superRefine below),
+    // no Firebase Storage involved, and deliberately no length cap (detailed
+    // requirements are legitimate project documentation).
+    requirements: z.string(),
   })
-  .refine((data) => !data.repositoryUrl || isValidRepositoryUrl(data.repositoryUrl), {
-    message: REPOSITORY_URL_INVALID_MESSAGE,
-    path: ["repositoryUrl"],
+  // Both are required on every project (see lib/projects/assignment.ts) —
+  // whitespace-only is empty, the URL must be http(s), and neither has a
+  // length cap.
+  .superRefine((data, ctx) => {
+    const requirementsIssue = requirementsError(data.requirements);
+    if (requirementsIssue) ctx.addIssue({ code: "custom", message: requirementsIssue, path: ["requirements"] });
+    const repositoryIssue = repositoryUrlError(data.repositoryUrl);
+    if (repositoryIssue) ctx.addIssue({ code: "custom", message: repositoryIssue, path: ["repositoryUrl"] });
   })
   .refine((data) => new Date(data.dueDate) >= new Date(data.startDate), {
     message: "Due date must be on or after the start date",

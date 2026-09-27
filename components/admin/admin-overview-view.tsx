@@ -28,6 +28,7 @@ import {
   workVerificationDateKey,
 } from "@/components/admin/admin-work-verification-view";
 import type { DailyWorkUpdate } from "@/types/daily-work-update";
+import { LeaderSpotlight } from "@/components/credits/leader-spotlight";
 
 interface SetupStep {
   label: string;
@@ -234,6 +235,8 @@ export function AdminOverviewView() {
           />
         </Link>
       </div>
+
+      {currentOrganizationId && <LeaderSpotlight organizationId={currentOrganizationId} className="mt-6" />}
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

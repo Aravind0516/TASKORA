@@ -52,11 +52,13 @@ import type { ProjectStatus } from "@/types/project";
 import type { DailyWorkUpdate } from "@/types/daily-work-update";
 import type { Task } from "@/types/task";
 import type { Deliverable, DeliverableStatus } from "@/types/deliverable";
+import { useShellHref } from "@/components/layout/use-shell-href";
 
 export function ProjectDetailView({ projectId }: { projectId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, role } = useAuth();
+  const shellHref = useShellHref();
   const {
     uid,
     organizationId,
@@ -219,7 +221,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
     setDeleting(true);
     try {
       await deleteProject(project.id);
-      router.replace("/projects");
+      router.replace(shellHref("/projects"));
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Failed to delete project.");
       setDeleting(false);
@@ -276,7 +278,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   return (
     <div>
       <Link
-        href="/projects"
+        href={shellHref("/projects")}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" />

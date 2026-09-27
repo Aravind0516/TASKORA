@@ -11,7 +11,7 @@ import * as taskService from "@/lib/services/task.service";
 import * as activityService from "@/lib/services/activity.service";
 import * as invitationService from "@/lib/services/invitation.service";
 import * as notificationService from "@/lib/services/notification.service";
-import { bumpAssignmentVersions, newlyAssignedIds, projectAssigneeIds, repositoryUrlError } from "@/lib/projects/assignment";
+import { bumpAssignmentVersions, newlyAssignedIds, projectAssigneeIds, projectBriefError } from "@/lib/projects/assignment";
 import { apiFetch } from "@/lib/api-client";
 import { nowIso } from "@/lib/format";
 import { systemServices as seedSystemServices } from "@/lib/mock-data/platform-data";
@@ -472,15 +472,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     await teamService.deleteTeam(id);
   }, []);
 
-  // Backs the "a project assigned to an intern must have a repository URL"
-  // rule (lib/projects/assignment.ts) with this console's real roster.
-  const isInternUser = useCallback((memberUid: string) => rawUsers.some((u) => u.id === memberUid && u.employmentType === "INTERN"), [rawUsers]);
-
   const createProject = useCallback<PlatformContextValue["createProject"]>(
     async (input) => {
       const assigneeIds = projectAssigneeIds({ memberIds: input.memberIds, managerId: input.managerId });
-      const repoError = repositoryUrlError({ repositoryUrl: input.repositoryUrl, assigneeIds, isIntern: isInternUser });
-      if (repoError) throw new Error(repoError);
+      // Service-layer guard (the form checks too; firestore.rules is the final backstop).
+      const briefError = projectBriefError({ repositoryUrl: input.repositoryUrl, requirements: input.requirements });
+      if (briefError) throw new Error(briefError);
       const memberAssignmentVersions = bumpAssignmentVersions({}, assigneeIds);
       const id = await projectService.createProject({ ...input, memberAssignmentVersions });
       await activityService.logActivity({
@@ -505,7 +502,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         updatedAt: nowIso(),
       };
     },
-    [uid, actorName, isInternUser]
+    [uid, actorName]
   );
 
   const updateProject = useCallback<PlatformContextValue["updateProject"]>(
@@ -516,13 +513,15 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         memberIds: patch.memberIds ?? existing.memberIds,
         managerId: patch.managerId !== undefined ? patch.managerId : existing.managerId,
         repositoryUrl: patch.repositoryUrl !== undefined ? patch.repositoryUrl : existing.repositoryUrl,
+        requirements: patch.requirements !== undefined ? patch.requirements : existing.requirements,
       };
       const assigneeIds = projectAssigneeIds(next);
-      // Checked on every save that touches assignment or the repository —
-      // an archive/progress-only patch leaves both unchanged and can't break it.
-      if (patch.memberIds !== undefined || patch.managerId !== undefined || patch.repositoryUrl !== undefined) {
-        const repoError = repositoryUrlError({ repositoryUrl: next.repositoryUrl, assigneeIds, isIntern: isInternUser });
-        if (repoError) throw new Error(repoError);
+      // Same trigger as firestore.rules: any save that sets the brief or the
+      // assignment must leave the project with both — an archive/progress-
+      // only patch touches neither, so older projects stay editable.
+      if (patch.memberIds !== undefined || patch.managerId !== undefined || patch.repositoryUrl !== undefined || patch.requirements !== undefined) {
+        const briefError = projectBriefError(next);
+        if (briefError) throw new Error(briefError);
       }
       const newlyAssigned = newlyAssignedIds(projectAssigneeIds(existing), assigneeIds);
       await projectService.updateProject(id, {
@@ -531,7 +530,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       });
       await notificationService.notifyProjectAssigned(id, newlyAssigned);
     },
-    [rawProjects, isInternUser]
+    [rawProjects]
   );
 
   const deleteProject = useCallback(async (id: string) => {
