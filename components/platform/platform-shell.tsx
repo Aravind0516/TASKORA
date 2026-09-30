@@ -82,7 +82,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
     <div className="flex h-dvh overflow-hidden bg-background">
       <aside
         className={cn(
-          "hidden shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 md:flex md:flex-col",
+          "taskora-sidebar-surface hidden shrink-0 border-r border-sidebar-border text-sidebar-foreground transition-[width] duration-200 md:flex md:flex-col",
           collapsed ? "w-[68px]" : "w-64"
         )}
       >
@@ -104,7 +104,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
       </aside>
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="relative z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/85 sm:px-6">
+        <header className="relative z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border/70 bg-background/80 px-4 shadow-[0_1px_0_0_oklch(1_0_0/0.6),0_6px_20px_-14px_oklch(0.3_0.08_264/0.25)] backdrop-blur-xl supports-backdrop-filter:bg-background/70 sm:px-6 dark:shadow-none">
           <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
             <Button
               variant="ghost"
@@ -115,7 +115,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
             >
               <Menu className="size-5" />
             </Button>
-            <SheetContent side="left" className="w-64 p-0">
+            <SheetContent side="left" className="taskora-sidebar-surface w-64 border-sidebar-border p-0 text-sidebar-foreground [&_[data-slot=sheet-close]]:text-sidebar-foreground [&_[data-slot=sheet-close]]:hover:bg-sidebar-accent">
               <SheetTitle className="sr-only">Navigation</SheetTitle>
               <PlatformSidebarNav navItems={navItems} brandLabel={brandLabel} onNavigate={() => setMobileNavOpen(false)} />
             </SheetContent>
@@ -134,7 +134,7 @@ export function PlatformShell({ navKey, brandLabel, roleBadge, children }: Platf
 
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" className="gap-2 px-1.5" />}>
-                <Avatar size="sm">
+                <Avatar size="sm" className="ring-2 ring-primary/25 ring-offset-2 ring-offset-background">
                   <AvatarFallback>{initials(displayName)}</AvatarFallback>
                 </Avatar>
                 <span className="hidden text-sm font-medium sm:inline">{displayName.split(" ")[0]}</span>

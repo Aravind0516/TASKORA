@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { subscribeToTopPerformers } from "@/lib/services/top-performer.service";
+import { fetchTopPerformers, onTopPerformersChanged } from "@/lib/services/top-performer.service";
 import type { PerformerPeriod, TopPerformer } from "@/types/top-performer";
 
 interface State {
@@ -10,10 +10,13 @@ interface State {
   error: string | null;
 }
 
+/** Recognitions change at most a few times a week — re-check occasionally, on tab focus, and immediately after a publish. */
+const REFRESH_MS = 5 * 60 * 1000;
+
 /**
- * Live admin-published Top Performers for ONE organization (weekly and
- * monthly). Scoped by organizationId in the query and firestore.rules, and
- * only ever returned for the organization currently requested.
+ * Admin-published Top Performers for ONE organization (weekly and monthly),
+ * scoped server-side to the caller's own organization and only ever
+ * returned for the organization currently requested.
  */
 export function useTopPerformers(organizationId: string | null | undefined): {
   weekly: TopPerformer | null;
@@ -25,11 +28,30 @@ export function useTopPerformers(organizationId: string | null | undefined): {
 
   useEffect(() => {
     if (!organizationId) return;
-    return subscribeToTopPerformers(
-      organizationId,
-      (performers) => setState({ organizationId, performers, error: null }),
-      (error) => setState({ organizationId, performers: [], error })
-    );
+    let cancelled = false;
+    const load = () =>
+      fetchTopPerformers(organizationId).then(
+        (performers) => !cancelled && setState({ organizationId, performers, error: null }),
+        (e: unknown) =>
+          !cancelled &&
+          setState((prev) => ({
+            organizationId,
+            // Keep what was already shown if a background refresh fails.
+            performers: prev.organizationId === organizationId && prev.performers ? prev.performers : [],
+            error: e instanceof Error ? e.message : "Top Performers are unavailable right now.",
+          }))
+      );
+    load();
+    const onFocus = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", onFocus);
+    const stopListening = onTopPerformersChanged(load);
+    const interval = setInterval(load, REFRESH_MS);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onFocus);
+      stopListening();
+      clearInterval(interval);
+    };
   }, [organizationId]);
 
   const current = organizationId && state.organizationId === organizationId ? state : null;

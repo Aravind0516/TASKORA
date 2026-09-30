@@ -29,12 +29,12 @@ export function PlatformSidebarNav({ navItems, brandLabel, collapsed = false, on
           collapsed && "justify-center px-0"
         )}
       >
-        <div className="taskora-glow-brand flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+        <div className="taskora-brand-gradient flex size-9 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_8px_20px_-6px_oklch(0.55_0.22_280/0.7),inset_0_1px_0_oklch(1_0_0/0.25)]">
           <ShieldCheck className="size-4.5" />
         </div>
         {!collapsed && (
           <div className="min-w-0 leading-tight">
-            <p className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">TASKORA</p>
+            <p className="truncate text-[15px] font-bold tracking-[0.06em] text-white">TASKORA</p>
             <p className="truncate text-[11px] text-sidebar-muted-foreground">{brandLabel}</p>
           </div>
         )}
@@ -49,11 +49,11 @@ export function PlatformSidebarNav({ navItems, brandLabel, collapsed = false, on
           const isActive = pathname === item.href || (!isShellRoot && pathname.startsWith(`${item.href}/`));
           const Icon = item.icon;
           const linkClassName = cn(
-            "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150",
+            "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-[background-color,color,transform] duration-150",
             collapsed && "justify-center px-0",
             isActive
               ? "taskora-sidebar-active text-white"
-              : "text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              : "text-sidebar-foreground/65 hover:translate-x-0.5 hover:bg-sidebar-accent hover:text-sidebar-foreground"
           );
           // A group label renders once, right before the first item of a new
           // group — collapsed mode skips the text (no room) but keeps a

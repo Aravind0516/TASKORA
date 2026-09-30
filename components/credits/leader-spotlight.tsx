@@ -27,10 +27,10 @@ export function LeaderSpotlight({ organizationId, className = "mb-6" }: { organi
 
   return (
     <Card className={className} aria-labelledby="leader-spotlight-title">
-      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-1 space-y-0">
         <CardTitle id="leader-spotlight-title" className="flex items-center gap-2 text-base">
           <Trophy className="size-4 text-amber-500" aria-hidden />
-          TASKORA Leaders
+          AI FUTURE TECH PROGRAM BY NxtWise
         </CardTitle>
         <Link href={shellHref("/leaderboard")} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
           View full leaderboard

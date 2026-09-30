@@ -21,8 +21,6 @@ interface PublisherProps {
   organizationId: string;
   /** The organization's members — the people who can be recognized. */
   users: PlatformUser[];
-  adminUid: string;
-  adminName: string;
 }
 
 /**
@@ -31,7 +29,7 @@ interface PublisherProps {
  * suggestion, never forced), add a short note, publish. Every member of this
  * organization then sees it on their dashboard (TopPerformerBanner).
  */
-export function TopPerformerPublisher({ organizationId, users, adminUid, adminName }: PublisherProps) {
+export function TopPerformerPublisher({ organizationId, users }: PublisherProps) {
   const { weekly, monthly } = useTopPerformers(organizationId);
   const { entries } = useOrgLeaderboard(organizationId);
   const candidates = users.filter((u) => u.status !== "Suspended").sort((a, b) => a.name.localeCompare(b.name));
@@ -56,9 +54,6 @@ export function TopPerformerPublisher({ organizationId, users, adminUid, adminNa
               published={published}
               entries={entries}
               candidates={candidates}
-              organizationId={organizationId}
-              adminUid={adminUid}
-              adminName={adminName}
             />
           );
         })}
@@ -72,17 +67,11 @@ function PeriodPublisher({
   published,
   entries,
   candidates,
-  organizationId,
-  adminUid,
-  adminName,
 }: {
   period: PerformerPeriod;
   published: TopPerformer | null;
   entries: LeaderboardEntry[] | null;
   candidates: PlatformUser[];
-  organizationId: string;
-  adminUid: string;
-  adminName: string;
 }) {
   const currentKey = period === "weekly" ? weekStartKey() : monthKey();
   const periodText = period === "weekly" ? weekRangeLabel(currentKey) : monthLabel(currentKey);
@@ -107,17 +96,7 @@ function PeriodPublisher({
     setError(null);
     setDone(null);
     try {
-      await publishTopPerformer({
-        organizationId,
-        period,
-        periodKey: currentKey,
-        userId: selected.id,
-        displayName: selected.name,
-        headline: selected.functionalRole ?? (selected.title || null),
-        message,
-        publishedBy: adminUid,
-        publishedByName: adminName,
-      });
+      await publishTopPerformer({ period, userId: selected.id, message });
       setDone(`${selected.name} is now the Top Performer of the ${period === "weekly" ? "week" : "month"}.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to publish.");
@@ -130,7 +109,8 @@ function PeriodPublisher({
     setBusy(true);
     setError(null);
     try {
-      await removeTopPerformer(organizationId, period);
+      await removeTopPerformer(period);
+      setBusy(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to remove.");
       setBusy(false);

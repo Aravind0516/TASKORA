@@ -283,8 +283,9 @@
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 60% 40% at 15% 0%, color-mix(in oklch, var(--primary) 7%, transparent), transparent 70%),
-    radial-gradient(ellipse 50% 35% at 100% 0%, color-mix(in oklch, var(--brand-secondary) 6%, transparent), transparent 70%);
+    radial-gradient(ellipse 60% 40% at 15% 0%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 35% at 100% 0%, color-mix(in oklch, var(--brand-secondary) 9%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, color-mix(in oklch, oklch(0.7 0.14 200) 5%, transparent), transparent 70%);
 }
 
 /* Consistent, restrained motion timing (150-250ms) for the handful of
@@ -390,4 +391,136 @@
     opacity: 1;
     transform: none;
   }
+}
+/* Notification popup: the bar under a popup shrinks as its display time runs out. */
+@keyframes notification-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* ================================================================
+   Premium visual layer — brand gradient, card depth, accent tones.
+   Built on the existing tokens above (same indigo 259-264 / violet
+   293-296 hues), so every page picks it up from the shared
+   components (Card, KpiCard, shells, DashboardHero) rather than from
+   per-page styling.
+   ================================================================ */
+:root {
+  --brand-gradient: linear-gradient(135deg, oklch(0.5 0.2 264), oklch(0.55 0.22 296));
+  /* Two-layer card depth: a hairline contact shadow plus a wide, very soft
+     ambient one. Reads as "floating on the page", never as a heavy drop shadow. */
+  --shadow-card:
+    0 1px 2px 0 color-mix(in oklch, oklch(0.3 0.08 264) 6%, transparent),
+    0 8px 24px -12px color-mix(in oklch, oklch(0.3 0.08 264) 16%, transparent);
+  --shadow-card-hover:
+    0 1px 2px 0 color-mix(in oklch, oklch(0.3 0.08 264) 8%, transparent),
+    0 18px 40px -16px color-mix(in oklch, oklch(0.3 0.08 264) 28%, transparent);
+  /* Midnight hero / auth-panel surface. */
+  --hero-surface:
+    radial-gradient(ellipse 70% 120% at 0% 0%, oklch(0.5 0.2 264 / 0.55), transparent 60%),
+    radial-gradient(ellipse 60% 110% at 100% 100%, oklch(0.55 0.22 300 / 0.45), transparent 60%),
+    radial-gradient(ellipse 40% 60% at 85% 10%, oklch(0.7 0.14 200 / 0.18), transparent 70%),
+    linear-gradient(135deg, oklch(0.2 0.05 266), oklch(0.17 0.045 280));
+}
+.dark {
+  --shadow-card:
+    0 1px 2px 0 oklch(0 0 0 / 0.3),
+    0 8px 24px -12px oklch(0 0 0 / 0.5);
+  --shadow-card-hover:
+    0 1px 2px 0 oklch(0 0 0 / 0.35),
+    0 18px 40px -16px oklch(0 0 0 / 0.65);
+}
+
+/* Accent tones — each stat/tile picks one so a row of numbers reads as
+   distinct, scannable signals instead of six identical indigo boxes. */
+.tone-indigo { --tone: oklch(0.52 0.2 264); --tone-2: oklch(0.6 0.19 285); }
+.tone-violet { --tone: oklch(0.55 0.22 296); --tone-2: oklch(0.62 0.2 320); }
+.tone-emerald { --tone: oklch(0.6 0.15 160); --tone-2: oklch(0.68 0.13 185); }
+.tone-amber { --tone: oklch(0.72 0.16 65); --tone-2: oklch(0.7 0.18 40); }
+.tone-sky { --tone: oklch(0.62 0.14 235); --tone-2: oklch(0.66 0.13 205); }
+.tone-rose { --tone: oklch(0.6 0.21 15); --tone-2: oklch(0.62 0.21 355); }
+
+.taskora-tone-tile {
+  background-image: linear-gradient(135deg, var(--tone), var(--tone-2));
+  box-shadow: 0 6px 16px -6px color-mix(in oklch, var(--tone) 60%, transparent);
+}
+.taskora-tone-glow {
+  background: radial-gradient(circle at 100% 0%, color-mix(in oklch, var(--tone) 16%, transparent), transparent 62%);
+}
+.taskora-tone-text { color: var(--tone); }
+
+.taskora-brand-gradient { background-image: var(--brand-gradient); }
+.taskora-brand-text {
+  background-image: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.dark .taskora-brand-text {
+  background-image: linear-gradient(135deg, oklch(0.78 0.13 264), oklch(0.8 0.14 300));
+}
+
+/* Primary call-to-action in the brand gradient (auth submit, hero actions). */
+.taskora-btn-brand {
+  background-image: var(--brand-gradient);
+  color: white;
+  box-shadow: 0 8px 20px -8px oklch(0.5 0.2 270 / 0.6), inset 0 1px 0 oklch(1 0 0 / 0.15);
+  transition: filter var(--taskora-transition), box-shadow var(--taskora-transition), transform var(--taskora-transition);
+}
+.taskora-btn-brand:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 12px 26px -10px oklch(0.5 0.2 270 / 0.7), inset 0 1px 0 oklch(1 0 0 / 0.15);
+}
+.taskora-btn-brand:active { transform: translateY(1px); }
+
+/* Midnight surfaces: dashboard hero banners and the auth brand panel. */
+.taskora-hero-surface {
+  background: var(--hero-surface);
+  color: oklch(0.96 0.01 264);
+}
+/* Faint engineering grid, fading out toward the bottom-right. */
+.taskora-grid-overlay {
+  background-image:
+    linear-gradient(oklch(1 0 0 / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(1 0 0 / 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 80% 90% at 0% 0%, black, transparent 75%);
+}
+
+/* Sidebar: a vertical midnight gradient with a soft brand glow at the top. */
+.taskora-sidebar-surface {
+  background:
+    radial-gradient(ellipse 120% 40% at 0% 0%, oklch(0.5 0.2 264 / 0.28), transparent 70%),
+    radial-gradient(ellipse 100% 30% at 100% 100%, oklch(0.55 0.22 300 / 0.16), transparent 70%),
+    linear-gradient(180deg, oklch(0.215 0.05 264), oklch(0.175 0.045 272));
+}
+
+/* Hover lift for interactive cards (KPI links, project tiles). */
+.taskora-lift {
+  transition: transform var(--taskora-transition), box-shadow var(--taskora-transition);
+}
+.taskora-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+@keyframes taskora-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.taskora-fade-up { animation: taskora-fade-up 420ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes taskora-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.taskora-float { animation: taskora-float 7s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .taskora-lift:hover { transform: none; }
+  .taskora-fade-up, .taskora-float { animation: none; }
 }

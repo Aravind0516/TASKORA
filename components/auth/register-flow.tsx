@@ -29,8 +29,8 @@ function StepIndicator({ step }: { step: Step }) {
               <span
                 className={cn(
                   "flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
-                  isDone && "bg-primary text-primary-foreground",
-                  isActive && "border-2 border-primary text-primary",
+                  isDone && "taskora-brand-gradient text-white",
+                  isActive && "border-2 border-primary text-primary shadow-[0_0_0_4px_color-mix(in_oklch,var(--primary)_15%,transparent)]",
                   !isDone && !isActive && "border border-border text-muted-foreground"
                 )}
               >

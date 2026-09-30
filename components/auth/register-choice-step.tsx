@@ -37,7 +37,7 @@ export function RegisterChoiceStep({ onRegisterOrganization }: RegisterChoiceSte
           <div className="mx-auto mb-3 flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Users className="size-5" />
           </div>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">Joining an existing organization?</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Joining an existing organization?</h1>
           <p className="mt-1.5 text-sm text-muted-foreground">You don&apos;t need to create an account here.</p>
         </div>
         <div className="space-y-3 rounded-lg border border-border bg-surface-muted px-4 py-4 text-sm text-muted-foreground">
@@ -54,7 +54,7 @@ export function RegisterChoiceStep({ onRegisterOrganization }: RegisterChoiceSte
             project assignments will already be waiting for you.
           </p>
         </div>
-        <Button className="mt-6 w-full" nativeButton={false} render={<Link href="/login" />}>
+        <Button className="taskora-btn-brand mt-6 h-10 w-full text-sm font-semibold" nativeButton={false} render={<Link href="/login" />}>
           Back to Login
         </Button>
       </div>
@@ -64,7 +64,7 @@ export function RegisterChoiceStep({ onRegisterOrganization }: RegisterChoiceSte
   return (
     <div>
       <div className="mb-7 text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">How are you joining TASKORA?</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">How are you joining TASKORA?</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">Choose the option that matches you — it only takes a second.</p>
       </div>
 
@@ -78,15 +78,15 @@ export function RegisterChoiceStep({ onRegisterOrganization }: RegisterChoiceSte
 
       <div className="space-y-3">
         <Card
-          className="cursor-pointer transition-colors hover:border-primary/40"
+          className="taskora-lift cursor-pointer hover:ring-primary/40"
           onClick={() => setChoice("join")}
         >
           <CardContent className="flex items-start gap-3.5 px-4 py-4">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="tone-sky taskora-tone-tile flex size-10 shrink-0 items-center justify-center rounded-xl text-white">
               <Users className="size-4.5" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Join an existing organization</p>
+              <p className="text-sm font-semibold text-foreground">Join an existing organization</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 For candidates, interns and employees who received or need an organization invitation.
               </p>
@@ -95,15 +95,15 @@ export function RegisterChoiceStep({ onRegisterOrganization }: RegisterChoiceSte
         </Card>
 
         <Card
-          className="cursor-pointer transition-colors hover:border-primary/40"
+          className="taskora-lift cursor-pointer hover:ring-primary/40"
           onClick={onRegisterOrganization}
         >
           <CardContent className="flex items-start gap-3.5 px-4 py-4">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="tone-violet taskora-tone-tile flex size-10 shrink-0 items-center justify-center rounded-xl text-white">
               <Building2 className="size-4.5" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Register a new organization</p>
+              <p className="text-sm font-semibold text-foreground">Register a new organization</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 For organization owners/admins who want to create a new TASKORA workspace.
               </p>

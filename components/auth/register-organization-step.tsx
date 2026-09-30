@@ -71,7 +71,7 @@ export function RegisterOrganizationStep({ onSubmitted }: RegisterOrganizationSt
   return (
     <div>
       <div className="mb-6 text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">Register your organization</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Register your organization</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">Tell us about your organization — you&apos;ll be its administrator once approved.</p>
       </div>
 
@@ -168,7 +168,7 @@ export function RegisterOrganizationStep({ onSubmitted }: RegisterOrganizationSt
           <Textarea id="reg-description" rows={3} placeholder="What will your team use TASKORA for?" {...register("description")} />
         </div>
 
-        <Button type="submit" disabled={isSubmitting} className="mt-1.5 w-full">
+        <Button type="submit" disabled={isSubmitting} className="taskora-btn-brand mt-2 h-10 w-full text-sm font-semibold">
           {isSubmitting ? "Submitting..." : "Submit Registration Request"}
         </Button>
       </form>

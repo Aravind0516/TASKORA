@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FolderKanban, ListChecks, TrendingUp, AlertTriangle } from "lucide-react";
+import { FolderKanban, ListChecks, TrendingUp, AlertTriangle, ArrowRight, KanbanSquare, CalendarDays } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { DashboardHero, heroGhostActionClass, heroPrimaryActionClass } from "@/components/shared/dashboard-hero";
+import { cn } from "@/lib/utils";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { ProjectProgressList } from "@/components/dashboard/project-progress-list";
 import { TaskDistribution } from "@/components/dashboard/task-distribution";
@@ -86,11 +88,39 @@ export function OverviewView() {
   const myWorkVerificationProjects = myProjects.filter((project) => project.workVerificationEnabled);
   const myManagedProjects = projects.filter((project) => project.managerId === uid);
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+  const myCompletionRate = myTasks.length > 0 ? Math.round((myCompletedTasks.length / myTasks.length) * 100) : 0;
+
   return (
     <div>
-      <PageHeader
-        title="Overview"
-        description={`Welcome back, ${firstName} — here's what's happening across your projects.`}
+      <DashboardHero
+        eyebrow={today}
+        title={`${greeting}, ${firstName}`}
+        subtitle="Here's your work at a glance — tasks, projects and today's update, all in one place."
+        stats={[
+          { label: "My active tasks", value: String(myActiveTasks.length) },
+          { label: "Overdue", value: String(myOverdueTasks.length), attention: myOverdueTasks.length > 0 },
+          { label: "My projects", value: String(myProjects.length) },
+          { label: "Tasks done", value: `${myCompletionRate}%` },
+        ]}
+        actions={
+          <>
+            <Link href="/tasks" className={heroPrimaryActionClass}>
+              <ListChecks />
+              My Tasks
+            </Link>
+            <Link href="/kanban" className={heroGhostActionClass}>
+              <KanbanSquare />
+              Kanban
+            </Link>
+            <Link href="/calendar" className={heroGhostActionClass}>
+              <CalendarDays />
+              Calendar
+            </Link>
+          </>
+        }
       />
 
       {organizationId && <TopPerformerBanner organizationId={organizationId} />}
@@ -104,25 +134,24 @@ export function OverviewView() {
             <CardTitle>My Tasks</CardTitle>
             <CardDescription>Assigned to you, across all projects</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2.5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Active</span>
-              <span className="font-medium text-foreground">{myActiveTasks.length}</span>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                { label: "Active", value: myActiveTasks.length, tone: "tone-indigo" },
+                { label: "Overdue", value: myOverdueTasks.length, tone: myOverdueTasks.length > 0 ? "tone-rose" : "tone-emerald" },
+                { label: "Blocked", value: myBlockedTasks.length, tone: myBlockedTasks.length > 0 ? "tone-amber" : "tone-sky" },
+                { label: "Completed", value: myCompletedTasks.length, tone: "tone-emerald" },
+              ].map((stat) => (
+                <div key={stat.label} className={cn(stat.tone, "relative overflow-hidden rounded-xl border border-border/70 bg-surface-muted/60 px-3.5 py-3")}>
+                  <span aria-hidden className="taskora-tone-tile absolute inset-y-2.5 left-0 w-1 rounded-r-full" />
+                  <p className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Overdue</span>
-              <span className={myOverdueTasks.length > 0 ? "font-medium text-danger" : "font-medium text-foreground"}>{myOverdueTasks.length}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Blocked</span>
-              <span className="font-medium text-foreground">{myBlockedTasks.length}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Completed</span>
-              <span className="font-medium text-foreground">{myCompletedTasks.length}</span>
-            </div>
-            <Button size="sm" variant="outline" className="mt-2 w-full" nativeButton={false} render={<Link href="/tasks" />}>
+            <Button size="sm" variant="outline" className="w-full" nativeButton={false} render={<Link href="/tasks" />}>
               View My Tasks
+              <ArrowRight />
             </Button>
           </CardContent>
         </Card>
@@ -162,6 +191,7 @@ export function OverviewView() {
         </div>
       )}
 
+      <p className="mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Across your projects</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpiError ? (
           <Card className="col-span-full">
@@ -171,19 +201,21 @@ export function OverviewView() {
           </Card>
         ) : (
           <>
-            <KpiCard label="Active Projects" value={String(activeProjects.length)} icon={FolderKanban} />
-            <KpiCard label="Total Tasks" value={String(tasks.length)} icon={ListChecks} />
+            <KpiCard label="Active Projects" value={String(activeProjects.length)} icon={FolderKanban} tone="indigo" />
+            <KpiCard label="Total Tasks" value={String(tasks.length)} icon={ListChecks} tone="sky" />
             <KpiCard
               label="Completion Rate"
               value={`${completionRate}%`}
               helperText={`${completedTasks.length} of ${tasks.length} tasks completed`}
               icon={TrendingUp}
+              tone="emerald"
             />
             <KpiCard
               label="Overdue Tasks"
               value={String(overdueTasks.length)}
               helperText={overdueTasks.length > 0 ? "Needs attention" : "All caught up"}
               icon={AlertTriangle}
+              tone="amber"
               accent={overdueTasks.length > 0 ? "critical" : "default"}
             />
           </>

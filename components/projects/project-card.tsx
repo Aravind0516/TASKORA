@@ -18,7 +18,8 @@ export function ProjectCard({ project }: { project: Project }) {
   const health = calculateProjectHealth(project, getTasksByProjectId(project.id));
 
   return (
-    <Card className="h-full transition-colors hover:bg-muted/40">
+    <Card className="taskora-lift group relative h-full">
+      <span aria-hidden className="taskora-brand-gradient absolute inset-x-0 top-0 h-1 opacity-70 transition-opacity group-hover:opacity-100" />
       <CardContent className="flex h-full flex-col px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -28,7 +29,7 @@ export function ProjectCard({ project }: { project: Project }) {
           <PriorityBadge priority={project.priority} />
         </div>
 
-        <h3 className="mt-3 text-base font-semibold tracking-tight text-foreground">
+        <h3 className="mt-3 text-base font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
           {project.name}
         </h3>
         <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">

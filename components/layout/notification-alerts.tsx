@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { playNotificationChime } from "@/lib/notifications/sound";
 import type { AppNotification } from "@/types/notification";
 import { useShellHref } from "@/components/layout/use-shell-href";
 
-const POPUP_LIFETIME_MS = 6000;
+const POPUP_LIFETIME_MS = 12000;
 const MAX_VISIBLE_POPUPS = 3;
 const CHIME_CLAIMS_KEY = "taskora:chimed-notifications";
 const CHIME_CLAIM_TTL_MS = 10 * 60 * 1000;
@@ -83,11 +84,16 @@ export function NotificationAlerts() {
 
   if (popups.length === 0) return null;
 
-  return (
+  // Top of the screen, just under the header, above every page element —
+  // where the eye already is, instead of a small card in the bottom corner.
+  // Full width on phones, a fixed-width stack at the top-right otherwise.
+  // Portalled to <body>: this component is mounted inside the header, whose
+  // backdrop-blur would otherwise make it the popup's containing block and
+  // trap it under the header's stacking context.
+  return createPortal(
     <div
       aria-live="polite"
-      className="pointer-events-none fixed right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2"
-      style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+      className="pointer-events-none fixed inset-x-3 top-[4.5rem] z-[100] flex flex-col gap-3 sm:inset-x-auto sm:right-5 sm:w-[24rem]"
     >
       {popups.map((popup) => (
         <NotificationPopup
@@ -100,7 +106,8 @@ export function NotificationAlerts() {
           }}
         />
       ))}
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -114,21 +121,57 @@ function NotificationPopup({
   onOpen: (id: string) => void;
 }) {
   const shellHref = useShellHref();
+  // Stays up while the pointer or keyboard focus is on it, so it can be read
+  // at leisure; the countdown resumes from where it paused.
+  const [paused, setPaused] = useState(false);
+  const remainingRef = useRef(POPUP_LIFETIME_MS);
   useEffect(() => {
-    const timeout = setTimeout(() => onDismiss(notification.id), POPUP_LIFETIME_MS);
-    return () => clearTimeout(timeout);
-  }, [notification.id, onDismiss]);
+    if (paused) return;
+    const startedAt = Date.now();
+    const timeout = setTimeout(() => onDismiss(notification.id), remainingRef.current);
+    return () => {
+      clearTimeout(timeout);
+      remainingRef.current = Math.max(1000, remainingRef.current - (Date.now() - startedAt));
+    };
+  }, [paused, notification.id, onDismiss]);
+
+  const href = shellHref(notification.href);
 
   return (
-    <div role="status" className="pointer-events-auto flex gap-3 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg">
-      <Bell className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-      <Link href={shellHref(notification.href)} onClick={() => onOpen(notification.id)} className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground">{notification.title}</p>
-        <p className="line-clamp-2 text-xs text-muted-foreground">{notification.message}</p>
-      </Link>
-      <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="Dismiss notification" onClick={() => onDismiss(notification.id)}>
-        <X />
-      </Button>
+    <div
+      role="status"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+      className="pointer-events-auto relative overflow-hidden rounded-xl border-2 border-primary/50 bg-card text-card-foreground shadow-2xl ring-4 ring-primary/10 animate-in fade-in slide-in-from-top-4 duration-300"
+    >
+      <span aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-primary" />
+      <div className="flex gap-3 py-3.5 pr-2.5 pl-5">
+        <span aria-hidden className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+          <Bell className="size-4.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold tracking-wide text-primary uppercase">New notification</p>
+          <Link href={href} onClick={() => onOpen(notification.id)} className="block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <p className="mt-0.5 text-[15px] leading-snug font-semibold text-foreground">{notification.title}</p>
+            {notification.message && <p className="mt-1 line-clamp-3 text-sm leading-snug text-foreground/80">{notification.message}</p>}
+          </Link>
+          <div className="mt-2.5">
+            <Button size="sm" nativeButton={false} render={<Link href={href} onClick={() => onOpen(notification.id)} />}>
+              View
+            </Button>
+          </div>
+        </div>
+        <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="Dismiss notification" onClick={() => onDismiss(notification.id)}>
+          <X />
+        </Button>
+      </div>
+      <span
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-1 origin-left bg-primary/60 motion-reduce:hidden"
+        style={{ animation: `notification-countdown ${POPUP_LIFETIME_MS}ms linear forwards`, animationPlayState: paused ? "paused" : "running" }}
+      />
     </div>
   );
 }

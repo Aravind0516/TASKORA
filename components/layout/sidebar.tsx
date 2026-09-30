@@ -13,7 +13,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "hidden shrink-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 md:flex md:flex-col",
+        "taskora-sidebar-surface hidden shrink-0 border-r border-sidebar-border text-sidebar-foreground transition-[width] duration-200 md:flex md:flex-col",
         collapsed ? "w-[68px]" : "w-64"
       )}
     >

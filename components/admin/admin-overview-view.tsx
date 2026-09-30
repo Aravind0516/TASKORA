@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Users, UsersRound, FolderKanban, ListChecks, TrendingUp, AlertTriangle, CheckCircle2, Circle, ArrowRight, UserPlus, FolderPlus, ClipboardCheck, HelpCircle, FileCheck2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { DashboardHero, heroGhostActionClass, heroPrimaryActionClass } from "@/components/shared/dashboard-hero";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
@@ -13,14 +14,12 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { initials, isOverdue, timeAgo, formatDate } from "@/lib/format";
 import { usePlatform } from "@/components/platform/platform-provider";
-import { cn } from "@/lib/utils";
 import * as dailyWorkUpdateService from "@/lib/services/daily-work-update.service";
 import {
   WORK_VERIFICATION_STATUS_LABELS,
@@ -145,44 +144,33 @@ export function AdminOverviewView() {
 
   return (
     <div>
-      <div className="taskora-glow-brand relative mb-6 overflow-hidden rounded-2xl bg-sidebar px-6 py-7 sm:px-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage:
-              "radial-gradient(ellipse 60% 90% at 0% 0%, color-mix(in oklch, var(--sidebar-primary) 28%, transparent), transparent 65%), radial-gradient(ellipse 55% 80% at 100% 100%, color-mix(in oklch, var(--brand-secondary) 22%, transparent), transparent 65%)",
-          }}
-        />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold tracking-wide text-sidebar-muted-foreground uppercase">
-              Organization Administrator
-            </p>
-            <h1 className="mt-1.5 truncate text-2xl font-semibold tracking-tight text-sidebar-foreground sm:text-3xl">
-              {org?.name ?? "Your organization"}
-            </h1>
-            <p className="mt-2 max-w-xl text-sm text-sidebar-foreground/70">
-              {members.length} member{members.length === 1 ? "" : "s"} · {activeProjects.length} active project
-              {activeProjects.length === 1 ? "" : "s"} · {completionRate}% task completion
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <Link href="/admin/users" className={cn(buttonVariants({ variant: "default" }), "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/85")}>
+      <DashboardHero
+        eyebrow="Organization Command Center"
+        title={org?.name ?? "Your organization"}
+        subtitle="Everything happening across your teams, projects and daily updates — at a glance."
+        stats={[
+          { label: "Members", value: String(members.length) },
+          { label: "Active projects", value: String(activeProjects.length) },
+          { label: "Task completion", value: `${completionRate}%` },
+          { label: "Pending reviews", value: String(pendingReviewUpdates.length), attention: pendingReviewUpdates.length > 0 },
+        ]}
+        actions={
+          <>
+            <Link href="/admin/users" className={heroPrimaryActionClass}>
               <UserPlus />
               Add User
             </Link>
-            <Link href="/admin/projects" className={cn(buttonVariants({ variant: "outline" }), "border-sidebar-border bg-white/5 text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground")}>
+            <Link href="/admin/projects" className={heroGhostActionClass}>
               <FolderPlus />
               Create Project
             </Link>
-            <Link href="/admin/teams" className={cn(buttonVariants({ variant: "outline" }), "border-sidebar-border bg-white/5 text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground")}>
+            <Link href="/admin/teams" className={heroGhostActionClass}>
               <UsersRound />
               Create Team
             </Link>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <SetupProgress
         steps={[
@@ -194,47 +182,51 @@ export function AdminOverviewView() {
         ]}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Total Members" value={String(members.length)} icon={Users} />
-        <KpiCard label="Active Teams" value={String(teams.length)} icon={UsersRound} />
-        <KpiCard label="Active Projects" value={String(activeProjects.length)} icon={FolderKanban} />
-        <KpiCard label="Open Tasks" value={String(openTasks.length)} icon={ListChecks} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <KpiCard label="Total Members" value={String(members.length)} icon={Users} tone="indigo" />
+        <KpiCard label="Active Teams" value={String(teams.length)} icon={UsersRound} tone="violet" />
+        <KpiCard label="Active Projects" value={String(activeProjects.length)} icon={FolderKanban} tone="sky" />
+        <KpiCard label="Open Tasks" value={String(openTasks.length)} icon={ListChecks} tone="amber" />
         <KpiCard
           label="Completion Rate"
           value={`${completionRate}%`}
           helperText={`${completedTasks.length} of ${tasks.length} tasks completed`}
           icon={TrendingUp}
+          tone="emerald"
         />
         <KpiCard
           label="Overdue Tasks"
           value={String(overdueTasks.length)}
           helperText={overdueTasks.length > 0 ? "Needs attention" : "All caught up"}
           icon={AlertTriangle}
+          tone="amber"
           accent={overdueTasks.length > 0 ? "critical" : "default"}
         />
       </div>
 
-      <p className="mt-6 mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Daily Work Updates</p>
+      <p className="mt-8 mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Daily Work Updates</p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link href="/admin/work-verification?date=today" className="block">
-          <KpiCard label="Today's Updates" value={String(todaysUpdates.length)} icon={FileCheck2} />
+        <Link href="/admin/work-verification?date=today" className="block rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+          <KpiCard label="Today's Updates" value={String(todaysUpdates.length)} icon={FileCheck2} tone="sky" />
         </Link>
         <Link href="/admin/work-verification?status=SUBMITTED" className="block">
           <KpiCard
             label="Pending Review"
             value={String(pendingReviewUpdates.length)}
             icon={ClipboardCheck}
+            tone="violet"
             accent={pendingReviewUpdates.length > 0 ? "critical" : "default"}
           />
         </Link>
         <Link href="/admin/work-verification?status=VERIFIED&date=today" className="block">
-          <KpiCard label="Verified Today" value={String(verifiedTodayUpdates.length)} icon={CheckCircle2} />
+          <KpiCard label="Verified Today" value={String(verifiedTodayUpdates.length)} icon={CheckCircle2} tone="emerald" />
         </Link>
         <Link href="/admin/work-verification?status=NEEDS_CLARIFICATION" className="block">
           <KpiCard
             label="Needs Clarification"
             value={String(needsClarificationUpdates.length)}
             icon={HelpCircle}
+            tone="amber"
             accent={needsClarificationUpdates.length > 0 ? "critical" : "default"}
           />
         </Link>
@@ -247,8 +239,6 @@ export function AdminOverviewView() {
           <TopPerformerPublisher
             organizationId={currentOrganizationId}
             users={usersInOrg(currentOrganizationId)}
-            adminUid={user.uid}
-            adminName={getUser(user.uid)?.name ?? user.displayName ?? "Your admin"}
           />
         </div>
       )}

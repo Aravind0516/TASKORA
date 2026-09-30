@@ -112,8 +112,6 @@ export function CandidateDashboardPanel({ uid, organizationId, projects, tasks }
   const target = rules?.totalTarget ?? 500;
   const remaining = Math.max(0, target - lifetimeCredits);
   const percent = target > 0 ? Math.min(100, Math.round((lifetimeCredits / target) * 100)) : 0;
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
 
   const weights = rules?.weights ?? DEFAULT_CREDIT_WEIGHTS;
   const earnedByCategory = CREDIT_CATEGORIES.reduce<Record<string, number>>((acc, category) => {
@@ -134,67 +132,84 @@ export function CandidateDashboardPanel({ uid, organizationId, projects, tasks }
 
   return (
     <div className="mb-6 space-y-6">
-      <Card>
-        <CardContent className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-lg font-semibold text-foreground">
-              {greeting}, {user.name.split(" ")[0] || "there"}
-            </p>
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
+      {/* Program status + performance score. The greeting itself lives in the
+          dashboard hero above, so this is purely "where do I stand". */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Your program status</CardTitle>
+            <CardDescription>{myProject ? `Working on ${myProject.name}` : "No project assigned yet"}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 font-medium text-primary">
                 <IdCard className="size-3.5" /> {user.userId ?? "—"}
               </span>
-              <span>Profile {completion.percent}% complete</span>
-              <span>{myProject ? `Working on ${myProject.name}` : "No project assigned yet"}</span>
-              <span className="font-medium text-foreground">{currentStatus === "On track" ? "Active" : currentStatus}</span>
-            </p>
-          </div>
-          {highlights.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {highlights.map((label) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center rounded-md border border-border bg-surface-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
-                >
-                  {label}
-                </span>
-              ))}
+              <span
+                className={
+                  currentStatus === "On track"
+                    ? "inline-flex items-center gap-1.5 rounded-full bg-success/12 px-2.5 py-1 font-medium text-success"
+                    : "inline-flex items-center gap-1.5 rounded-full bg-warning/15 px-2.5 py-1 font-medium text-warning-foreground dark:text-warning"
+                }
+              >
+                <span className="size-1.5 rounded-full bg-current" aria-hidden />
+                {currentStatus === "On track" ? "Active" : currentStatus}
+              </span>
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Performance score */}
-      <Card>
-        <CardContent className="px-6 py-6">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Performance Score</p>
-          <p className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
-            {lifetimeCredits} <span className="text-xl font-medium text-muted-foreground">/ {target}</span>
-          </p>
-          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percent}%` }} />
-          </div>
-          <div className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
-            {percent >= 100 ? (
-              <>
-                <CheckCircle2 className="size-4 text-success" />
-                <span>Target reached</span>
-              </>
-            ) : (
-              <span>{remaining} credits remaining to reach your target</span>
+            <div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Profile completion</span>
+                <span className="font-semibold text-foreground">{completion.percent}%</span>
+              </div>
+              <Progress value={completion.percent} className="mt-1.5 h-1.5" />
+            </div>
+            {highlights.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {highlights.map((label) => (
+                  <span key={label} className="tone-violet inline-flex items-center gap-1 rounded-full border border-border bg-surface-muted/70 px-2.5 py-1 text-xs font-medium text-foreground">
+                    <span className="taskora-tone-tile size-1.5 rounded-full" aria-hidden />
+                    {label}
+                  </span>
+                ))}
+              </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <Card className="relative overflow-hidden lg:col-span-3">
+          <div aria-hidden className="pointer-events-none absolute -top-20 -right-20 size-64 rounded-full bg-[oklch(0.6_0.2_290/0.12)] blur-3xl" />
+          <CardContent className="relative px-6 py-6">
+            <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">Performance Score</p>
+            <p className="mt-2 text-5xl font-semibold tracking-tight tabular-nums">
+              <span className="taskora-brand-text">{lifetimeCredits}</span>{" "}
+              <span className="text-xl font-medium text-muted-foreground">/ {target} credits</span>
+            </p>
+            <div className="mt-5 h-2.5 w-full overflow-hidden rounded-full bg-muted">
+              <div className="taskora-brand-gradient h-full rounded-full transition-all duration-700" style={{ width: `${percent}%` }} />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+              {percent >= 100 ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="size-4 text-success" />
+                  Target reached
+                </span>
+              ) : (
+                <span>{remaining} credits to go to reach your target</span>
+              )}
+              <span className="font-semibold text-foreground">{percent}%</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Weekly Rank" value={weeklyRank > 0 ? `#${weeklyRank}` : "—"} icon={Hash} />
-        <KpiCard label="Monthly Rank" value={monthlyRank > 0 ? `#${monthlyRank}` : "—"} icon={Hash} />
-        <KpiCard label="Tasks Completed" value={String(myCompletedTasks.length)} icon={ListChecks} />
-        <KpiCard label="Daily Updates" value={dailyUpdates === null ? "—" : `${weekUpdates.length}/5`} icon={ClipboardList} />
-        <KpiCard label="Credits This Week" value={String(weeklyCredits)} icon={Gauge} />
-        <KpiCard label="Project Progress" value={myProject ? `${myProject.progress}%` : "—"} icon={Rocket} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <KpiCard label="Weekly Rank" value={weeklyRank > 0 ? `#${weeklyRank}` : "—"} icon={Hash} tone="violet" />
+        <KpiCard label="Monthly Rank" value={monthlyRank > 0 ? `#${monthlyRank}` : "—"} icon={Hash} tone="indigo" />
+        <KpiCard label="Tasks Completed" value={String(myCompletedTasks.length)} icon={ListChecks} tone="emerald" />
+        <KpiCard label="Daily Updates" value={dailyUpdates === null ? "—" : `${weekUpdates.length}/5`} icon={ClipboardList} tone="sky" />
+        <KpiCard label="Credits This Week" value={String(weeklyCredits)} icon={Gauge} tone="amber" />
+        <KpiCard label="Project Progress" value={myProject ? `${myProject.progress}%` : "—"} icon={Rocket} tone="violet" />
       </div>
 
       {/* Credit breakdown */}
@@ -209,7 +224,7 @@ export function CandidateDashboardPanel({ uid, organizationId, projects, tasks }
               const earned = earnedByCategory[category] ?? 0;
               const max = weights[category];
               return (
-                <div key={category} className="rounded-lg border border-border p-3.5">
+                <div key={category} className="rounded-xl border border-border/70 bg-surface-muted/50 p-3.5">
                   <p className="text-sm font-medium text-foreground">{CREDIT_CATEGORY_LABELS[category]}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {earned} / {max}
@@ -228,12 +243,12 @@ export function CandidateDashboardPanel({ uid, organizationId, projects, tasks }
           <CardTitle>This Week</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            <WeeklyStat label="Tasks Completed" value={String(weekCompletedTasks.length)} />
-            <WeeklyStat label="Daily Updates" value={`${weekUpdates.length}/5`} />
-            <WeeklyStat label="On-Time %" value={onTimePercent === null ? "—" : `${onTimePercent}%`} />
-            <WeeklyStat label="Credits Earned" value={String(weeklyCredits)} />
-            <WeeklyStat label="Project Progress" value={myProject ? `${myProject.progress}%` : "—"} />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <WeeklyStat label="Tasks Completed" value={String(weekCompletedTasks.length)} tone="tone-emerald" />
+            <WeeklyStat label="Daily Updates" value={`${weekUpdates.length}/5`} tone="tone-sky" />
+            <WeeklyStat label="On-Time %" value={onTimePercent === null ? "—" : `${onTimePercent}%`} tone="tone-indigo" />
+            <WeeklyStat label="Credits Earned" value={String(weeklyCredits)} tone="tone-amber" />
+            <WeeklyStat label="Project Progress" value={myProject ? `${myProject.progress}%` : "—"} tone="tone-violet" />
           </div>
         </CardContent>
       </Card>
@@ -247,10 +262,11 @@ export function CandidateDashboardPanel({ uid, organizationId, projects, tasks }
   );
 }
 
-function WeeklyStat({ label, value }: { label: string; value: string }) {
+function WeeklyStat({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div>
-      <p className="text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+    <div className={`${tone} relative overflow-hidden rounded-xl border border-border/70 bg-surface-muted/60 px-4 py-3`}>
+      <span aria-hidden className="taskora-tone-tile absolute inset-y-3 left-0 w-1 rounded-r-full" />
+      <p className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">{value}</p>
       <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
     </div>
   );

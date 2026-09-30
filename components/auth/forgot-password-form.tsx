@@ -88,7 +88,7 @@ export function ForgotPasswordForm() {
             </div>
           </CardContent>
           <CardFooter className="flex-col items-stretch gap-4">
-            <Button type="submit" disabled={isSubmitting} className="w-full">
+            <Button type="submit" disabled={isSubmitting} className="taskora-btn-brand h-10 w-full text-sm font-semibold">
               {isSubmitting ? "Sending..." : "Send reset link"}
             </Button>
             <Link

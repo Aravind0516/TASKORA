@@ -48,7 +48,8 @@ function PerformerCard({ performer, currentUid }: { performer: TopPerformer; cur
   const isMe = performer.userId === currentUid;
 
   return (
-    <article className="relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-400/15 via-card to-card p-5 shadow-sm">
+    <article className="taskora-lift relative overflow-hidden rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-400/20 via-card to-card p-5 shadow-(--shadow-card)">
+      <span aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-300 via-amber-500 to-orange-400" />
       <Trophy aria-hidden className="pointer-events-none absolute -top-3 -right-3 size-24 rotate-12 text-amber-400/15" />
       <div className="relative flex items-start justify-between gap-3">
         <div>

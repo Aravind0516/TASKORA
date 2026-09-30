@@ -73,7 +73,7 @@ export function RegisterForm({ onAccountCreated }: RegisterFormProps) {
   return (
     <div>
       <div className="mb-7 text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">Create your account</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Create your account</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">Start managing your work, projects and teams in one place.</p>
       </div>
 
@@ -168,7 +168,7 @@ export function RegisterForm({ onAccountCreated }: RegisterFormProps) {
           )}
         </div>
 
-        <Button type="submit" disabled={busy} className="mt-1.5 w-full">
+        <Button type="submit" disabled={busy} className="taskora-btn-brand mt-2 h-10 w-full text-sm font-semibold">
           {busy && <Loader2 className="size-4 animate-spin" />}
           {isSubmitting ? "Creating account..." : awaitingSession ? "Creating account..." : "Continue"}
         </Button>

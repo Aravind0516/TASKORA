@@ -107,8 +107,10 @@ export function LoginForm() {
   return (
     <div>
       <div className="mb-7 text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">Welcome back</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">Log in to continue to TASKORA.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Welcome <span className="taskora-brand-text">back</span>
+        </h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">Log in to continue to your TASKORA workspace.</p>
       </div>
 
       {authError && (
@@ -126,6 +128,7 @@ export function LoginForm() {
             type="text"
             placeholder="NXT26-IT-0001 or you@company.com"
             autoComplete="username"
+            className="h-10"
             aria-invalid={errors.identifier ? "true" : undefined}
             aria-describedby={errors.identifier ? "identifier-error" : undefined}
             {...register("identifier")}
@@ -150,7 +153,7 @@ export function LoginForm() {
               type={showPassword ? "text" : "password"}
               placeholder="Enter your password"
               autoComplete="current-password"
-              className="pr-9"
+              className="h-10 pr-9"
               aria-invalid={errors.password ? "true" : undefined}
               aria-describedby={errors.password ? "password-error" : undefined}
               {...register("password")}
@@ -172,7 +175,7 @@ export function LoginForm() {
           )}
         </div>
 
-        <Button type="submit" disabled={busy} className="mt-1.5 w-full">
+        <Button type="submit" disabled={busy} className="taskora-btn-brand mt-2 h-10 w-full text-sm font-semibold">
           {busy && <Loader2 className="size-4 animate-spin" />}
           {isSubmitting ? "Signing in..." : awaitingSession ? "Signing in..." : "Log in"}
         </Button>
